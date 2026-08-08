@@ -86,9 +86,16 @@ In any project directory, any session:
 Start the project <one-paragraph description>
 ```
 
-or `/project-team-start`. Flow: bootstrap `.pmos/` + KB -> PM plans and proposes the minimal
-team -> YOU approve roster + models -> architect/designer/business design -> KB enrichment ->
-YOU approve plan -> implementation wave -> QA verification gate -> checkpoint to `.pmos/log.md`.
+or `/project-team-start`. The mode is detected automatically:
+
+- **Greenfield** (empty repo): charter -> plan -> minimal team proposal -> YOU approve ->
+  design wave -> KB enrichment -> YOU approve plan -> implementation -> QA gate -> checkpoint.
+- **Brownfield** (existing code): same command, extra Wave 0 first. An architect worker maps the
+  codebase via graphify into `current-state.md` (modules, conventions, test state, impact areas);
+  the PM writes a delta charter with a do-not-touch list; the roster is justified by impact
+  surface (backend-only change => no designer); QA starts from the existing test baseline;
+  workers must conform to existing conventions before writing code. `.pmos/kb.sqlite3` goes in
+  the project `.gitignore`; all other `.pmos/` state is plain markdown and gets committed.
 
 Resume any later session in the same directory the same way; it detects `.pmos/` and continues
 from the log. The KB and graphify index persist.

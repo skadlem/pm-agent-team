@@ -13,7 +13,8 @@ instead of re-reading upstream artifacts. Run after wave 2 (architect/designer/b
 - `.pmos/charter.md`
 - `.pmos/plans/plan.md`
 - `.pmos/decisions/*.md` (ADRs)
-- `.pmos/out/architect/*`, `.pmos/out/designer/*`, `.pmos/out/business/*` (whatever exists)
+- `.pmos/out/architect/*` (includes `current-state.md` in brownfield mode), `.pmos/out/designer/*`,
+  `.pmos/out/business/*` (whatever exists)
 
 ## Step 1: extract role-relevant facts
 
@@ -30,8 +31,13 @@ into `.pmos/kb-sources/project/<ns>.md`, one chunk per `## ` heading. What goes 
 | designer | visual direction, tokens, component inventory, accessibility requirements |
 | business | model, pricing, target segment, success metrics |
 | marketing | positioning, audience, channels, launch plan |
-| qa | acceptance criteria verbatim, test strategy, environments |
+| qa | acceptance criteria verbatim, test strategy, environments, existing-suite baseline (brownfield) |
 | devops | hosting, CI/CD plan, secrets handling, environments, backup/observability |
+
+Brownfield extras: from `current-state.md`, distill CONVENTIONS into `shared` (naming, error
+handling, test layout, commit style), the MODULE MAP into `architect`/`backend`/`frontend`
+(who owns what, integration points), and how-to-run-tests into `qa`. These let later agents
+answer "how does this repo do X" from the KB instead of re-querying graphify.
 
 Skip namespaces with no relevant facts. Quality over coverage: only facts a later agent would
 actually search for. Phrase titles like search queries ("Auth flow for API tokens").

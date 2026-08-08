@@ -27,7 +27,13 @@ If the current working directory already contains `.pmos/`:
   `python TPL/tools/kb.py budget --db .pmos/kb.sqlite3 --config TPL/config.json`.
 - Ask the user what they want to continue with, then continue the wave protocol from the log.
 
-Otherwise proceed with a fresh launch per ORCHESTRATOR.md:
+Otherwise detect the MODE, then proceed with a fresh launch per ORCHESTRATOR.md:
+- **brownfield**: the repo already contains source code (any code/config files besides .pmos).
+- **greenfield**: empty repo or docs only.
+State the detected mode to the user and note it applies automatically, e.g. "Starting in
+brownfield mode: I'll map the existing codebase first, then plan the change." The flow differs
+only where ORCHESTRATOR.md says "Brownfield:" (discovery wave, impact-based roster, delta
+charter, baseline QA). No extra command or flag is needed.
 
 ## Step 3: fresh launch
 
@@ -35,8 +41,9 @@ Otherwise proceed with a fresh launch per ORCHESTRATOR.md:
    `python TPL/tools/kb.py init --db .pmos/kb.sqlite3`.
 2. If the user has NOT already run /pm-kb-bootstrap for this project, run the /pm-kb-bootstrap
    skill now (it fills the per-role fundamentals into the KB with the token cap enforced).
-3. If the repo has code, build/update the graphify index (load the /graphify skill; use `--update`
-   if `graphify-out/` already exists). Greenfield empty repo: skip and note it.
+3. If the repo has code (brownfield), build/update the graphify index (load the /graphify skill;
+   use `--update` if `graphify-out/` already exists) and run WAVE 0 discovery per ORCHESTRATOR.md
+   before spawning the PM. Greenfield empty repo: skip and note it.
 4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
    user's project description. Wait for charter + plan + roster proposal.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
