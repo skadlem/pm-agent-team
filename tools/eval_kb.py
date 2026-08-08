@@ -56,6 +56,31 @@ MIN_HITS = 0.90
 MIN_MRR = 0.65
 MODES = ["hybrid", "bm25", "vector"]
 
+# Hard set: paraphrased queries with minimal keyword overlap. These are the
+# queries where a real semantic embedding model should beat lexical/hash
+# vectors; informational (not part of the pass threshold).
+HARD = [
+    ("pm", "client keeps adding new requests after we agreed what to build", "Chartering and scope"),
+    ("pm", "how do we decide who owns a topic and when to ask the user", "Coordination"),
+    ("architect", "where do we write down why we picked one database over another", "Architecture decision records"),
+    ("architect", "which service is allowed to touch the user table", "Core principles"),
+    ("backend", "the API is getting slower under load", "Data and APIs"),
+    ("backend", "tests pass on my machine but fail in CI", "Testing and reliability"),
+    ("frontend", "parent and child both need the same toggle value", "Frontend fundamentals"),
+    ("frontend", "screen reader users cannot reach the submit button", "Performance and UX basics"),
+    ("designer", "palette looks washed out and text is hard to read", "Visual system"),
+    ("designer", "developer built the screen but spacing is off everywhere", "Handoff"),
+    ("business", "should we keep spending on the experiment", "Decisions"),
+    ("business", "what single number tells us the product is working", "Metrics and viability"),
+    ("marketing", "one sentence that says who this is for", "Positioning and messaging"),
+    ("qa", "how do we know we are allowed to ship", "Verification gate"),
+    ("qa", "found a bug, what do I write in the ticket", "QA fundamentals"),
+    ("devops", "the deploy broke production, how do we undo it", "DevOps fundamentals"),
+    ("devops", "where are the passwords for prod stored", "Runtime care"),
+    ("shared", "do not paste the whole codebase into your context", "Agent operating rules"),
+]
+SETS = [("standard", GOLDEN), ("paraphrase", HARD)]
+
 
 def build_db(db_path):
     kb = str(TPL / "tools" / "kb.py")
@@ -80,11 +105,11 @@ def search(db_path, ns, query, mode):
         return []
 
 
-def run_mode(db_path, mode):
+def run_mode(db_path, mode, queries):
     results = []
     hits = 0
     rr_sum = 0.0
-    for ns, query, expected in GOLDEN:
+    for ns, query, expected in queries:
         rows = search(db_path, ns, query, mode)
         rank = 0
         for i, row in enumerate(rows, 1):
@@ -95,27 +120,31 @@ def run_mode(db_path, mode):
             hits += 1
             rr_sum += 1.0 / rank
         results.append({"ns": ns, "query": query, "expected": expected, "rank": rank})
-    return {"mode": mode, "hits@%d" % K: round(hits / len(GOLDEN), 3),
-            "mrr": round(rr_sum / len(GOLDEN), 3), "results": results}
+    return {"mode": mode, "hits@%d" % K: round(hits / len(queries), 3),
+            "mrr": round(rr_sum / len(queries), 3), "results": results}
 
 
 def main():
     tmp = Path(tempfile.mkdtemp()) / "eval.sqlite3"
     build_db(tmp)
-    report = [run_mode(tmp, m) for m in MODES]
-    hybrid = report[0]
-    passed = hybrid["hits@%d" % K] >= MIN_HITS and hybrid["mrr"] >= MIN_MRR
+    report = {name: [dict(run_mode(tmp, m, qs), mode=m) for m in MODES]
+              for name, qs in SETS}
+    hybrid_std = report["standard"][0]
+    passed = hybrid_std["hits@%d" % K] >= MIN_HITS and hybrid_std["mrr"] >= MIN_MRR
 
     if "--json" in sys.argv:
-        print(json.dumps({"pass": passed, "modes": report}, indent=1))
+        print(json.dumps({"pass": passed, "sets": report}, indent=1))
     else:
-        print("%-8s %10s %8s   misses" % ("mode", "hits@%d" % K, "MRR"))
-        for r in report:
-            misses = [x["query"] for x in r["results"] if not x["rank"]]
-            print("%-8s %9.1f%% %8.3f   %s" % (r["mode"], r["hits@%d" % K] * 100,
-                                                r["mrr"], "; ".join(misses) if misses else "none"))
-        print()
-        print("thresholds on hybrid: hits@%d >= %.0f%%, MRR >= %.2f  ->  %s"
+        for name, rows in report.items():
+            print("== %s set (%d queries) ==" % (name, len(dict(SETS)[name])))
+            print("%-8s %10s %8s   misses" % ("mode", "hits@%d" % K, "MRR"))
+            for r in rows:
+                misses = [x["query"] for x in r["results"] if not x["rank"]]
+                print("%-8s %9.1f%% %8.3f   %s" % (r["mode"], r["hits@%d" % K] * 100,
+                                                    r["mrr"], "; ".join(m[:40] for m in misses) if misses else "none"))
+            print()
+        print("pass threshold applies to hybrid on the standard set:")
+        print("hits@%d >= %.0f%%, MRR >= %.2f  ->  %s"
               % (K, MIN_HITS * 100, MIN_MRR, "PASS" if passed else "FAIL"))
     sys.exit(0 if passed else 1)
 

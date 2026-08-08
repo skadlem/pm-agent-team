@@ -182,6 +182,8 @@ def cmd_search(con, args, config):
         ).fetchall()
         sims = []
         for cid, blob in vrows:
+            if len(blob) // 4 != len(vec):
+                continue  # backend changed without reindex-vectors; skip stale dims
             sims.append((cid, cosine(vec, unpack_vec(blob))))
         sims.sort(key=lambda x: -x[1])
         vec_rank = {cid: i for i, (cid, _) in enumerate(sims)}
