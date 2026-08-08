@@ -1,6 +1,6 @@
 # PMOS: Project Management Operating System (agent team template)
 
-[![CI](https://github.com/YOUR_GITHUB_USER/pm-agent-team/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USER/pm-agent-team/actions/workflows/ci.yml)
+[![CI](https://github.com/skadlem/pm-agent-team/actions/workflows/ci.yml/badge.svg)](https://github.com/skadlem/pm-agent-team/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A portable [jcode](https://github.com/1jehuang/jcode) template that turns "Start the project <idea>" into a managed multi-agent build:
@@ -12,7 +12,7 @@ with human approval gates, and hard caps so no agent ever carries more context t
 ## Quick install
 
 ```bash
-git clone https://github.com/YOUR_GITHUB_USER/pm-agent-team.git
+git clone https://github.com/skadlem/pm-agent-team.git
 cd pm-agent-team
 install.cmd          # Windows
 sh install.sh        # macOS/Linux

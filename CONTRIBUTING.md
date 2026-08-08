@@ -5,7 +5,7 @@ Thanks for helping make the agent team template better.
 ## Setup for development
 
 ```
-git clone <repo-url>
+git clone https://github.com/skadlem/pm-agent-team.git
 cd pm-agent-team
 install.cmd          # Windows
 sh install.sh        # macOS/Linux
