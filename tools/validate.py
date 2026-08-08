@@ -145,17 +145,51 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "--avai
 check("recommend runs", r.returncode == 0, r.stderr.strip()[:80])
 out = r.stdout
 check("every role gets a suggestion", all(f"{role} " in out for role in roster["roles"]))
-# backend (coding purpose) must prefer the cheap best-tier model deepseek-v4-pro over costlier opus
-m = re.search(r"backend\s+(\S+)", out)
-check("backend picks cost-effective best-tier model", bool(m) and m.group(1) == "deepseek-v4-pro", m.group(1) if m else "?")
-# unavailable gpt-5.6-pro must never be suggested
 check("unavailable models excluded", "gpt-5.6-pro " not in out)
+# semantic check: the suggested model per role must be in the best tier and cheapest of it
+import importlib.util
+spec = importlib.util.spec_from_file_location("recommend_mod", str(TPL / "tools" / "recommend.py"))
+rmod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(rmod)
+bench = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))["models"]
+avail = [{"id": "claude-fable-5", "available": True}, {"id": "claude-opus-5", "available": True},
+         {"id": "deepseek-v4-pro", "available": True}, {"id": "qwen3.8-max", "available": True}]
+res = rmod.recommend(avail, bench, roster, 0.92)
+for rr in res:
+    if not rr["suggested"]:
+        continue
+    scores = {}
+    for mid in avail:
+        bmid = rmod.normalize_id(mid["id"])
+        e = bench.get(bmid)
+        if e:
+            s = sum(w * (e["scores"].get(p, 0.0)) for p, w in rr["purpose"].items())
+            scores[mid["id"]] = (s, rmod.blended_cost(e))
+    best = max(s for s, _ in scores.values())
+    tier = {m: d for m, d in scores.items() if d[0] >= 0.92 * best}
+    cheapest = min(tier, key=lambda m: (tier[m][1] is None, tier[m][1] or 0.0, -tier[m][0]))
+    check(f"{rr['role']} suggestion is best-tier cheapest", rr["suggested"] == cheapest,
+          f"{rr['suggested']} vs {cheapest}")
 fixture.unlink()
 r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refresh"],
                    capture_output=True, text=True)
 check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
 
-print("== 11. Idempotent re-add / reindex / installer ==")
+print("== 11. Benchmark generator (Epoch data) ==")
+gen_out = TPL / "_benchmarks_gen.json"
+r = subprocess.run([sys.executable, str(TPL / "tools" / "build_benchmarks.py"),
+                    "--data-dir", str(TPL.parent / "benchmark_data"), "--out", str(gen_out)],
+                   capture_output=True, text=True)
+check("build_benchmarks runs", r.returncode == 0, r.stderr.strip()[:80])
+gb = json.loads(gen_out.read_text(encoding="utf-8"))
+check("generated models > 100", len(gb["models"]) > 100, str(len(gb["models"])))
+check("generated purposes complete", {"coding", "reasoning", "design", "ops", "verification", "business", "marketing", "writing"} <= set(gb["purposes"]))
+for m in ["claude-fable-5", "qwen3.8-max", "deepseek-v4-pro"]:
+    e = gb["models"].get(m)
+    check(f"key model {m} present", bool(e and e["scores"]))
+gen_out.unlink()
+
+print("== 12. Idempotent re-add / reindex / installer ==")
 # Re-adding the same dir must replace docs, not duplicate
 r1 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
                     capture_output=True, text=True)

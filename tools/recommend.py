@@ -39,6 +39,28 @@ DEFAULT_PURPOSE = {
     "devops":    {"ops": 0.7, "coding": 0.3},
 }
 
+# route ids -> benchmark dataset ids (e.g. provider-prefixed or [web] routes)
+ALIASES = {
+    "anthropic/claude-sonnet-4": "claude-sonnet-4-20250514",
+    "gpt-5.6-pro": "gpt-5.6-sol",  # [web]/oauth route for the 5.6 pro class; sol is the closest scored entry
+    "deepseek-v4-flash-0731": "deepseek-v4-flash",
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001",
+    "claude-opus-4-5-20251101": "claude-opus-4-5-20251101",
+    "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
+}
+
+
+def normalize_id(mid: str) -> str:
+    """Map a route id to a benchmark-dataset id when they differ."""
+    n = mid.strip()
+    if "[" in n:
+        n = n.split("[")[0].strip()
+    if "/" in n:
+        n = n.split("/", 1)[1]
+    if n in ALIASES:
+        return ALIASES[n]
+    return n
+
 
 def parse_available(path):
     """Parse `swarm list_models` text output or a JSON list into [{id, available}]."""
@@ -105,7 +127,8 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
         purpose = role_purpose(roster, role)
         scores = {}
         for mid in avail:
-            entry = benchmarks.get(mid)
+            bmid = normalize_id(mid)
+            entry = benchmarks.get(bmid)
             if not entry:
                 continue
             s = 0.0
@@ -213,8 +236,12 @@ def main():
     # availability summary
     avail = {m["id"] for m in available if m.get("available", True)}
     known = set(benchmarks)
+    covered = {m for m in avail if normalize_id(m) in known}
     print("\n%s available models; %d with benchmark data (refresh to expand)"
-          % (len(avail), len(avail & known)))
+          % (len(avail), len(covered)))
+    uncovered = sorted(m for m in avail if normalize_id(m) not in known)
+    if uncovered:
+        print("  no benchmark data: %s" % ", ".join(uncovered))
 
 
 if __name__ == "__main__":
