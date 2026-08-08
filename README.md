@@ -135,9 +135,18 @@ Four levels, cheapest first:
    `python tools/validate.py` (39 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, installer idempotency).
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs a golden query set
-   (27 queries across all roles) against a freshly built KB and reports hits@5 and MRR.
-   Current baseline: hits@5 = 100%, MRR = 1.0. If you edit `kb-sources/`, keep the golden
-   set in `tools/eval_kb.py` aligned.
+   (27 queries across all roles) against a freshly built KB and reports hits@5 and MRR,
+   comparing the default hybrid search against its single-signal baselines (ablation):
+
+   | mode | hits@5 | MRR |
+   |------|-------:|----:|
+   | hybrid (BM25+vector, shipped) | **100%** | **1.000** |
+   | BM25 only | 100% | 1.000 |
+   | offline vectors only | 100% | 0.932 |
+
+   Fail threshold for hybrid: hits@5 < 90% or MRR < 0.65. If you edit `kb-sources/`, keep the
+   golden set in `tools/eval_kb.py` aligned. To compare against REAL embeddings, set the
+   `PMOS_EMBEDDINGS_*` env vars, `kb.py reindex-vectors`, and rerun.
 3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.

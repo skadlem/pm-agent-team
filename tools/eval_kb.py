@@ -54,6 +54,7 @@ GOLDEN = [
 K = 5
 MIN_HITS = 0.90
 MIN_MRR = 0.65
+MODES = ["hybrid", "bm25", "vector"]
 
 
 def build_db(db_path):
@@ -68,10 +69,10 @@ def build_db(db_path):
                        check=True, capture_output=True, text=True)
 
 
-def search(db_path, ns, query):
+def search(db_path, ns, query, mode):
     kb = str(TPL / "tools" / "kb.py")
     r = subprocess.run([sys.executable, kb, "search", "--db", str(db_path),
-                        query, "--role", ns, "-k", str(K), "--json"],
+                        query, "--role", ns, "-k", str(K), "--json", "--mode", mode],
                        capture_output=True, text=True, check=True)
     try:
         return json.loads(r.stdout)
@@ -79,15 +80,12 @@ def search(db_path, ns, query):
         return []
 
 
-def main():
-    tmp = Path(tempfile.mkdtemp()) / "eval.sqlite3"
-    build_db(tmp)
-
+def run_mode(db_path, mode):
     results = []
     hits = 0
     rr_sum = 0.0
     for ns, query, expected in GOLDEN:
-        rows = search(tmp, ns, query)
+        rows = search(db_path, ns, query, mode)
         rank = 0
         for i, row in enumerate(rows, 1):
             if expected.lower() in row["title"].lower():
@@ -97,22 +95,27 @@ def main():
             hits += 1
             rr_sum += 1.0 / rank
         results.append({"ns": ns, "query": query, "expected": expected, "rank": rank})
+    return {"mode": mode, "hits@%d" % K: round(hits / len(GOLDEN), 3),
+            "mrr": round(rr_sum / len(GOLDEN), 3), "results": results}
 
-    hits_at_k = hits / len(GOLDEN)
-    mrr = rr_sum / len(GOLDEN)
-    passed = hits_at_k >= MIN_HITS and mrr >= MIN_MRR
+
+def main():
+    tmp = Path(tempfile.mkdtemp()) / "eval.sqlite3"
+    build_db(tmp)
+    report = [run_mode(tmp, m) for m in MODES]
+    hybrid = report[0]
+    passed = hybrid["hits@%d" % K] >= MIN_HITS and hybrid["mrr"] >= MIN_MRR
 
     if "--json" in sys.argv:
-        print(json.dumps({"hits@%d" % K: round(hits_at_k, 3), "mrr": round(mrr, 3),
-                          "pass": passed, "results": results}, indent=1))
+        print(json.dumps({"pass": passed, "modes": report}, indent=1))
     else:
-        print("%-10s %-48s %-32s %s" % ("ns", "query", "expected", "rank"))
-        for r in results:
-            print("%-10s %-48s %-32s %s" % (r["ns"], r["query"][:48], r["expected"][:32],
-                                             r["rank"] if r["rank"] else "MISS"))
+        print("%-8s %10s %8s   misses" % ("mode", "hits@%d" % K, "MRR"))
+        for r in report:
+            misses = [x["query"] for x in r["results"] if not x["rank"]]
+            print("%-8s %9.1f%% %8.3f   %s" % (r["mode"], r["hits@%d" % K] * 100,
+                                                r["mrr"], "; ".join(misses) if misses else "none"))
         print()
-        print("hits@%d = %.1f%%  (%d/%d)   MRR = %.3f" % (K, hits_at_k * 100, hits, len(GOLDEN), mrr))
-        print("thresholds: hits@%d >= %.0f%%, MRR >= %.2f  ->  %s"
+        print("thresholds on hybrid: hits@%d >= %.0f%%, MRR >= %.2f  ->  %s"
               % (K, MIN_HITS * 100, MIN_MRR, "PASS" if passed else "FAIL"))
     sys.exit(0 if passed else 1)
 

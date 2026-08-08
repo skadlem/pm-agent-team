@@ -160,9 +160,10 @@ def cmd_search(con, args, config):
     max_chars = config.get("context_rules", {}).get("excerpt_max_chars", 1200)
     scope = "AND c.ns=?" if args.role else ""
     params = [args.role] if args.role else []
+    mode = getattr(args, "mode", "hybrid")
 
     fts_rank = {}
-    if fq:
+    if mode != "vector" and fq:
         try:
             rows = con.execute(
                 "SELECT rowid, bm25(kb_fts) AS s FROM kb_fts WHERE kb_fts MATCH ? ORDER BY s LIMIT ?",
@@ -173,15 +174,17 @@ def cmd_search(con, args, config):
         except sqlite3.OperationalError:
             pass
 
-    vec, mode = compute_vector(con, q)
-    vrows = con.execute(
-        "SELECT v.id, v.vec FROM vectors v JOIN chunks c ON c.id=v.id WHERE 1=1 " + scope, params
-    ).fetchall()
-    sims = []
-    for cid, blob in vrows:
-        sims.append((cid, cosine(vec, unpack_vec(blob))))
-    sims.sort(key=lambda x: -x[1])
-    vec_rank = {cid: i for i, (cid, _) in enumerate(sims)}
+    vec_rank = {}
+    if mode != "bm25":
+        vec, vmode = compute_vector(con, q)
+        vrows = con.execute(
+            "SELECT v.id, v.vec FROM vectors v JOIN chunks c ON c.id=v.id WHERE 1=1 " + scope, params
+        ).fetchall()
+        sims = []
+        for cid, blob in vrows:
+            sims.append((cid, cosine(vec, unpack_vec(blob))))
+        sims.sort(key=lambda x: -x[1])
+        vec_rank = {cid: i for i, (cid, _) in enumerate(sims)}
 
     ids = set(fts_rank) | set(vec_rank)
     scored = []
@@ -382,6 +385,8 @@ def main():
     p.add_argument("query", nargs="+"); p.add_argument("--role", default=None)
     p.add_argument("-k", type=int, default=None); p.add_argument("--json", action="store_true")
     p.add_argument("--min-score", type=float, default=0.0)
+    p.add_argument("--mode", choices=["hybrid", "bm25", "vector"], default="hybrid",
+                   help="hybrid = BM25+vector fusion (default); bm25/vector alone for ablations")
     p = sub.add_parser("budget"); add_db(p)
     p.add_argument("--config", required=True); p.add_argument("--json", action="store_true")
     p = sub.add_parser("reindex-vectors"); add_db(p)
