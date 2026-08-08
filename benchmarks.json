@@ -1,0 +1,97 @@
+{
+  "as_of": "2026-08-08",
+  "note": "Curated estimates from public trackers (llm-stats.com, morphllm.com, vendor pricing pages). Scores are 0-100 purpose fitness; cost_in/cost_out are USD per 1M tokens. Every entry is an ESTIMATE to seed the recommendation flow; run `python tools/recommend.py refresh` and update values before relying on them for budget decisions.",
+  "refresh_instructions": "Run: python tools/recommend.py refresh --benchmarks benchmarks.json  (prints websearch queries). Edit scores/prices with the evidence you find, bump as_of, commit.",
+  "sources": [
+    "https://llm-stats.com/",
+    "https://www.morphllm.com/claude-benchmarks",
+    "https://costgoat.com/compare/llm-api",
+    "https://adevguide.com/deepseek-vs-claude-gpt-pricing-comparison/"
+  ],
+  "models": {
+    "claude-fable-5": {
+      "scores": {"reasoning": 95, "coding": 95, "design": 88, "business": 90, "marketing": 88, "verification": 94, "ops": 90, "writing": 90},
+      "cost_in": 3.0, "cost_out": 15.0,
+      "source": "morphllm SWE-bench tracker (95% SWE-bench Verified, June 2026)",
+      "confidence": "estimate"
+    },
+    "claude-sonnet-5": {
+      "scores": {"reasoning": 90, "coding": 90, "design": 84, "business": 86, "marketing": 84, "verification": 90, "ops": 86, "writing": 86},
+      "cost_in": 3.0, "cost_out": 15.0,
+      "source": "vendor pricing page + public tracker (estimate)",
+      "confidence": "estimate"
+    },
+    "claude-opus-4-6": {
+      "scores": {"reasoning": 93, "coding": 92, "design": 85, "business": 88, "marketing": 85, "verification": 92, "ops": 87, "writing": 86},
+      "cost_in": 5.0, "cost_out": 25.0,
+      "source": "public tracker (Opus 4.5/4.6 ~80% SWE-bench Verified class)",
+      "confidence": "estimate"
+    },
+    "claude-opus-5": {
+      "scores": {"reasoning": 94, "coding": 93, "design": 86, "business": 89, "marketing": 86, "verification": 93, "ops": 88, "writing": 87},
+      "cost_in": 5.0, "cost_out": 25.0,
+      "source": "vendor frontier tier (estimate)",
+      "confidence": "estimate"
+    },
+    "claude-haiku-4-5": {
+      "scores": {"reasoning": 68, "coding": 70, "design": 62, "business": 66, "marketing": 64, "verification": 72, "ops": 70, "writing": 66},
+      "cost_in": 1.0, "cost_out": 5.0,
+      "source": "vendor pricing page (estimate)",
+      "confidence": "estimate"
+    },
+    "gpt-5.6-pro": {
+      "scores": {"reasoning": 92, "coding": 92, "design": 85, "business": 88, "marketing": 85, "verification": 91, "ops": 87, "writing": 86},
+      "cost_in": 10.0, "cost_out": 40.0,
+      "source": "vendor pro tier (estimate)",
+      "confidence": "estimate"
+    },
+    "gpt-5.5-pro": {
+      "scores": {"reasoning": 91, "coding": 91, "design": 84, "business": 87, "marketing": 84, "verification": 90, "ops": 86, "writing": 85},
+      "cost_in": 8.0, "cost_out": 32.0,
+      "source": "vendor pro tier (estimate)",
+      "confidence": "estimate"
+    },
+    "deepseek-v4-pro": {
+      "scores": {"reasoning": 85, "coding": 88, "design": 74, "business": 78, "marketing": 74, "verification": 84, "ops": 82, "writing": 76},
+      "cost_in": 0.28, "cost_out": 1.10,
+      "source": "deepseek-class pricing, ~80.5% SWE-bench class (estimate for v4)",
+      "confidence": "estimate"
+    },
+    "deepseek-v4-flash": {
+      "scores": {"reasoning": 72, "coding": 76, "design": 64, "business": 68, "marketing": 64, "verification": 72, "ops": 72, "writing": 66},
+      "cost_in": 0.14, "cost_out": 0.55,
+      "source": "deepseek-class flash pricing (estimate)",
+      "confidence": "estimate"
+    },
+    "qwen3.8-max": {
+      "scores": {"reasoning": 88, "coding": 86, "design": 78, "business": 82, "marketing": 78, "verification": 84, "ops": 80, "writing": 78},
+      "cost_in": 0.4, "cost_out": 1.2,
+      "source": "qwen3.7-max ~80.5% SWE-bench class + aliyun pricing (estimate)",
+      "confidence": "estimate"
+    },
+    "qwen3.7-max": {
+      "scores": {"reasoning": 86, "coding": 84, "design": 76, "business": 80, "marketing": 76, "verification": 82, "ops": 78, "writing": 76},
+      "cost_in": 0.4, "cost_out": 1.2,
+      "source": "qwen3.7-max ~80.5% SWE-bench (morphllm, June 2026)",
+      "confidence": "estimate"
+    },
+    "qwen3.6-flash": {
+      "scores": {"reasoning": 70, "coding": 72, "design": 62, "business": 66, "marketing": 62, "verification": 68, "ops": 66, "writing": 64},
+      "cost_in": 0.2, "cost_out": 0.6,
+      "source": "qwen flash tier pricing (estimate)",
+      "confidence": "estimate"
+    },
+    "glm-5.2": {
+      "scores": {"reasoning": 78, "coding": 80, "design": 68, "business": 72, "marketing": 68, "verification": 76, "ops": 72, "writing": 70},
+      "cost_in": 1.0, "cost_out": 3.0,
+      "source": "glm-class pricing (estimate)",
+      "confidence": "estimate"
+    },
+    "claude-sonnet-4-5-20250929": {
+      "scores": {"reasoning": 82, "coding": 84, "design": 76, "business": 80, "marketing": 76, "verification": 82, "ops": 78, "writing": 78},
+      "cost_in": 3.0, "cost_out": 15.0,
+      "source": "vendor pricing (estimate)",
+      "confidence": "estimate"
+    }
+  }
+}

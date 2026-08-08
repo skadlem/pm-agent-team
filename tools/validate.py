@@ -53,10 +53,19 @@ check("all {} referenced skills loadable".format(len(referenced)), not missing,
       ", ".join(missing) if missing else "")
 
 print("== 3. Model suggestions cover roster ==")
-ms = {k: v for k, v in roster["model_suggestions"].items() if isinstance(v, dict) and "suggested" in v}
-check("model suggestions == roster roles", set(ms) == set(roster["roles"]))
-malformed = [k for k, v in ms.items() if not (v.get("suggested") and v.get("effort") and v.get("alternatives"))]
-check("all model entries well-formed", not malformed)
+bench = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))
+valid_purposes = {p for m in bench.get("models", {}).values() for p in (m.get("scores") or {})}
+ms = {k: v for k, v in roster["model_suggestions"].items() if isinstance(v, dict) and "purpose" in v}
+check("model purposes == roster roles", set(ms) == set(roster["roles"]))
+bad = []
+for r, v in ms.items():
+    if not v.get("purpose"):
+        bad.append(r)
+    elif not set(v["purpose"]) <= valid_purposes:
+        bad.append(r)
+    elif abs(sum(v["purpose"].values()) - 1.0) > 1e-9:
+        bad.append(f"{r}(weights={sum(v['purpose'].values())})")
+check("all purpose maps well-formed (weights sum to 1, valid purposes)", not bad, ", ".join(bad) if bad else "")
 
 print("== 4. Documented kb.py commands exist in the CLI ==")
 kb_src = (TPL / "tools" / "kb.py").read_text(encoding="utf-8")
@@ -121,7 +130,32 @@ for ref in sorted({m.group(1) for m in re.finditer(r"TPL/([\w./<>-]+)", "\n".joi
         continue
     check(f"TPL/{ref}", (TPL / ref).exists())
 
-print("== 10. Idempotent re-add / reindex / installer ==")
+print("== 10. Model recommender ==")
+# fixture available list (subset of the machine's real swarm list_models output)
+fixture = TPL / "_fixture_models.txt"
+fixture.write_text(
+    "- claude-fable-5 via Anthropic [claude-oauth]\n"
+    "- claude-opus-5 via Anthropic [claude-oauth]\n"
+    "- deepseek-v4-pro via DeepSeek [openai-compatible:deepseek] (https://api.deepseek.com)\n"
+    "- qwen3.8-max via qwen [openai-compatible:qwen] (https://example.com/v1)\n"
+    "- gpt-5.6-pro via OpenAI [openai-api-key] [unavailable] (requires OPENAI_API_KEY)\n",
+    encoding="utf-8")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "--available", str(fixture)],
+                   capture_output=True, text=True)
+check("recommend runs", r.returncode == 0, r.stderr.strip()[:80])
+out = r.stdout
+check("every role gets a suggestion", all(f"{role} " in out for role in roster["roles"]))
+# backend (coding purpose) must prefer the cheap best-tier model deepseek-v4-pro over costlier opus
+m = re.search(r"backend\s+(\S+)", out)
+check("backend picks cost-effective best-tier model", bool(m) and m.group(1) == "deepseek-v4-pro", m.group(1) if m else "?")
+# unavailable gpt-5.6-pro must never be suggested
+check("unavailable models excluded", "gpt-5.6-pro " not in out)
+fixture.unlink()
+r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refresh"],
+                   capture_output=True, text=True)
+check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
+
+print("== 11. Idempotent re-add / reindex / installer ==")
 # Re-adding the same dir must replace docs, not duplicate
 r1 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
                     capture_output=True, text=True)

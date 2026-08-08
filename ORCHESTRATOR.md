@@ -39,10 +39,16 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
    `TPL/templates/charter.md` + the user's project description. PM writes charter, plan, and
    `out/pm/roster-proposal.md` listing the MINIMAL team needed (roles + one-line justification each).
 3. GATE 1 (STOP and ask the user): present the roster proposal AND the model selection.
-   For each proposed role, list: role, one-line justification, suggested model + effort,
-   and 1-2 alternatives (from TPL/roster.json "model_suggestions"). The user may OK the
-   table as-is, change a model/effort, or remove a role entirely. Record the approved
-   (role -> model, effort) map in `.pmos/team-model.json`. Do not proceed without approval.
+   Compute the model selection LIVE:
+   a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
+   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json`
+      to score each available model per role purpose (benchmarks.json), keep the best
+      tier, and pick the cheapest of that tier. Show that table.
+   c. The user may OK the table, change a model/effort, or remove a role entirely.
+      Record the approved (role -> model, effort) map in `.pmos/team-model.json`.
+   d. If a role has no benchmark data (marked by recommend.py), refresh first:
+      `python TPL/tools/recommend.py refresh` and update benchmarks.json, or let the
+      user pick manually for that role. Do not proceed without approval.
 4. Wave 2: spawn approved roles from {architect, designer, business} IN PARALLEL. Each reads
    `.pmos/charter.md` and searches its KB namespace first. Outputs go to `.pmos/out/<role>/`.
 5. Enrich: run the /pm-kb-enrich skill (adds project-specific facts to each role namespace from

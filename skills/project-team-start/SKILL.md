@@ -40,10 +40,17 @@ Otherwise proceed with a fresh launch per ORCHESTRATOR.md:
 4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
    user's project description. Wait for charter + plan + roster proposal.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
-   selection table. For each proposed role show: role, suggested model + effort, and alternatives
-   (from `TPL/roster.json` -> `model_suggestions`). The user can OK all, change a model/effort, or
-   remove a role. Record the approved map in `.pmos/team-model.json`. Use exactly those models and
-   efforts when spawning workers via the `swarm` tool. Adjust roster on request.
+   selection computed LIVE:
+   a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
+   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt` to score each
+      available model per role purpose from `TPL/benchmarks.json`, keep the best tier, and pick
+      the cheapest of that tier. Show the resulting role -> model table.
+   c. The user can OK all, change a model/effort, or remove a role. Record the approved map in
+      `.pmos/team-model.json`. Use exactly those models and efforts when spawning workers via the
+      `swarm` tool. Adjust roster on request.
+   d. If recommend.py flags missing benchmark data for a role, either run
+      `python TPL/tools/recommend.py refresh` and update `TPL/benchmarks.json` with current
+      evidence, or let the user pick manually for that role.
 6. Continue waves 2-4 exactly as ORCHESTRATOR.md prescribes, stopping at GATE 2 before
    implementation, and checkpointing to `.pmos/log.md` after each gate. Commit at each gate.
 

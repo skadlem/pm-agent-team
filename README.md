@@ -23,7 +23,25 @@ pm-agent-team/
 
 project manager/planner, architect, designer, backend, frontend, business advisor, marketing,
 QA engineer, devops (security folded in). Each role has assigned jcode skills, a KB namespace,
-expected artifacts, and suggested spawn model + effort (user-approved at launch).
+expected artifacts, and a model chosen at launch (user-approved).
+
+## Model selection (computed at launch, not hardcoded)
+
+At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
+`python TPL/tools/recommend.py --available <file>` which:
+
+1. Keeps only AVAILABLE models from the live list.
+2. Scores each against per-purpose benchmarks (`benchmarks.json`): reasoning, coding, design,
+   business, marketing, verification, ops, writing. Each role maps to a purpose mix
+   (`roster.json` -> `model_suggestions` -> `purpose`, weights sum to 1).
+3. Keeps the BEST TIER (score >= 92% of the best), then picks the CHEAPEST of that tier
+   by blended cost (3:1 input:output, USD per 1M tokens).
+4. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
+   to `.pmos/team-model.json` and used for every spawn.
+
+`benchmarks.json` entries are labeled estimates (source + date). Refresh before trusting them:
+`python TPL/tools/recommend.py refresh` prints the exact websearch queries; update the file with
+the evidence you find and bump `as_of`.
 
 ## Install
 

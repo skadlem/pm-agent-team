@@ -5,16 +5,16 @@
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
   },
   "model_suggestions": {
-    "note": "Grounded in routes available on this machine (Anthropic claude-oauth, OpenAI chatgpt-web, qwen/deepseek openai-compatible). The launch flow lists role -> suggested model + effort and asks the user to OK/edit/remove before spawning.",
-    "pm":        {"suggested": "claude-fable-5", "effort": "high",   "alternatives": ["claude-sonnet-5", "qwen3.8-max"]},
-    "architect": {"suggested": "claude-fable-5", "effort": "max",    "alternatives": ["claude-sonnet-5", "claude-opus-4-6"]},
-    "designer":  {"suggested": "claude-fable-5", "effort": "high",   "alternatives": ["claude-sonnet-5"]},
-    "backend":   {"suggested": "deepseek-v4-pro", "effort": "low",   "alternatives": ["gpt-5.6-pro[web]", "qwen3.8-max", "claude-fable-5"]},
-    "frontend":  {"suggested": "deepseek-v4-pro", "effort": "low",   "alternatives": ["gpt-5.6-pro[web]", "qwen3.8-max", "claude-fable-5"]},
-    "business":  {"suggested": "claude-fable-5", "effort": "medium", "alternatives": ["claude-sonnet-5"]},
-    "marketing": {"suggested": "claude-fable-5", "effort": "medium", "alternatives": ["claude-sonnet-5"]},
-    "qa":        {"suggested": "claude-fable-5", "effort": "high",   "alternatives": ["deepseek-v4-pro", "claude-sonnet-5"]},
-    "devops":    {"suggested": "deepseek-v4-pro", "effort": "low",   "alternatives": ["qwen3.8-max", "claude-fable-5"]}
+    "note": "Model choices are COMPUTED at launch, not hardcoded. The launch flow runs `swarm list_models`, saves the output, then `python TPL/tools/recommend.py --available <file>` which scores each available model per role's purpose (benchmarks.json), keeps the best tier, and picks the cheapest of that tier. The table is then presented for user OK/edit/remove. `purpose` below is the role -> benchmark-purpose weight map used by the recommender.",
+    "pm":        {"purpose": {"reasoning": 0.5, "writing": 0.3, "business": 0.2}},
+    "architect": {"purpose": {"reasoning": 0.6, "coding": 0.4}},
+    "designer":  {"purpose": {"design": 1.0}},
+    "backend":   {"purpose": {"coding": 1.0}},
+    "frontend":  {"purpose": {"coding": 0.6, "design": 0.4}},
+    "business":  {"purpose": {"business": 1.0}},
+    "marketing": {"purpose": {"marketing": 0.7, "writing": 0.3}},
+    "qa":        {"purpose": {"verification": 1.0}},
+    "devops":    {"purpose": {"ops": 1.0}}
   },
   "waves": [
     {"wave": 1, "roles": ["pm"], "gate": "User approves roster proposal + model selections"},
