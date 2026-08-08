@@ -236,9 +236,10 @@ def cmd_budget(con, args):
     weights = kb.get("role_weights", {})
     pool = total_cap - shared
     report = {}
-    for ns in weights:
+    namespaces = list(weights) + (["shared"] if shared else [])
+    for ns in namespaces:
         used = con.execute("SELECT COALESCE(SUM(n_tokens),0), COUNT(*) FROM chunks WHERE ns=?", (ns,)).fetchone()
-        budget = int(shared + weights[ns] * pool)
+        budget = shared if ns == "shared" else int(weights[ns] * pool)
         report[ns] = {"used_tokens": used[0], "chunks": used[1], "budget_tokens": budget,
                       "headroom": budget - used[0]}
     if args.json:
@@ -277,7 +278,7 @@ def cmd_add(con, args, config):
     total_cap = config.get("kb", {}).get("total_token_cap", 150000)
     shared = config.get("kb", {}).get("shared_token_budget", 15000)
     w = config.get("kb", {}).get("role_weights", {}).get(args.ns, 0)
-    cap = shared if args.ns == "shared" else int(shared + w * (total_cap - shared))
+    cap = shared if args.ns == "shared" else int(w * (total_cap - shared))
     dropped = enforce_cap(con, args.ns, cap)
     con.commit()
     print("added id=%d ns=%s tokens~%d title=%s" % (cid, args.ns, n, args.title))
