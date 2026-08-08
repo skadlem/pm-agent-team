@@ -18,8 +18,15 @@ install.cmd          # Windows
 sh install.sh        # macOS/Linux
 ```
 
-The installer copies the 3 skills into `~/.jcode/skills` and remembers the template location in
-`~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the installer if needed).
+The installer copies the 4 skills into `~/.jcode/skills` and remembers the template location in
+`~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the installer if
+needed). Global install means the skills are available in EVERY future jcode session, in any
+directory. Available trigger phrases:
+
+| you say | mode |
+|---------|------|
+| "Start the project …" (or `/project-team-start`) | auto-detected (greenfield or brownfield) |
+| "Work on this project …" (or `/project-team-work`) | brownfield, forced |
 
 ## What's inside
 
@@ -86,11 +93,13 @@ In any project directory, any session:
 Start the project <one-paragraph description>
 ```
 
-or `/project-team-start`. The mode is detected automatically:
+or `/project-team-start`. The mode is detected automatically. For an EXISTING codebase you can
+also use the dedicated phrase **"Work on this project <what you want changed>"** (or
+`/project-team-work`), which forces brownfield mode:
 
 - **Greenfield** (empty repo): charter -> plan -> minimal team proposal -> YOU approve ->
   design wave -> KB enrichment -> YOU approve plan -> implementation -> QA gate -> checkpoint.
-- **Brownfield** (existing code): same command, extra Wave 0 first. An architect worker maps the
+- **Brownfield** (existing code): extra Wave 0 first. An architect worker maps the
   codebase via graphify into `current-state.md` (modules, conventions, test state, impact areas);
   the PM writes a delta charter with a do-not-touch list; the roster is justified by impact
   surface (backend-only change => no designer); QA starts from the existing test baseline;

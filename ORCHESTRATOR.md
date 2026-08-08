@@ -31,6 +31,9 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
 
 ## Launch: user says "Start the project <description>"
 
+(If the user says "Work on this project ..." instead, that is the /project-team-work skill:
+identical protocol, but MODE is forced to brownfield, skip detection.)
+
 First detect the MODE:
 - `brownfield`: the repo contains existing code (any source files besides .pmos). Most steps below
   have brownfield-specific behavior.

@@ -5,7 +5,7 @@ set -e
 TPL="$(cd "$(dirname "$0")" && pwd)"
 SK="$HOME/.jcode/skills"
 mkdir -p "$SK"
-for s in project-team-start pm-kb-bootstrap pm-kb-enrich; do
+for s in project-team-start project-team-work pm-kb-bootstrap pm-kb-enrich; do
   rm -rf "$SK/$s"
   cp -r "$TPL/skills/$s" "$SK/$s"
 done

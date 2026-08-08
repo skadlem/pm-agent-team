@@ -1,6 +1,6 @@
 ---
 name: project-team-start
-description: "Launch a managed multi-agent project team. Triggers on 'Start the project ...' or 'start project'. Bootstraps .pmos/ state, picks the minimal role roster (PM, architect, designer, backend, frontend, business, marketing, QA, devops) with user approval, runs wave-based execution with hybrid-KB + graphify context rules. Loads the PMOS orchestrator protocol."
+description: "Launch a managed multi-agent project team. Triggers on 'Start the project ...' or 'start project' (mode auto-detected; for an existing codebase you can also say 'Work on this project ...' which uses the project-team-work skill instead). Bootstraps .pmos/ state, picks the minimal role roster (PM, architect, designer, backend, frontend, business, marketing, QA, devops) with user approval, runs wave-based execution with hybrid-KB + graphify context rules. Loads the PMOS orchestrator protocol."
 ---
 
 # /project-team-start

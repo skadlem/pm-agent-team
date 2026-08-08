@@ -5,7 +5,7 @@ setlocal
 set "TPL=%~dp0"
 set "SK=%USERPROFILE%\.jcode\skills"
 if not exist "%SK%" mkdir "%SK%"
-for %%S in (project-team-start pm-kb-bootstrap pm-kb-enrich) do (
+for %%S in (project-team-start project-team-work pm-kb-bootstrap pm-kb-enrich) do (
   xcopy /E /I /Y /Q "%TPL%skills\%%S" "%SK%\%%S" >nul
 )
 > "%USERPROFILE%\.jcode\pmos-template-root" echo %TPL%
