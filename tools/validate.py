@@ -112,6 +112,36 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "selftest"],
                    capture_output=True, text=True)
 check("selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout)
 
+print("== 9. Referenced TPL paths exist ==")
+docs = []
+for p in list((TPL / "skills").rglob("*.md")) + [TPL / "ORCHESTRATOR.md", TPL / "README.md"]:
+    docs.append(p.read_text(encoding="utf-8"))
+for ref in sorted({m.group(1) for m in re.finditer(r"TPL/([\w./<>-]+)", "\n".join(docs))}):
+    if "<" in ref or ">" in ref or "..." in ref:
+        continue
+    check(f"TPL/{ref}", (TPL / ref).exists())
+
+print("== 10. Idempotent re-add / reindex / installer ==")
+# Re-adding the same dir must replace docs, not duplicate
+r1 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
+                    capture_output=True, text=True)
+before = r1.stdout.count("chunks")
+subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "add-dir", "--db", str(DB),
+                "--ns", "pm", "--path", str(TPL / "kb-sources" / "pm"), "--priority", "8"],
+               capture_output=True, text=True)
+r2 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
+                    capture_output=True, text=True)
+after = r2.stdout.count("chunks")
+check("re-add same dir does not duplicate", before == after, f"{before} vs {after}")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "reindex-vectors", "--db", str(DB)],
+                   capture_output=True, text=True)
+check("reindex-vectors offline", r.returncode == 0 and "offline" in r.stdout)
+if os.name == "nt":
+    r = subprocess.run(["cmd", "/c", "install.cmd"], capture_output=True, text=True, cwd=TPL)
+    check("install.cmd idempotent", r.returncode == 0)
+    root = pathlib.Path(os.path.expanduser("~/.jcode/pmos-template-root"))
+    check("template-root file", root.exists() and root.read_text().strip().rstrip("\\/") == str(TPL).rstrip("\\/"))
+
 print()
 if _failures:
     print(f"VALIDATION FAILED ({_failures} check(s))")
