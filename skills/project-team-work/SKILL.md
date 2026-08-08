@@ -42,8 +42,10 @@ Otherwise:
    `.pmos/out/architect/current-state.md` via graphify queries only.
 9. Wave 1: spawn the PM worker with `TPL/templates/charter-brownfield.md` + the user's change
    description + current-state.md. Wait for charter, plan, roster proposal (justified by impact surface).
-10. GATE 1: present roster + live model selection (compute via `swarm list_models` ->
-    `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... `); user
+10. GATE 1: present roster + model selection. If `~/.jcode/pmos-team-defaults.json` exists, propose
+    that role -> model table as-is (user's saved preference; verify its models still appear in
+    `swarm list_models`). Otherwise compute via `swarm list_models` ->
+    `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... `; user
     approves/edits/removes; approved map goes to `.pmos/team-model.json`.
 11. Continue waves 2-4 per ORCHESTRATOR.md, including the brownfield rules (conventions into KB
     via /pm-kb-enrich, QA baseline from the existing test suite). Checkpoint to `.pmos/log.md`

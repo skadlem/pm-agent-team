@@ -64,7 +64,10 @@ to you. Record the answer in `.pmos/log.md`.
    modules the change touches), not from the project type. E.g. a backend refactor that touches
    no UI gets no designer and no frontend.
 4. GATE 1 (STOP and ask the user): present the roster proposal AND the model selection.
-   Compute the model selection LIVE:
+   FIRST check for the user's saved defaults in `~/.jcode/pmos-team-defaults.json`. If it
+   exists, propose that role -> model table as-is (it is the user's explicit preference); only
+   verify each listed model still appears in `swarm list_models`, and flag any that do not.
+   Otherwise compute the model selection LIVE:
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json`
       to score each available model per role purpose (benchmarks.json), keep the best

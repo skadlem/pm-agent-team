@@ -47,7 +47,9 @@ charter, baseline QA). No extra command or flag is needed.
 4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
    user's project description. Wait for charter + plan + roster proposal.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
-   selection computed LIVE:
+   selection. If `~/.jcode/pmos-team-defaults.json` exists, propose it as the role -> model table
+   (user's saved preference; verify its models are still in `swarm list_models`). Otherwise compute
+   it LIVE:
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt` to score each
       available model per role purpose from `TPL/benchmarks.json`, keep the best tier, and pick
