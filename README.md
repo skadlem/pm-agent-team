@@ -1,8 +1,25 @@
 # PMOS: Project Management Operating System (agent team template)
 
-A portable jcode template that turns "Start the project <idea>" into a managed multi-agent build:
+[![CI](https://github.com/YOUR_GITHUB_USER/pm-agent-team/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USER/pm-agent-team/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+A portable [jcode](https://github.com/1jehuang/jcode) template that turns "Start the project <idea>" into a managed multi-agent build:
 role agents, per-role hybrid knowledge bases, repo understanding via graphify, wave-based execution
 with human approval gates, and hard caps so no agent ever carries more context than it needs.
+
+**Requirements:** [jcode](https://github.com/1jehuang/jcode) (agent host with skills + swarm) and Python 3.9+ with SQLite FTS5 (bundled in CPython). No pip dependencies.
+
+## Quick install
+
+```bash
+git clone https://github.com/YOUR_GITHUB_USER/pm-agent-team.git
+cd pm-agent-team
+install.cmd          # Windows
+sh install.sh        # macOS/Linux
+```
+
+The installer copies the 3 skills into `~/.jcode/skills` and remembers the template location in
+`~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the installer if needed).
 
 ## What's inside
 
@@ -58,13 +75,8 @@ can be picked manually by the user.
 
 ## Install
 
-```
-install.cmd          (Windows)
-sh install.sh        (macOS/Linux)
-```
-
-Then restart or refresh skills. The template root is remembered in
-`~/.jcode/pmos-template-root`; the folder can live anywhere.
+See **Quick install** above. After installing, restart jcode or reload skills; verify with
+`/project-team-start` showing up in your skill list.
 
 ## Usage
 
@@ -114,3 +126,8 @@ python tools/kb.py selftest
 - Protocol behavior: `ORCHESTRATOR.md`. Skills are plain markdown; tweak freely.
 - After any edit, run `python tools/validate.py` to verify budget math, skill references,
   model suggestions, documented CLI commands, skill frontmatter, bootstrap, and edge cases.
+
+## License and attribution
+
+- Code and template: [MIT](LICENSE).
+- `benchmarks.json` scores derive from [Epoch AI's benchmark hub](https://epoch.ai/benchmark-data) dataset (CC BY 4.0). Keep attribution when redistributing derived data.

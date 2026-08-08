@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Scratch / test state
+dryrun/
+*.sqlite3-journal
+
+# Raw benchmark CSVs are large and regenerable; only benchmarks.json ships
+benchmark_data/
+
+# Local project state if someone runs the team inside this repo itself
+.pmos/
+graphify-out/
+
+# Editors/OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
