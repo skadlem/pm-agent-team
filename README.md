@@ -156,9 +156,10 @@ Four levels, cheapest first:
    `PMOS_EMBEDDINGS_MODEL` and run `kb.py reindex-vectors`. Gemini's native endpoint
    (generativelanguage.googleapis.com) is auto-detected and authenticated with the API key
    (`x-goog-api-key`); other URLs use OpenAI-compatible `Authorization: Bearer`. Rate-limit
-   responses (429) are retried with backoff. The measured gain on a small corpus is mostly
-   ranking quality on paraphrased queries (vector MRR 0.588 -> 0.889); expect bigger gains as
-   namespaces grow toward the token cap.
+   responses (429) are retried with backoff. Rerun the API-backed benchmark with
+   `python tools/eval_kb_api.py`. Full recorded results, methodology and the weight-tuning
+   sweep: [EVALUATION.md](EVALUATION.md). Headline: Gemini embedding-2 lifts vector MRR on
+   paraphrased queries from 0.588 to 0.889 (recall already 100%); the gain grows with KB size.
 3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.

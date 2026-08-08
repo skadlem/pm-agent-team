@@ -219,14 +219,21 @@ def cmd_search(con, args, config):
         sims.sort(key=lambda x: -x[1])
         vec_rank = {cid: i for i, (cid, _) in enumerate(sims)}
 
+    w_bm25 = w_vec = 0.5
+    if mode == "hybrid":
+        row = con.execute(
+            "SELECT v.mode FROM vectors v JOIN chunks c ON c.id=v.id WHERE 1=1 " + scope + " LIMIT 1",
+            params).fetchone()
+        if row and row[0] == "api":
+            w_bm25, w_vec = 0.35, 0.65  # real semantic embeddings get the larger share
     ids = set(fts_rank) | set(vec_rank)
     scored = []
     for cid in ids:
         score = 0.0
         if cid in fts_rank:
-            score += 0.5 / (RRF_K + fts_rank[cid] + 1)
+            score += w_bm25 / (RRF_K + fts_rank[cid] + 1)
         if cid in vec_rank:
-            score += 0.5 / (RRF_K + vec_rank[cid] + 1)
+            score += w_vec / (RRF_K + vec_rank[cid] + 1)
         scored.append((cid, score))
     scored.sort(key=lambda x: -x[1])
     if not scored:

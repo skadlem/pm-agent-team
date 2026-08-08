@@ -125,14 +125,30 @@ def run_mode(db_path, mode, queries):
 
 
 def main():
-    tmp = Path(tempfile.mkdtemp()) / "eval.sqlite3"
-    build_db(tmp)
-    report = {name: [dict(run_mode(tmp, m, qs), mode=m) for m in MODES]
-              for name, qs in SETS}
-    hybrid_std = report["standard"][0]
-    passed = hybrid_std["hits@%d" % K] >= MIN_HITS and hybrid_std["mrr"] >= MIN_MRR
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--sets", default="standard,paraphrase",
+                    help="comma-separated subset of query sets to run")
+    ap.add_argument("--db", default=None,
+                    help="reuse an existing KB database (skips the build; it must already "
+                         "be indexed with the embedding backend you want to measure)")
+    args = ap.parse_args()
 
-    if "--json" in sys.argv:
+    if args.db:
+        tmp = Path(args.db)
+    else:
+        tmp = Path(tempfile.mkdtemp()) / "eval.sqlite3"
+        build_db(tmp)
+    wanted = [n for n in args.sets.split(",") if n]
+    sets = [(name, qs) for name, qs in SETS if name in wanted]
+    report = {name: [dict(run_mode(tmp, m, qs), mode=m) for m in MODES]
+              for name, qs in sets}
+    hybrid_std = report.get("standard", [{}])[0]
+    passed = (not report.get("standard")) or (hybrid_std.get("hits@%d" % K, 1) >= MIN_HITS
+              and hybrid_std.get("mrr", 1) >= MIN_MRR)
+
+    if "--json" in sys.argv or args.json:
         print(json.dumps({"pass": passed, "sets": report}, indent=1))
     else:
         for name, rows in report.items():
