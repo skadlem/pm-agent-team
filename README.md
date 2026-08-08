@@ -134,19 +134,31 @@ Four levels, cheapest first:
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
    `python tools/validate.py` (39 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, installer idempotency).
-2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs a golden query set
-   (27 queries across all roles) against a freshly built KB and reports hits@5 and MRR,
+2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
+   (27 standard + 18 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):
 
-   | mode | hits@5 | MRR |
-   |------|-------:|----:|
-   | hybrid (BM25+vector, shipped) | **100%** | **1.000** |
-   | BM25 only | 100% | 1.000 |
-   | offline vectors only | 100% | 0.932 |
+   | set | mode | hits@5 | MRR |
+   |-----|------|-------:|----:|
+   | standard | hybrid (shipped default) | 100% | 1.000 |
+   | standard | BM25 only | 100% | 1.000 |
+   | standard | offline vectors only | 100% | 0.932 |
+   | paraphrase | hybrid | 100% | 0.806 |
+   | paraphrase | BM25 only | 83.3% | 0.778 |
+   | paraphrase | offline vectors only | 100% | 0.588 |
+   | paraphrase | **Gemini embedding-2 vectors** (measured) | **100%** | **0.889** |
+   | standard | **Gemini embedding-2 vectors** (measured) | **100%** | **1.000** |
 
-   Fail threshold for hybrid: hits@5 < 90% or MRR < 0.65. If you edit `kb-sources/`, keep the
-   golden set in `tools/eval_kb.py` aligned. To compare against REAL embeddings, set the
-   `PMOS_EMBEDDINGS_*` env vars, `kb.py reindex-vectors`, and rerun.
+   Pass threshold for hybrid on the standard set: hits@5 >= 90% and MRR >= 0.65. If you edit
+   `kb-sources/`, keep the golden set in `tools/eval_kb.py` aligned.
+
+   **Using real embeddings:** set `PMOS_EMBEDDINGS_URL`, `PMOS_EMBEDDINGS_KEY`,
+   `PMOS_EMBEDDINGS_MODEL` and run `kb.py reindex-vectors`. Gemini's native endpoint
+   (generativelanguage.googleapis.com) is auto-detected and authenticated with the API key
+   (`x-goog-api-key`); other URLs use OpenAI-compatible `Authorization: Bearer`. Rate-limit
+   responses (429) are retried with backoff. The measured gain on a small corpus is mostly
+   ranking quality on paraphrased queries (vector MRR 0.588 -> 0.889); expect bigger gains as
+   namespaces grow toward the token cap.
 3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.

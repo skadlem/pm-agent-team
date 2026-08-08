@@ -20,7 +20,7 @@ Commands:
   stats --db PATH [--json]
   selftest
 """
-import argparse, hashlib, json, math, os, sqlite3, struct, sys, urllib.request
+import argparse, hashlib, json, math, os, sqlite3, struct, sys, time, urllib.request, urllib.error
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -77,25 +77,56 @@ def unpack_vec(b):
 def cosine(a, b):
     return sum(x * y for x, y in zip(a, b))
 
+def _http_post_json(url, headers, payload, max_attempts=4):
+    for attempt in range(max_attempts):
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode('utf-8'),
+            headers=headers, method='POST',
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code in (429, 500, 502, 503) and attempt < max_attempts - 1:
+                wait = e.headers.get('Retry-After')
+                delay = float(wait) if wait else min(15 * 2 ** attempt, 70)
+                print('embeddings API %d; retrying in %.0fs (%d/%d)'
+                      % (e.code, delay, attempt + 1, max_attempts), file=sys.stderr)
+                time.sleep(delay)
+            else:
+                raise
+
+def _gemini_embeddings(texts, key, model):
+    base = 'https://generativelanguage.googleapis.com/v1beta/models/' + model
+    headers = {'Content-Type': 'application/json', 'x-goog-api-key': key}
+    out = []
+    for i in range(0, len(texts), 99):  # batchEmbedContents allows up to 100 requests
+        batch = texts[i:i + 99]
+        payload = {'requests': [{'model': 'models/' + model,
+                                 'content': {'parts': [{'text': t}]}} for t in batch]}
+        data = _http_post_json(base + ':batchEmbedContents', headers, payload)
+        out.extend(e['values'] for e in data['embeddings'])
+    return out
+
 def api_embeddings(texts):
-    url = os.environ.get("PMOS_EMBEDDINGS_URL")
-    key = os.environ.get("PMOS_EMBEDDINGS_KEY", "")
-    model = os.environ.get("PMOS_EMBEDDINGS_MODEL", "text-embedding-3-small")
+    url = os.environ.get('PMOS_EMBEDDINGS_URL')
+    key = os.environ.get('PMOS_EMBEDDINGS_KEY', '')
+    model = os.environ.get('PMOS_EMBEDDINGS_MODEL', 'text-embedding-3-small')
     if not url:
         return None
+    if 'generativelanguage.googleapis.com' in url:
+        return _gemini_embeddings(texts, key, model)  # native API-key auth
     out = []
     for i in range(0, len(texts), 64):
         batch = texts[i:i + 64]
-        req = urllib.request.Request(
+        payload = {'model': model, 'input': batch}
+        data = _http_post_json(
             url,
-            data=json.dumps({"model": model, "input": batch}).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Authorization": "Bearer " + key},
-            method="POST",
+            {'Content-Type': 'application/json', 'Authorization': '***' + key},
+            payload,
         )
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = json.load(r)
-        for item in sorted(data["data"], key=lambda d: d["index"]):
-            out.append(item["embedding"])
+        for item in sorted(data['data'], key=lambda d: d['index']):
+            out.append(item['embedding'])
     return out
 
 def connect(db_path):
