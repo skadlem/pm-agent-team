@@ -81,3 +81,5 @@ python tools/kb.py selftest
 - Caps/weights: `config.json`. Roles/skills/waves/models: `roster.json`.
 - Fundamentals: edit `kb-sources/<role>/*.md` (markdown, one `## ` heading per fact block).
 - Protocol behavior: `ORCHESTRATOR.md`. Skills are plain markdown; tweak freely.
+- After any edit, run `python tools/validate.py` to verify budget math, skill references,
+  model suggestions, documented CLI commands, skill frontmatter, bootstrap, and edge cases.
