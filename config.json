@@ -1,0 +1,26 @@
+{
+  "kb": {
+    "total_token_cap": 150000,
+    "shared_token_budget": 15000,
+    "role_weights": {
+      "pm": 0.16,
+      "architect": 0.20,
+      "backend": 0.17,
+      "frontend": 0.17,
+      "designer": 0.10,
+      "business": 0.06,
+      "marketing": 0.07,
+      "qa": 0.04,
+      "devops": 0.03
+    }
+  },
+  "context_rules": {
+    "search_k_default": 5,
+    "excerpt_max_chars": 1200,
+    "graphify_budget_tokens": 1500
+  },
+  "storage": "project",
+  "embeddings": {
+    "note": "Offline by default: deterministic local hashing vectors. For real embeddings set env vars PMOS_EMBEDDINGS_URL (OpenAI-compatible /embeddings endpoint), PMOS_EMBEDDINGS_KEY, PMOS_EMBEDDINGS_MODEL, then run 'kb.py reindex-vectors'."
+  }
+}

@@ -1,0 +1,85 @@
+# PMOS Orchestrator Protocol
+
+This file is the operating manual for the MAIN session (coordinator). Workers never see it
+directly; their spawn prompts embed the parts that concern them.
+
+Layout: `TPL` = this template folder (find it via `~/.jcode/pmos-template-root`, else the skill's
+grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.pmos/`.
+
+```
+.pmos/
+  charter.md          # PM owns; source of truth for scope
+  plans/plan.md       # PM owns; phases, task graph, acceptance criteria
+  decisions/          # architect ADRs
+  kb.sqlite3          # hybrid KB store (never dump it; only search)
+  kb-sources/         # markdown files that were indexed (audit trail)
+  out/<role>/         # each worker's artifacts
+  log.md              # append-only checkpoint log
+```
+
+## Rules (all agents, no exceptions)
+
+1. Partial context only. NEVER read or dump the full KB, the full repo, or large files top-to-bottom.
+2. Information retrieval order, stop as soon as you have enough:
+   a. KB: `python TPL/tools/kb.py search --db PROJ/.pmos/kb.sqlite3 "query" --role <ns> -k 5`
+   b. Repo questions: use the /graphify skill's query tools (never re-read the whole codebase).
+      After material changes to the repo, the coordinator refreshes with `/graphify <path> --update`.
+   c. Targeted file read (read tool) ONLY for a specific file you already know you need.
+3. Artifacts are small files (markdown) under `.pmos/out/<role>/`. Keep each under ~300 lines.
+4. Before claiming done, apply the verification-before-completion skill: evidence, not assertions.
+5. Disagreements between roles are escalated to the coordinator, who asks the user if stakes are high.
+
+## Launch: user says "Start the project <description>"
+
+1. Bootstrap:
+   - `mkdir .pmos/{plans,decisions,log,kb-sources}` and `python TPL/tools/kb.py init --db .pmos/kb.sqlite3`
+   - If `.pmos/kb.sqlite3` already exists, this is a resumed project: read `.pmos/log.md` tail and charter instead.
+   - Load the /graphify skill and build/update the repo graph (skip if empty greenfield repo).
+2. Wave 1 (PM): spawn one PM worker. Its prompt = template below + charter skeleton from
+   `TPL/templates/charter.md` + the user's project description. PM writes charter, plan, and
+   `out/pm/roster-proposal.md` listing the MINIMAL team needed (roles + one-line justification each).
+3. GATE 1 (STOP and ask the user): present the roster proposal AND the model selection.
+   For each proposed role, list: role, one-line justification, suggested model + effort,
+   and 1-2 alternatives (from TPL/roster.json "model_suggestions"). The user may OK the
+   table as-is, change a model/effort, or remove a role entirely. Record the approved
+   (role -> model, effort) map in `.pmos/team-model.json`. Do not proceed without approval.
+4. Wave 2: spawn approved roles from {architect, designer, business} IN PARALLEL. Each reads
+   `.pmos/charter.md` and searches its KB namespace first. Outputs go to `.pmos/out/<role>/`.
+5. Enrich: run the /pm-kb-enrich skill (adds project-specific facts to each role namespace from
+   charter + wave 2 outputs). Budget check: `kb.py budget`.
+6. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
+7. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
+   where independent. Workers read plan + their role's out dir, query KB + graphify as needed.
+8. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
+   to wave 3 with the defect report. Pass -> checkpoint.
+9. Checkpoint: append to `.pmos/log.md` (date, wave, what shipped, what's next), commit if repo,
+   report to user. Commit as you go at each gate.
+
+## Worker spawn prompt template
+
+```
+You are the {{role_name}} on this project. Working dir: {{PROJ}}.
+Spawn model: {{model}} (effort {{effort}}) per the user-approved team-model.json.
+
+Your assignment:
+{{assignment}}
+
+Mandatory procedure:
+1. Load these skills: {{role_skills}} (plus verification-before-completion).
+2. Context: read .pmos/charter.md and {{relevant upstream artifacts}}.
+3. Knowledge base: search BEFORE answering anything domain-specific:
+   python "{{TPL}}/tools/kb.py" search --db "{{PROJ}}/.pmos/kb.sqlite3" "<query>" --role {{ns}} -k 5
+   You may add one --role shared search too. Never dump the DB.
+4. Repo questions: use the graphify skill (query mode), never full-repo reads.
+5. Write outputs to {{artifacts}}. Keep them concise.
+6. Report back: what you did, decisions made, blockers, artifacts written.
+```
+
+Spawn via the `swarm` tool with a clear `label` like "pm", "architect", "backend-1". Use one
+worker per task chunk; parallelize independent chunks (see /dispatching-parallel-agents).
+
+## Resume in a future session
+
+When `.pmos/` exists: read `.pmos/log.md` (tail), `.pmos/charter.md`, then `kb.py budget` and
+`kb.py stats` to see KB health, then continue from the last checkpoint. The KB and graphify index
+persist across sessions; nothing is rebuilt from scratch.
