@@ -17,6 +17,7 @@ import tempfile
 
 TPL = pathlib.Path(__file__).resolve().parent.parent
 _failures = 0
+_skips = 0
 
 
 def check(label, cond, detail=""):
@@ -24,6 +25,12 @@ def check(label, cond, detail=""):
     print(f"  [{'OK' if cond else 'FAIL'}] {label}" + (f"  ({detail})" if detail else ""))
     if not cond:
         _failures += 1
+
+
+def skip(label, reason):
+    global _skips
+    print(f"  [SKIP] {label}  ({reason})")
+    _skips += 1
 
 
 print("== 1. KB budget math ==")
@@ -43,14 +50,20 @@ referenced = set(roster["common_skills"])
 for r in roster["roles"].values():
     referenced.update(r["skills"])
 found = set()
-for base in (os.path.expanduser("~/.jcode"), os.path.expanduser("~/.agents"),
-             os.path.expanduser("~/.claude/plugins/cache")):
+bases = [os.path.expanduser("~/.jcode"), os.path.expanduser("~/.agents"),
+         os.path.expanduser("~/.claude/plugins/cache")]
+for base in bases:
     for root, dirs, files in os.walk(base):
         if "SKILL.md" in files:
             found.add(os.path.basename(root))
-missing = sorted(s for s in referenced if s not in found)
-check("all {} referenced skills loadable".format(len(referenced)), not missing,
-      ", ".join(missing) if missing else "")
+if not any(os.path.isdir(b) for b in bases):
+    skip("referenced skills loadable", "no jcode/claude skill dirs on this machine (fresh CI clone)")
+elif not found:
+    skip("referenced skills loadable", "skill dirs exist but are empty; cannot verify")
+else:
+    missing = sorted(s for s in referenced if s not in found)
+    check("all {} referenced skills loadable".format(len(referenced)), not missing,
+          ", ".join(missing) if missing else "")
 
 print("== 3. Model suggestions cover roster ==")
 bench = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))
@@ -175,19 +188,34 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refres
                    capture_output=True, text=True)
 check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
 
-print("== 11. Benchmark generator (Epoch data) ==")
-gen_out = TPL / "_benchmarks_gen.json"
-r = subprocess.run([sys.executable, str(TPL / "tools" / "build_benchmarks.py"),
-                    "--data-dir", str(TPL.parent / "benchmark_data"), "--out", str(gen_out)],
-                   capture_output=True, text=True)
-check("build_benchmarks runs", r.returncode == 0, r.stderr.strip()[:80])
-gb = json.loads(gen_out.read_text(encoding="utf-8"))
-check("generated models > 100", len(gb["models"]) > 100, str(len(gb["models"])))
-check("generated purposes complete", {"coding", "reasoning", "design", "ops", "verification", "business", "marketing", "writing"} <= set(gb["purposes"]))
+print("== 11. Benchmarks: bundled file integrity + generator ==")
+# The shipped benchmarks.json must be complete even without the raw CSVs.
+bundled = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))
+check("bundled benchmarks.json models > 100", len(bundled.get("models", {})) > 100,
+      str(len(bundled.get("models", {}))))
+check("bundled purposes complete",
+      {"coding", "reasoning", "design", "ops", "verification", "business", "marketing", "writing"} <= set(bundled.get("purposes", [])))
 for m in ["claude-fable-5", "qwen3.8-max", "deepseek-v4-pro"]:
-    e = gb["models"].get(m)
-    check(f"key model {m} present", bool(e and e["scores"]))
-gen_out.unlink()
+    e = bundled["models"].get(m)
+    check(f"bundled key model {m} present", bool(e and e["scores"]))
+# Regeneration check only when the raw Epoch data is available (it is gitignored;
+# see README for how to obtain it).
+data_dir = TPL.parent / "benchmark_data"
+if not data_dir.is_dir():
+    skip("benchmark generator (Epoch data)", f"no {data_dir} on this clone (raw CSVs are gitignored)")
+else:
+    gen_out = TPL / "_benchmarks_gen.json"
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "build_benchmarks.py"),
+                        "--data-dir", str(data_dir), "--out", str(gen_out)],
+                       capture_output=True, text=True)
+    check("build_benchmarks runs", r.returncode == 0, r.stderr.strip()[:80])
+    gb = json.loads(gen_out.read_text(encoding="utf-8"))
+    check("generated models > 100", len(gb["models"]) > 100, str(len(gb["models"])))
+    check("generated purposes complete", {"coding", "reasoning", "design", "ops", "verification", "business", "marketing", "writing"} <= set(gb["purposes"]))
+    for m in ["claude-fable-5", "qwen3.8-max", "deepseek-v4-pro"]:
+        e = gb["models"].get(m)
+        check(f"generated key model {m} present", bool(e and e["scores"]))
+    gen_out.unlink()
 
 print("== 12. Idempotent re-add / reindex / installer ==")
 # Re-adding the same dir must replace docs, not duplicate
@@ -212,6 +240,6 @@ if os.name == "nt":
 
 print()
 if _failures:
-    print(f"VALIDATION FAILED ({_failures} check(s))")
+    print(f"VALIDATION FAILED ({_failures} check(s), {_skips} skipped)")
     sys.exit(1)
-print("ALL VALIDATION PASSED")
+print(f"ALL VALIDATION PASSED ({_skips} environment-dependent check(s) skipped)")
