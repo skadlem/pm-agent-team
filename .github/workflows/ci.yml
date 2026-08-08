@@ -22,3 +22,5 @@ jobs:
         run: python tools/kb.py selftest
       - name: Template validation suite
         run: python tools/validate.py
+      - name: Retrieval benchmark (hits@5, MRR)
+        run: python tools/eval_kb.py

@@ -127,6 +127,25 @@ python tools/kb.py selftest
 - After any edit, run `python tools/validate.py` to verify budget math, skill references,
   model suggestions, documented CLI commands, skill frontmatter, bootstrap, and edge cases.
 
+## Measuring performance
+
+Four levels, cheapest first:
+
+1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
+   `python tools/validate.py` (39 checks: budget math, frontmatter, bootstrap, edge cases,
+   recommender semantics, installer idempotency).
+2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs a golden query set
+   (27 queries across all roles) against a freshly built KB and reports hits@5 and MRR.
+   Current baseline: hits@5 = 100%, MRR = 1.0. If you edit `kb-sources/`, keep the golden
+   set in `tools/eval_kb.py` aligned.
+3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
+   QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
+   Compare these across projects to see if the system improves.
+4. **Outcome evaluation (manual):** after a project, judge the deliverables themselves:
+   did the acceptance criteria actually hold under real use, how much rework was needed after
+   handoff, and whether the KB enrichment step saved workers from re-reading upstream artifacts
+   (spot-check a worker's KB search logs against its behavior).
+
 ## License and attribution
 
 - Code and template: [MIT](LICENSE).

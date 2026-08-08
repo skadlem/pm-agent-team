@@ -59,7 +59,9 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
 8. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
    to wave 3 with the defect report. Pass -> checkpoint.
 9. Checkpoint: append to `.pmos/log.md` (date, wave, what shipped, what's next), commit if repo,
-   report to user. Commit as you go at each gate.
+   report to user. Commit as you go at each gate. Record measurable facts too, so the run can be
+   evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count, rework
+   loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria pass rate.
 
 ## Worker spawn prompt template
 
