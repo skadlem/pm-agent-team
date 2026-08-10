@@ -47,6 +47,9 @@ GOLDEN = [
     ("devops", "deploy rollback one command", "DevOps fundamentals"),
     ("devops", "backup restore test scheduled", "Runtime care"),
     ("devops", "least privilege service accounts secrets", "Security operations"),
+    ("legal", "lawful basis consent contract legitimate interest", "Lawful basis analysis"),
+    ("legal", "access rectification erasure portability opt out", "Data subject rights"),
+    ("legal", "cross border transfer adequacy standard contractual clauses", "Data residency and transfers"),
     ("shared", "never dump full repository partial context", "Agent operating rules"),
     ("shared", "retrieval order KB graphify targeted read", "Agent operating rules"),
 ]
@@ -77,6 +80,8 @@ HARD = [
     ("qa", "found a bug, what do I write in the ticket", "QA fundamentals"),
     ("devops", "the deploy broke production, how do we undo it", "DevOps fundamentals"),
     ("devops", "where are the passwords for prod stored", "Runtime care"),
+    ("legal", "what makes it legal for us to process this personal data", "Lawful basis analysis"),
+    ("legal", "customer asked us to delete all their personal information", "Data subject rights"),
     ("shared", "do not paste the whole codebase into your context", "Agent operating rules"),
 ]
 SETS = [("standard", GOLDEN), ("paraphrase", HARD)]
@@ -87,7 +92,7 @@ def build_db(db_path):
     subprocess.run([sys.executable, kb, "init", "--db", str(db_path)],
                    check=True, capture_output=True, text=True)
     for ns in ["shared", "pm", "architect", "backend", "frontend", "designer",
-               "business", "marketing", "qa", "devops"]:
+               "business", "marketing", "qa", "devops", "legal"]:
         subprocess.run([sys.executable, kb, "add-dir", "--db", str(db_path),
                         "--ns", ns, "--path", str(TPL / "kb-sources" / ns),
                         "--priority", "10" if ns == "shared" else "8"],

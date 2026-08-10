@@ -22,7 +22,7 @@ The template ships curated fundamentals in `TPL/kb-sources/<role>/*.md`. Index t
 python TPL/tools/kb.py add-dir --db .pmos/kb.sqlite3 --ns <role> --path TPL/kb-sources/<role> --priority 8
 ```
 
-Roles with sources: pm, architect, backend, frontend, designer, business, marketing, qa, devops.
+Roles with sources: pm, architect, backend, frontend, designer, business, marketing, qa, devops, legal.
 Also index `TPL/kb-sources/shared` into `--ns shared --priority 10` (agent operating rules).
 
 ## Step 2: targeted top-up (only if gaps)

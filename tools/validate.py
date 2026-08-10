@@ -126,7 +126,7 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "init", "--db"
                    capture_output=True, text=True)
 check("init", r.returncode == 0)
 for ns in ["shared", "pm", "architect", "backend", "frontend", "designer",
-           "business", "marketing", "qa", "devops"]:
+           "business", "marketing", "qa", "devops", "legal"]:
     r = subprocess.run(
         [sys.executable, str(TPL / "tools" / "kb.py"), "add-dir", "--db", str(DB),
          "--ns", ns, "--path", str(TPL / "kb-sources" / ns),

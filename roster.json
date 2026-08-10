@@ -56,7 +56,7 @@
   "waves": [
     {"wave": 0, "roles": ["architect"], "mode": "brownfield only", "gate": "none", "note": "Discovery: map existing codebase via graphify into out/architect/current-state.md"},
     {"wave": 1, "roles": ["pm"], "gate": "User approves roster proposal + model selections"},
-    {"wave": 2, "roles": ["architect", "designer", "business"], "gate": "User reviews plan/architecture summary; then run pm-kb-enrich"},
+    {"wave": 2, "roles": ["architect", "designer", "business", "legal"], "gate": "User reviews plan/architecture summary; then run pm-kb-enrich"},
     {"wave": 3, "roles": ["backend", "frontend", "devops", "marketing"], "gate": "Implementation checkpoint"},
     {"wave": 4, "roles": ["qa"], "gate": "Verification gate: tests + acceptance criteria pass"}
   ],
