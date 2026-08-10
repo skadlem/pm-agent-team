@@ -2972,8 +2972,8 @@
     "business": 82.7,
     "marketing": 81.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 1.0,
+   "cost_out": 5.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, apex_agents_external.csv, arc_agi_2_external.csv, arc_agi_external.csv, balrog_external.csv, epoch_capabilities_index.csv, exploitbench_external.csv, forecastbench_external.csv, frontiermath.csv, frontiermath_tier_4.csv, gpqa_diamond.csv, math_level_5.csv, scicode_external.csv, terminalbench_external.csv, vending_bench_2_external.csv, webdev_arena_external.csv, weirdml_external.csv",
    "confidence": "sourced",
    "meta": {

@@ -149,6 +149,8 @@ fixture = TPL / "_fixture_models.txt"
 fixture.write_text(
     "- claude-fable-5 via Anthropic [claude-oauth]\n"
     "- claude-opus-5 via Anthropic [claude-oauth]\n"
+    "- claude-opus-4-7 via Anthropic [claude-oauth]\n"
+    "- claude-sonnet-5 via Anthropic [claude-oauth]\n"
     "- deepseek-v4-pro via DeepSeek [openai-compatible:deepseek] (https://api.deepseek.com)\n"
     "- qwen3.8-max via qwen [openai-compatible:qwen] (https://example.com/v1)\n"
     "- gpt-5.6-pro via OpenAI [openai-api-key] [unavailable] (requires OPENAI_API_KEY)\n",
@@ -159,6 +161,7 @@ check("recommend runs", r.returncode == 0, r.stderr.strip()[:80])
 out = r.stdout
 check("every role gets a suggestion", all(f"{role} " in out for role in roster["roles"]))
 check("unavailable models excluded", "gpt-5.6-pro " not in out)
+check("newest-only drops older generations", "claude-opus-4-7 " not in out)
 # semantic check: the suggested model per role must be in the best tier and cheapest of it
 import importlib.util
 spec = importlib.util.spec_from_file_location("recommend_mod", str(TPL / "tools" / "recommend.py"))

@@ -133,11 +133,15 @@ def role_purpose(roster, role):
     return DEFAULT_PURPOSE.get(role, {"reasoning": 1.0})
 
 
-def recommend(available, benchmarks, roster, tier, role_filter=None):
-    avail = {m["id"] for m in available if m.get("available", True)}
-    # forbidden models (roster.json "forbidden_models") are never suggested or in any ladder.
-    # A trailing "*" is a prefix match (e.g. "gpt-*" blocks every OpenAI GPT route, but not
-    # "openai/gpt-oss-120b" which is a different id served by NVIDIA NIM).
+def eligible_models(ids, roster):
+    """Apply forbidden_models + newest_only filters to a set of model ids.
+
+    forbidden_models: never suggested or in any ladder. A trailing "*" is a prefix
+    match (e.g. "gpt-*" blocks every OpenAI GPT route, but not "openai/gpt-oss-120b"
+    which is a different id served by NVIDIA NIM). newest_only keeps only the newest
+    generation per model family (e.g. claude-opus-5, never claude-opus-4-7/4-8).
+    """
+    avail = set(ids)
     forbidden = set()
     for f in (roster or {}).get("forbidden_models") or []:
         if f.endswith("*"):
@@ -146,6 +150,15 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
             forbidden.add(f)
     if forbidden:
         avail = {m for m in avail if m not in forbidden}
+    for fam, keep_id in ((roster or {}).get("newest_only") or {}).items():
+        if fam == "note" or not keep_id:
+            continue
+        avail = {m for m in avail if not (m.startswith(fam) and m != keep_id)}
+    return avail
+
+
+def recommend(available, benchmarks, roster, tier, role_filter=None):
+    avail = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
     roles = [r for r in roster["roles"] if role_filter is None or r in role_filter]
     out = []
     for role in roles:
@@ -272,12 +285,14 @@ def main():
         print(fmt_table(results, benchmarks))
     if a.ladder_out:
         ladder_map = {r["role"]: r["ladder"] for r in results}
-        pathlib.Path(a.ladder_out).write_text(
+        lp = pathlib.Path(a.ladder_out)
+        lp.parent.mkdir(parents=True, exist_ok=True)
+        lp.write_text(
             json.dumps(ladder_map, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
         print("\nfallback ladders written to %s" % a.ladder_out, file=sys.stderr)
     # availability summary (stderr when --json so stdout stays pure JSON)
     out = sys.stderr if a.json else sys.stdout
-    avail = {m["id"] for m in available if m.get("available", True)}
+    avail = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
     known = set(benchmarks)
     covered = {m for m in avail if normalize_id(m) in known}
     print("\n%s available models; %d with benchmark data (refresh to expand)"

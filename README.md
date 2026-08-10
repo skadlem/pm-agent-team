@@ -55,12 +55,15 @@ At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
 `python TPL/tools/recommend.py --available <file>` which:
 
 1. Keeps only AVAILABLE models from the live list.
-2. Scores each against per-purpose benchmarks (`benchmarks.json`): reasoning, coding, design,
+2. Drops models the roster forbids (`forbidden_models`: never suggested, never laddered)
+   and older generations per family (`newest_only`: e.g. only claude-opus-5, never
+   claude-opus-4-7/4-8; only claude-sonnet-5; only qwen3.8-max).
+3. Scores each against per-purpose benchmarks (`benchmarks.json`): reasoning, coding, design,
    business, marketing, verification, ops, writing. Each role maps to a purpose mix
    (`roster.json` -> `model_suggestions` -> `purpose`, weights sum to 1).
-3. Keeps the BEST TIER (score >= 92% of the best), then picks the CHEAPEST of that tier
+4. Keeps the BEST TIER (score >= 92% of the best), then picks the CHEAPEST of that tier
    by blended cost (3:1 input:output, USD per 1M tokens).
-4. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
+5. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
    to `.pmos/team-model.json` and used for every spawn.
 
 That recommended model is only the FIRST attempt. Pass `--ladder-out .pmos/team-model-ladder.json`
