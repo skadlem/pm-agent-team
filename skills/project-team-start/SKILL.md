@@ -62,6 +62,8 @@ charter, baseline QA). No extra command or flag is needed.
    d. If recommend.py flags missing benchmark data for a role, either run
       `python TPL/tools/recommend.py refresh` and update `TPL/benchmarks.json` with current
       evidence, or let the user pick manually for that role.
+ Also confirm the charter's Deployment jurisdictions with the user (edit
+ `.pmos/charter.md` if needed); the legal advisor's jurisdiction pack depends on it.
 6. Continue waves 2-4 exactly as ORCHESTRATOR.md prescribes, stopping at GATE 2 before
    implementation, and checkpointing to `.pmos/log.md` after each gate. Commit at each gate.
 

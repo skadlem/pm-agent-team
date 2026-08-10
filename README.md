@@ -37,6 +37,7 @@ pm-agent-team/
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
+  kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
   kb-sources/shared/       # agent operating rules (partial-context, evidence, etc.)
   templates/               # charter.md, adr.md skeletons
   skills/                  # project-team-start, pm-kb-bootstrap, pm-kb-enrich
@@ -46,7 +47,9 @@ pm-agent-team/
 ## Roles
 
 project manager/planner, architect, designer, backend, frontend, business advisor, marketing,
-QA engineer, devops (security folded in). Each role has assigned jcode skills, a KB namespace,
+QA engineer, devops (security folded in), legal advisor (risk & policy): regulatory risk
+assessment per deployment jurisdiction, risk register, compliance calendar (strict/light via
+config.json). Each role has assigned jcode skills, a KB namespace,
 expected artifacts, and a model chosen at launch (user-approved).
 
 ## Model selection (computed at launch, not hardcoded)
