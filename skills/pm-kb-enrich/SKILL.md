@@ -32,7 +32,14 @@ into `.pmos/kb-sources/project/<ns>.md`, one chunk per `## ` heading. What goes 
 | business | model, pricing, target segment, success metrics |
 | marketing | positioning, audience, channels, launch plan |
 | qa | acceptance criteria verbatim, test strategy, environments, existing-suite baseline (brownfield) |
+| legal | deployment jurisdictions, obligations per risk id (e.g. `L-001`), compliance calendar dates |
 | devops | hosting, CI/CD plan, secrets handling, environments, backup/observability |
+
+Propagation: when `.pmos/out/legal/risk-register.md` exists, also include its
+obligations in the business (market entry), marketing (claims/ads compliance), and
+pm (milestone gating) chunks, each tagged with the risk id (e.g. "Obligation
+L-001: ..."). Keep legal facts out of other namespaces unless an obligation
+actually applies to that role.
 
 Brownfield extras: from `current-state.md`, distill CONVENTIONS into `shared` (naming, error
 handling, test layout, commit style), the MODULE MAP into `architect`/`backend`/`frontend`
