@@ -72,6 +72,12 @@ of tokens, crashes, or hits an unrecoverable error), the coordinator retries the
 next model in that role's ladder (up to 2 fallbacks, then escalates to you) instead of abandoning
 it. See ORCHESTRATOR.md "Worker model fallback".
 
+When the same model is served by several providers on this system (e.g. `glm-5.2` via the Aliyun
+MaaS gateway and `z-ai/glm-5.2` via NVIDIA NIM), `recommend.py` merges them into ONE ladder entry
+and reports the providers as an ordered fallback chain (`suggested_provider` +
+`suggested_fallbacks`, full map in the `providers`/`routes` JSON fields). Retry on the next
+provider in the chain before moving down the ladder.
+
 `benchmarks.json` is GENERATED from Epoch AI's benchmark hub data (CC BY 4.0,
 `benchmark_data/`, ~75 benchmark CSVs: SWE-bench Verified, GPQA, ARC-AGI, MMLU, webdev,
 terminalbench, etc.), merged with **LiveBench** (livebench.ai, contamination-free,

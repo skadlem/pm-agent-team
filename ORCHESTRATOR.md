@@ -138,13 +138,17 @@ unrecoverable error) and the task is not inherently impossible, retry the SAME t
 untried model in that role's ladder:
 
 1. Log the failure in `.pmos/log.md` (role, task, model tried, failure reason).
-2. Spawn a FRESH worker for that task, passing the next model explicitly (`model` in the swarm
+2. If the failed model is served by more than one provider on this system, first retry the SAME
+   model on the next provider in its fallback chain (`suggested_fallbacks` in `recommend.py`
+   output; `providers`/`routes` JSON fields map every ladder entry to its chain and route ids,
+   e.g. `glm-5.2` -> `[OpenAI-compatible, NVIDIA NIM]`).
+3. Spawn a FRESH worker for that task, passing the next model explicitly (`model` in the swarm
    spawn). Never continue a half-finished run; re-run the task from its clean start.
-3. Reuse the task's upstream artifacts (plan, out dirs, KB); do not re-run independent
+4. Reuse the task's upstream artifacts (plan, out dirs, KB); do not re-run independent
    already-completed tasks.
-4. Cap fallbacks per task at MAX_FALLBACKS (default 2). After that, STOP and escalate to the user:
+5. Cap fallbacks per task at MAX_FALLBACKS (default 2). After that, STOP and escalate to the user:
    give the failure reason and the models already tried. Do not loop indefinitely.
-5. If a role's ladder is empty or exhausted, escalate to the user rather than guessing.
+6. If a role's ladder is empty or exhausted, escalate to the user rather than guessing.
 
 The coordinator may also apply the ladder proactively: if a cheap pick repeatedly errors mid-run,
 promote that role's model to the next best entry from the start (log it). This keeps the team

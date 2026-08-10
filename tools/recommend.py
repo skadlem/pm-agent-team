@@ -18,6 +18,13 @@ Fallback ladder (for the "worker failed -> retry on next best model" rule):
   `suggested`; if that worker dies (e.g. runs out of tokens), retry the task on
   the next untried model in the ladder.
 
+Provider fallback chains: when the same model is served by several providers on
+  this system (e.g. `glm-5.2` via the Aliyun MaaS gateway and `z-ai/glm-5.2` via
+  NVIDIA NIM), the routes are merged into ONE ladder entry. Its `providers` list
+  is the ordered fallback chain: primary provider first, alternates after. The
+  coordinator retries on the next provider in the chain before moving down the
+  ladder, and `routes` holds every route id that serves the model.
+
 Refresh: `python tools/recommend.py refresh --benchmarks benchmarks.json`
 prints the exact websearch queries to re-check current scores/prices, so a human
 or the agent can update the dataset between launches.
@@ -161,15 +168,45 @@ def eligible_models(ids, roster):
     return avail
 
 
+def group_models(available):
+    """Merge routes that serve the same benchmark model into one entry.
+
+    Same model id listed under several providers, and vendor-prefixed routes
+    that normalize to the same id (glm-5.2 vs z-ai/glm-5.2), become one entry
+    with a provider fallback chain. Only available routes are kept. Unprefixed
+    route ids (no "/") come first in the chain, then prefixed ones, preserving
+    input order within each group.
+    """
+    groups = {}
+    for m in available:
+        if not m.get("available", True):
+            continue
+        pair = (m["id"], m.get("provider"))
+        groups.setdefault(normalize_id(m["id"]), []).append(pair)
+    out = {}
+    for bmid, pairs in groups.items():
+        seen = set()
+        pairs = [p for p in pairs if not (p in seen or seen.add(p))]
+        ordered = sorted(pairs, key=lambda p: "/" in p[0])
+        chain = []
+        for _r, prov in ordered:
+            if prov and prov not in chain:
+                chain.append(prov)
+        out[bmid] = {"display": ordered[0][0], "chain": chain,
+                     "routes": [r for r, _ in ordered]}
+    return out
+
+
 def recommend(available, benchmarks, roster, tier, role_filter=None):
-    avail = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
+    eligible = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
+    available = [m for m in available if m["id"] in eligible]
+    groups = group_models(available)
     roles = [r for r in roster["roles"] if role_filter is None or r in role_filter]
     out = []
     for role in roles:
         purpose = role_purpose(roster, role)
         scores = {}
-        for mid in avail:
-            bmid = normalize_id(mid)
+        for bmid in groups:
             entry = benchmarks.get(bmid)
             if not entry:
                 continue
@@ -183,47 +220,58 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
                     s += w * v
             if missing and s == 0.0:
                 continue
-            scores[mid] = {"score": s, "missing": missing, "entry": entry}
+            scores[bmid] = {"score": s, "missing": missing, "entry": entry,
+                            "group": groups[bmid]}
         if not scores:
             out.append({"role": role, "suggested": None, "suggested_provider": None,
-                        "reason": "no benchmark data for any available model",
-                        "tier": [], "ladder": [], "providers": {}, "purpose": purpose})
+                        "suggested_fallbacks": [], "reason": "no benchmark data for any available model",
+                        "tier": [], "ladder": [], "providers": {}, "routes": {},
+                        "purpose": purpose})
             continue
+        def display(bmid):
+            return scores[bmid]["group"]["display"]
         best = max(s["score"] for s in scores.values())
         in_tier = {m: d for m, d in scores.items() if d["score"] >= tier * best}
         def cost_key(item):
             c = blended_cost(item[1]["entry"])
             return (c is None, c if c is not None else 0.0, -item[1]["score"])
         pick, picked = min(in_tier.items(), key=cost_key)
-        alt = sorted(in_tier, key=lambda m: (-scores[m]["score"], blended_cost(scores[m]["entry"]) or 1e12))[:3]
-        ladder = [m for m in sorted(scores, key=lambda m: (-scores[m]["score"],
+        alt = [display(m) for m in sorted(in_tier, key=lambda m: (-scores[m]["score"],
+               blended_cost(scores[m]["entry"]) or 1e12))][:3]
+        ladder = [display(m) for m in sorted(scores, key=lambda m: (-scores[m]["score"],
                  blended_cost(scores[m]["entry"]) or 1e12))]
-        prov = {m["id"]: m.get("provider") for m in available}
-        providers = {m: prov.get(m) for m in scores}
+        providers = {display(m): scores[m]["group"]["chain"] for m in scores}
+        routes = {display(m): scores[m]["group"]["routes"] for m in scores}
+        chain = providers[display(pick)]
         out.append({
             "role": role,
-            "suggested": pick,
-            "suggested_provider": prov.get(pick),
+            "suggested": display(pick),
+            "suggested_provider": chain[0] if chain else None,
+            "suggested_fallbacks": chain[1:],
             "reason": "score {:.1f}, cost ${}/1M blended".format(picked["score"],
                      _fmt_cost(blended_cost(picked["entry"]))),
             "missing_data": picked["missing"],
             "tier": alt,
             "ladder": ladder,
             "providers": providers,
+            "routes": routes,
             "purpose": purpose,
         })
     return out
 
 
 def fmt_table(results, benchmarks):
-    lines = ["%-12s %-22s %-30s %s" % ("role", "suggested", "basis", "alternatives")]
+    lines = ["%-12s %-40s %-26s %s" % ("role", "suggested", "basis", "alternatives")]
     for r in results:
         if not r["suggested"]:
             lines.append("%-12s %-22s %s" % (r["role"], "(none)", r["reason"]))
             continue
         sp = r.get("suggested_provider")
-        shown = "%s @%s" % (r["suggested"], sp) if sp else r["suggested"]
-        lines.append("%-12s %-22s %-30s %s" % (
+        shown = r["suggested"]
+        if sp:
+            chain = " / ".join([sp] + (r.get("suggested_fallbacks") or []))
+            shown += " @%s" % chain
+        lines.append("%-12s %-40s %-26s %s" % (
             r["role"], shown, r["reason"],
             ", ".join(a for a in r["tier"] if a != r["suggested"]) or "-"))
         if r["missing_data"]:
