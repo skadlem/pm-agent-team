@@ -11,6 +11,13 @@ How it works (matches the launch flow):
   5. Outputs a table + JSON, flagging models with missing benchmark data so the
      coordinator can refresh the dataset.
 
+Fallback ladder (for the "worker failed -> retry on next best model" rule):
+  each role result also carries a `ladder`: every available scored model for that
+  role, ordered best-first (score desc, then cost asc). Write it to a file with
+  `--ladder-out .pmos/team-model-ladder.json`. The coordinator starts a role on
+  `suggested`; if that worker dies (e.g. runs out of tokens), retry the task on
+  the next untried model in the ladder.
+
 Refresh: `python tools/recommend.py refresh --benchmarks benchmarks.json`
 prints the exact websearch queries to re-check current scores/prices, so a human
 or the agent can update the dataset between launches.
@@ -18,6 +25,7 @@ or the agent can update the dataset between launches.
 Usage:
   python tools/recommend.py --available <list_models.txt|models.json> [--benchmarks benchmarks.json]
                            [--roster roster.json] [--tier 0.92] [--json]
+                           [--ladder-out <path>] [--roles <a,b,c>]
   python tools/recommend.py refresh --benchmarks benchmarks.json
 """
 import argparse
@@ -144,7 +152,7 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
             scores[mid] = {"score": s, "missing": missing, "entry": entry}
         if not scores:
             out.append({"role": role, "suggested": None, "reason": "no benchmark data for any available model",
-                        "tier": [], "purpose": purpose})
+                        "tier": [], "ladder": [], "purpose": purpose})
             continue
         best = max(s["score"] for s in scores.values())
         in_tier = {m: d for m, d in scores.items() if d["score"] >= tier * best}
@@ -153,6 +161,8 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
             return (c is None, c if c is not None else 0.0, -item[1]["score"])
         pick, picked = min(in_tier.items(), key=cost_key)
         alt = sorted(in_tier, key=lambda m: (-scores[m]["score"], blended_cost(scores[m]["entry"]) or 1e12))[:3]
+        ladder = [m for m in sorted(scores, key=lambda m: (-scores[m]["score"],
+                 blended_cost(scores[m]["entry"]) or 1e12))]
         out.append({
             "role": role,
             "suggested": pick,
@@ -160,6 +170,7 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
                      _fmt_cost(blended_cost(picked["entry"]))),
             "missing_data": picked["missing"],
             "tier": alt,
+            "ladder": ladder,
             "purpose": purpose,
         })
     return out
@@ -201,6 +212,8 @@ def main():
     p.add_argument("--roster", default=None)
     p.add_argument("--tier", type=float, default=0.92, help="best-tier threshold as fraction of best score")
     p.add_argument("--roles", default=None, help="comma-separated role filter")
+    p.add_argument("--ladder-out", default=None,
+                   help="write per-role fallback ladders to this JSON file (e.g. .pmos/team-model-ladder.json)")
     p.add_argument("--json", action="store_true")
 
     p = sub.add_parser("refresh", help="print websearch queries to refresh benchmarks.json")
@@ -233,15 +246,21 @@ def main():
         print(json.dumps(results, indent=1, ensure_ascii=False))
     else:
         print(fmt_table(results, benchmarks))
-    # availability summary
+    if a.ladder_out:
+        ladder_map = {r["role"]: r["ladder"] for r in results}
+        pathlib.Path(a.ladder_out).write_text(
+            json.dumps(ladder_map, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+        print("\nfallback ladders written to %s" % a.ladder_out, file=sys.stderr)
+    # availability summary (stderr when --json so stdout stays pure JSON)
+    out = sys.stderr if a.json else sys.stdout
     avail = {m["id"] for m in available if m.get("available", True)}
     known = set(benchmarks)
     covered = {m for m in avail if normalize_id(m) in known}
     print("\n%s available models; %d with benchmark data (refresh to expand)"
-          % (len(avail), len(covered)))
+          % (len(avail), len(covered)), file=out)
     uncovered = sorted(m for m in avail if normalize_id(m) not in known)
     if uncovered:
-        print("  no benchmark data: %s" % ", ".join(uncovered))
+        print("  no benchmark data: %s" % ", ".join(uncovered), file=out)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,8 @@ Otherwise:
 10. GATE 1: present roster + model selection. If `~/.jcode/pmos-team-defaults.json` exists, propose
     that role -> model table as-is (user's saved preference; verify its models still appear in
     `swarm list_models`). Otherwise compute via `swarm list_models` ->
-    `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... `; user
+    `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... 
+    --ladder-out .pmos/team-model-ladder.json` (the ladder file is the per-role fallback order); user
     approves/edits/removes; approved map goes to `.pmos/team-model.json`.
 11. Continue waves 2-4 per ORCHESTRATOR.md, including the brownfield rules (conventions into KB
     via /pm-kb-enrich, QA baseline from the existing test suite). Checkpoint to `.pmos/log.md`
@@ -58,3 +59,6 @@ Otherwise:
   find similar patterns first), and artifact paths.
 - Only spawn roles the user approved; the do-not-touch list in the charter is binding.
 - Never skip the verification gate before declaring a milestone done.
+- Model fallback: if a spawned worker fails (out of tokens, crash, unrecoverable error), retry the
+  same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to 2
+  fallbacks per task, then escalate to the user. See ORCHESTRATOR.md "Worker model fallback".

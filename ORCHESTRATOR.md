@@ -28,6 +28,9 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
 3. Artifacts are small files (markdown) under `.pmos/out/<role>/`. Keep each under ~300 lines.
 4. Before claiming done, apply the verification-before-completion skill: evidence, not assertions.
 5. Disagreements between roles are escalated to the coordinator, who asks the user if stakes are high.
+6. Model fallback (see "Worker model fallback" below): a failed worker (out of tokens, crash,
+   unrecoverable error) is retried on the NEXT model in that role's fallback ladder, never abandoned
+   because of the model. Log every retry.
 
 ## Launch: user says "Start the project <description>"
 
@@ -69,9 +72,10 @@ to you. Record the answer in `.pmos/log.md`.
    verify each listed model still appears in `swarm list_models`, and flag any that do not.
    Otherwise compute the model selection LIVE:
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
-   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json`
-      to score each available model per role purpose (benchmarks.json), keep the best
-      tier, and pick the cheapest of that tier. Show that table.
+   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json
+      --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
+      (benchmarks.json), keep the best tier, and pick the cheapest of that tier. Show that table.
+      The `--ladder-out` file holds each role's best-first fallback ladder for the model-fallback rule.
    c. The user may OK the table, change a model/effort, or remove a role entirely.
       Record the approved (role -> model, effort) map in `.pmos/team-model.json`.
    d. If a role has no benchmark data (marked by recommend.py), refresh first:
@@ -121,6 +125,30 @@ Mandatory procedure:
 
 Spawn via the `swarm` tool with a clear `label` like "pm", "architect", "backend-1". Use one
 worker per task chunk; parallelize independent chunks.
+
+## Worker model fallback (failed / out of tokens)
+
+The recommended model is only the FIRST attempt. Every role has an ordered fallback ladder in
+`.pmos/team-model-ladder.json` (written by `recommend.py --ladder-out`; best-first by benchmark
+score, then cheapest). The `suggested` model in `.pmos/team-model.json` is the first attempt; the
+ladder's next entries are the fallbacks.
+
+When a worker reports failed or crashed (e.g. ran out of tokens / context-limit, or an
+unrecoverable error) and the task is not inherently impossible, retry the SAME task on the next
+untried model in that role's ladder:
+
+1. Log the failure in `.pmos/log.md` (role, task, model tried, failure reason).
+2. Spawn a FRESH worker for that task, passing the next model explicitly (`model` in the swarm
+   spawn). Never continue a half-finished run; re-run the task from its clean start.
+3. Reuse the task's upstream artifacts (plan, out dirs, KB); do not re-run independent
+   already-completed tasks.
+4. Cap fallbacks per task at MAX_FALLBACKS (default 2). After that, STOP and escalate to the user:
+   give the failure reason and the models already tried. Do not loop indefinitely.
+5. If a role's ladder is empty or exhausted, escalate to the user rather than guessing.
+
+The coordinator may also apply the ladder proactively: if a cheap pick repeatedly errors mid-run,
+promote that role's model to the next best entry from the start (log it). This keeps the team
+moving without surfacing every transient failure to the user.
 
 ## Resume in a future session
 

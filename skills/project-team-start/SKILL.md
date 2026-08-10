@@ -51,9 +51,11 @@ charter, baseline QA). No extra command or flag is needed.
    (user's saved preference; verify its models are still in `swarm list_models`). Otherwise compute
    it LIVE:
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
-   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt` to score each
-      available model per role purpose from `TPL/benchmarks.json`, keep the best tier, and pick
-      the cheapest of that tier. Show the resulting role -> model table.
+   b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt
+      --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
+      from `TPL/benchmarks.json`, keep the best tier, and pick the cheapest of that tier. Show the
+      resulting role -> model table. The ladder file is the per-role fallback order for the
+      model-fallback rule (see ORCHESTRATOR.md "Worker model fallback").
    c. The user can OK all, change a model/effort, or remove a role. Record the approved map in
       `.pmos/team-model.json`. Use exactly those models and efforts when spawning workers via the
       `swarm` tool. Adjust roster on request.
@@ -69,3 +71,6 @@ charter, baseline QA). No extra command or flag is needed.
   `--role` namespace, the partial-context rule (no full KB / full repo dumps), and artifact paths.
 - Only spawn roles the user approved. One extra worker of an approved role is fine; new roles need approval.
 - Never skip the verification gate (wave 4) before declaring a project milestone done.
+- Model fallback: if a spawned worker fails (out of tokens, crash, unrecoverable error), retry the
+  same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to 2
+  fallbacks per task, then escalate to the user. See ORCHESTRATOR.md "Worker model fallback".

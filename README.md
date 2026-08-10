@@ -63,6 +63,12 @@ At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
 4. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
    to `.pmos/team-model.json` and used for every spawn.
 
+That recommended model is only the FIRST attempt. Pass `--ladder-out .pmos/team-model-ladder.json`
+and `recommend.py` also writes each role's best-first fallback ladder. If a worker fails (runs out
+of tokens, crashes, or hits an unrecoverable error), the coordinator retries the same task on the
+next model in that role's ladder (up to 2 fallbacks, then escalates to you) instead of abandoning
+it. See ORCHESTRATOR.md "Worker model fallback".
+
 `benchmarks.json` is GENERATED from Epoch AI's benchmark hub data (CC BY 4.0,
 `benchmark_data/`, ~75 benchmark CSVs: SWE-bench Verified, GPQA, ARC-AGI, MMLU, webdev,
 terminalbench, etc.). Regenerate it whenever you refresh the data:
