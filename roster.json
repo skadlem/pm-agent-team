@@ -1,11 +1,10 @@
 {
   "common_skills": ["verification-before-completion"],
-  "forbidden_models": ["claude-fable-5", "gpt-*", "claude-sonnet-4-5-20250929", "deepseek-v4-pro"],
+  "forbidden_models": ["claude-fable-5", "gpt-*", "claude-sonnet-4-5-20250929", "claude-haiku-4-5-20251001", "deepseek-v4-pro"],
   "newest_only": {
     "note": "Only the newest generation per model family is eligible: older versions (claude-opus-4-7/4-8, claude-sonnet-4-6, qwen3.7-max, deepseek-v4-flash) are dropped from suggestions and ladders even if available. Keys are id prefixes; the value is the one id to keep for that family.",
     "claude-opus": "claude-opus-5",
     "claude-sonnet": "claude-sonnet-5",
-    "claude-haiku": "claude-haiku-4-5-20251001",
     "deepseek-v4-flash": "deepseek-v4-flash-0731",
     "qwen": "qwen3.8-max",
     "glm": "glm-5.2",

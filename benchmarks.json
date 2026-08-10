@@ -2724,27 +2724,6 @@
     "release": "2025-03-05"
    }
   },
-  "claude-3-5-haiku-20241022": {
-   "scores": {
-    "coding": 38.5,
-    "reasoning": 44.1,
-    "business": 72.0,
-    "verification": 28.7,
-    "writing": 43.2,
-    "marketing": 50.6,
-    "ops": 65.4,
-    "design": 65.4
-   },
-   "cost_in": null,
-   "cost_out": null,
-   "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: aider_polyglot_external.csv, balrog_external.csv, cad_eval_external.csv, epoch_capabilities_index.csv, frontiermath.csv, gpqa_diamond.csv, lech_mazur_writing_external.csv, live_bench_external.csv, math_level_5.csv, mmlu_external.csv, scicode_external.csv, weirdml_external.csv",
-   "confidence": "sourced",
-   "meta": {
-    "org": "Alibaba",
-    "country": "China",
-    "release": "2025-03-05"
-   }
-  },
   "claude-3-5-sonnet-20240620": {
    "scores": {
     "coding": 38.3,
@@ -2884,25 +2863,6 @@
     "release": "2025-03-05"
    }
   },
-  "claude-3-haiku-20240307": {
-   "scores": {
-    "coding": 21.4,
-    "reasoning": 43.4,
-    "business": 52.0,
-    "marketing": 55.3,
-    "ops": 55.3,
-    "design": 55.3
-   },
-   "cost_in": null,
-   "cost_out": null,
-   "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: cad_eval_external.csv, epoch_capabilities_index.csv, forecastbench_external.csv, gpqa_diamond.csv, math_level_5.csv, mmlu_external.csv, weirdml_external.csv",
-   "confidence": "sourced",
-   "meta": {
-    "org": "Alibaba",
-    "country": "China",
-    "release": "2025-03-05"
-   }
-  },
   "claude-3-opus-20240229": {
    "scores": {
     "coding": 31.5,
@@ -2955,45 +2915,6 @@
    "cost_in": 3.0,
    "cost_out": 15.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, apex_agents_external.csv, btf3_external.csv, deepswe_external.csv, epoch_capabilities_index.csv, frontiercode_external.csv, frontierswe_external.csv, gdp_pdf_external.csv, gpqa_diamond.csv, scicode_external.csv, simplebench_external.csv, vending_bench_2_external.csv, webdev_arena_external.csv, weirdml_external.csv",
-   "confidence": "sourced",
-   "meta": {
-    "org": "Alibaba",
-    "country": "China",
-    "release": "2025-03-05"
-   }
-  },
-  "claude-haiku-4-5-20251001": {
-   "scores": {
-    "coding": 46.2,
-    "reasoning": 43.7,
-    "design": 66.2,
-    "ops": 41.5,
-    "verification": 25.5,
-    "business": 82.7,
-    "marketing": 81.1
-   },
-   "cost_in": 1.0,
-   "cost_out": 5.0,
-   "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, apex_agents_external.csv, arc_agi_2_external.csv, arc_agi_external.csv, balrog_external.csv, epoch_capabilities_index.csv, exploitbench_external.csv, forecastbench_external.csv, frontiermath.csv, frontiermath_tier_4.csv, gpqa_diamond.csv, math_level_5.csv, scicode_external.csv, terminalbench_external.csv, vending_bench_2_external.csv, webdev_arena_external.csv, weirdml_external.csv",
-   "confidence": "sourced",
-   "meta": {
-    "org": "Alibaba",
-    "country": "China",
-    "release": "2025-03-05"
-   }
-  },
-  "claude-haiku-4-5-20251001_8K": {
-   "scores": {
-    "reasoning": 36.3,
-    "coding": 81.1,
-    "business": 81.1,
-    "marketing": 81.1,
-    "ops": 81.1,
-    "design": 81.1
-   },
-   "cost_in": null,
-   "cost_out": null,
-   "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: arc_agi_2_external.csv, arc_agi_external.csv, epoch_capabilities_index.csv",
    "confidence": "sourced",
    "meta": {
     "org": "Alibaba",
