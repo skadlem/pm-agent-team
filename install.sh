@@ -1,5 +1,5 @@
 #!/bin/sh
-# PMOS template installer (Unix). Copies the 3 skills into ~/.jcode/skills
+# PMOS template installer (Unix). Copies the 4 skills into ~/.jcode/skills
 # and records the template root so skills can find it.
 set -e
 TPL="$(cd "$(dirname "$0")" && pwd)"

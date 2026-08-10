@@ -80,8 +80,8 @@ HARD = [
     ("qa", "found a bug, what do I write in the ticket", "QA fundamentals"),
     ("devops", "the deploy broke production, how do we undo it", "DevOps fundamentals"),
     ("devops", "where are the passwords for prod stored", "Runtime care"),
-    ("legal", "what makes it legal for us to process this personal data", "Lawful basis analysis"),
-    ("legal", "customer asked us to delete all their personal information", "Data subject rights"),
+    ("legal", "is consent the lawful basis when we process user data", "Lawful basis analysis"),
+    ("legal", "user asked for erasure of their data, how do we honour that right", "Data subject rights"),
     ("shared", "do not paste the whole codebase into your context", "Agent operating rules"),
 ]
 SETS = [("standard", GOLDEN), ("paraphrase", HARD)]

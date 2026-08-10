@@ -17,7 +17,7 @@ No pip dependencies.
 ## Before you open a PR
 
 ```
-python tools/validate.py      # 65-check self-check: budgets, costs, tiers, skills, paths, recommender
+python tools/validate.py      # 70-check self-check: budgets, costs, tiers, skills, paths, recommender
 python tools/kb.py selftest   # KB engine smoke test
 ```
 

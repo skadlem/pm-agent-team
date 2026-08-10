@@ -73,16 +73,12 @@ PRICING = {
     "claude-fable-5": (3.0, 15.0),
     "claude-sonnet-5": (3.0, 15.0),
     "claude-opus-5": (5.0, 25.0),
-    "claude-opus-4-6": (5.0, 25.0),
     "gpt-5.6-pro": (10.0, 40.0),
     "gpt-5.5-pro": (8.0, 32.0),
     "deepseek-v4-pro": (0.28, 1.10),
     "deepseek-v4-flash": (0.14, 0.55),
     "qwen3.8-max": (0.4, 1.2),
-    "qwen3.7-max": (0.4, 1.2),
-    "qwen3.6-flash": (0.2, 0.6),
     "glm-5.2": (1.0, 3.0),
-    "kimi-k2.6": (0.95, 4.0),
     "qwq-plus": (0.8, 2.4),
 }
 

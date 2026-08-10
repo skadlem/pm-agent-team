@@ -1,10 +1,13 @@
 # PMOS Retrieval Evaluation Report
 
 Recorded 2026-08-08 on the shipped corpus (10 role namespaces + shared, 30 chunks total,
-~2.4K tokens). Benchmark: `tools/eval_kb.py` with two golden query sets:
+~2.4K tokens). Re-measured 2026-08-10 after the legal role's fundamentals joined the corpus
+(11 role namespaces + shared, 44 chunks total, ~4.1K tokens) and the golden set grew to 30
+standard + 20 paraphrase queries (3 legal queries in each set). Benchmark:
+`tools/eval_kb.py` with two golden query sets:
 
-- **standard** (27 queries): phrased like the fundamentals' vocabulary.
-- **paraphrase** (18 queries): reworded with minimal keyword overlap, e.g.
+- **standard** (30 queries): phrased like the fundamentals' vocabulary.
+- **paraphrase** (20 queries): reworded with minimal keyword overlap, e.g.
   "the deploy broke production, how do we undo it" -> DevOps fundamentals.
   This set exists because a perfect score on the standard set proves nothing about
   real agent behavior.
@@ -17,16 +20,16 @@ Metric: hits@5 (correct chunk in top 5) and MRR (mean reciprocal rank, 1.0 = alw
 |-----|------|-------:|----:|
 | standard | hybrid, offline vectors | 100% | 1.000 |
 | standard | BM25 only | 100% | 1.000 |
-| standard | offline vectors only | 100% | 0.932 |
+| standard | offline vectors only | 100% | 0.922 |
 | standard | **hybrid, Gemini embedding-2** | **100%** | **1.000** |
 | standard | Gemini vectors only | 100% | 1.000 |
-| paraphrase | hybrid, offline vectors | 100% | 0.806 |
-| paraphrase | BM25 only | 83.3% | 0.778 |
-| paraphrase | offline vectors only | 100% | 0.588 |
+| paraphrase | hybrid, offline vectors | 100% | 0.850 |
+| paraphrase | BM25 only | 80.0% | 0.775 |
+| paraphrase | offline vectors only | 100% | 0.604 |
 | paraphrase | **hybrid, Gemini embedding-2** | **100%** | **0.833** |
 | paraphrase | Gemini vectors only | 100% | **0.889** |
 
-## What Gemini embedding-2 actually improved
+## What Gemini embedding-2 actually improved (measured 2026-08-08, pre-legal corpus)
 
 - **Recall (hits@5): no change.** Even offline hashed vectors find the right chunk at this
   corpus size; BM25 alone misses 3/18 paraphrase queries that vectors catch.
@@ -40,9 +43,14 @@ Metric: hits@5 (correct chunk in top 5) and MRR (mean reciprocal rank, 1.0 = alw
 - **Capacity:** bootstrapping a project KB costs ~60 embedding calls; each search costs 1.
   Comfortably within 100 RPM.
 
+The Gemini rows above and in the table were recorded on the pre-legal corpus (30 chunks,
+27+18 queries). The 2026-08-10 offline re-measurement covers 44 chunks and 30+20 queries;
+re-run `python tools/eval_kb_api.py` with an embeddings backend configured to refresh the
+Gemini rows on the current corpus.
+
 ## Expectation for larger corpora
 
-The gain is understated here because the corpus is tiny (30 chunks). As role namespaces grow
+The gain is understated here because the corpus is tiny (44 chunks). As role namespaces grow
 with `pm-kb-enrich` project facts and scraped top-ups toward their budgets, BM25 lexical
 collisions increase and offline hashing degrades; real embeddings' advantage compounds.
 Re-run this benchmark after a few real projects to confirm.

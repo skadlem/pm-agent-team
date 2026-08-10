@@ -40,7 +40,7 @@ pm-agent-team/
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
   kb-sources/shared/       # agent operating rules (partial-context, evidence, etc.)
   templates/               # charter.md, adr.md skeletons
-  skills/                  # project-team-start, pm-kb-bootstrap, pm-kb-enrich
+  skills/                  # project-team-start, project-team-work, pm-kb-bootstrap, pm-kb-enrich
   install.cmd / install.sh # copy skills to ~/.jcode/skills, record template root
 ```
 
@@ -199,22 +199,24 @@ step — see ORCHESTRATOR.md "Resume in a future session".
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (39 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (70 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, installer idempotency).
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
-   (27 standard + 18 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
+   (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):
 
    | set | mode | hits@5 | MRR |
    |-----|------|-------:|----:|
    | standard | hybrid (shipped default) | 100% | 1.000 |
    | standard | BM25 only | 100% | 1.000 |
-   | standard | offline vectors only | 100% | 0.932 |
-   | paraphrase | hybrid | 100% | 0.806 |
-   | paraphrase | BM25 only | 83.3% | 0.778 |
-   | paraphrase | offline vectors only | 100% | 0.588 |
-   | paraphrase | **Gemini embedding-2 vectors** (measured) | **100%** | **0.889** |
-   | standard | **Gemini embedding-2 vectors** (measured) | **100%** | **1.000** |
+   | standard | offline vectors only | 100% | 0.922 |
+   | paraphrase | hybrid | 100% | 0.850 |
+   | paraphrase | BM25 only | 80.0% | 0.775 |
+   | paraphrase | offline vectors only | 100% | 0.604 |
+   | standard | **hybrid, Gemini embedding-2** (measured 2026-08-08, pre-legal corpus) | **100%** | **1.000** |
+   | standard | Gemini vectors only (measured 2026-08-08, pre-legal corpus) | 100% | **1.000** |
+   | paraphrase | **hybrid, Gemini embedding-2** (measured 2026-08-08, pre-legal corpus) | **100%** | **0.833** |
+   | paraphrase | Gemini vectors only (measured 2026-08-08, pre-legal corpus) | 100% | **0.889** |
 
    Pass threshold for hybrid on the standard set: hits@5 >= 90% and MRR >= 0.65. If you edit
    `kb-sources/`, keep the golden set in `tools/eval_kb.py` aligned.
@@ -226,7 +228,7 @@ Four levels, cheapest first:
    responses (429) are retried with backoff. Rerun the API-backed benchmark with
    `python tools/eval_kb_api.py`. Full recorded results, methodology and the weight-tuning
    sweep: [EVALUATION.md](EVALUATION.md). Headline: Gemini embedding-2 lifts vector MRR on
-   paraphrased queries from 0.588 to 0.889 (recall already 100%); the gain grows with KB size.
+   paraphrased queries from 0.604 to 0.889 (recall already 100%); the gain grows with KB size.
 3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.

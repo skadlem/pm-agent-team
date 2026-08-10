@@ -1,5 +1,5 @@
 @echo off
-rem PMOS template installer (Windows). Copies the 3 skills into ~/.jcode/skills
+rem PMOS template installer (Windows). Copies the 4 skills into ~/.jcode/skills
 rem and records the template root so skills can find it.
 setlocal
 set "TPL=%~dp0"
