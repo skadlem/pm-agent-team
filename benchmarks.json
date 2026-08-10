@@ -3449,26 +3449,6 @@
     "release": "2025-03-05"
    }
   },
-  "claude-sonnet-4-5-20250929": {
-   "scores": {
-    "coding": 58.6,
-    "verification": 69.5,
-    "reasoning": 47.9,
-    "design": 70.6,
-    "ops": 58.0,
-    "business": 86.5,
-    "marketing": 79.1
-   },
-   "cost_in": null,
-   "cost_out": null,
-   "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, arc_agi_2_external.csv, arc_agi_external.csv, cybench_external.csv, epoch_capabilities_index.csv, forecastbench_external.csv, frontiermath.csv, frontiermath_tier_4.csv, gdpval_external.csv, gpqa_diamond.csv, hle_external.csv, math_level_5.csv, metr_time_horizons_external.csv, os_world_external.csv, scicode_external.csv, simplebench_external.csv, swe_bench_verified.csv, terminalbench_external.csv, vending_bench_2_external.csv, webdev_arena_external.csv, weirdml_external.csv",
-   "confidence": "sourced",
-   "meta": {
-    "org": "Alibaba",
-    "country": "China",
-    "release": "2025-03-05"
-   }
-  },
   "claude-sonnet-4-5-20250929_2K": {
    "scores": {
     "business": 87.3,

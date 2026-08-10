@@ -1,6 +1,6 @@
 {
   "common_skills": ["verification-before-completion"],
-  "forbidden_models": ["claude-fable-5", "gpt-*"],
+  "forbidden_models": ["claude-fable-5", "gpt-*", "claude-sonnet-4-5-20250929", "deepseek-v4-pro"],
   "spawn_defaults": {
     "model": null,
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
