@@ -34,17 +34,17 @@ import pathlib
 import re
 import sys
 
-# role -> purpose weights (mirrors roster.json "purpose")
+# role -> purpose weights (fallback when roster.json has no "purpose"; mirrors roster.json)
 DEFAULT_PURPOSE = {
     "pm":        {"reasoning": 0.5, "business": 0.3, "writing": 0.2},
     "architect": {"reasoning": 0.6, "coding": 0.4},
     "designer":  {"design": 1.0},
     "backend":   {"coding": 1.0},
-    "frontend":  {"coding": 0.7, "design": 0.3},
+    "frontend":  {"coding": 0.6, "design": 0.4},
     "business":  {"business": 1.0},
-    "marketing": {"marketing": 1.0},
-    "qa":        {"verification": 1.0},
-    "devops":    {"ops": 0.7, "coding": 0.3},
+    "marketing": {"marketing": 0.7, "writing": 0.3},
+    "qa":        {"coding": 1.0},
+    "devops":    {"ops": 1.0},
 }
 
 # route ids -> benchmark dataset ids (e.g. provider-prefixed or [web] routes)
@@ -126,8 +126,13 @@ def _fmt_cost(c):
 
 
 def role_purpose(roster, role):
-    if roster and role in roster.get("roles", {}):
-        p = roster["roles"][role].get("purpose")
+    # roster.json "model_suggestions" -> purpose is authoritative (per README);
+    # DEFAULT_PURPOSE below is only the fallback when the roster has no entry.
+    if roster:
+        p = ((roster.get("model_suggestions") or {}).get(role) or {}).get("purpose")
+        if p:
+            return p
+        p = ((roster.get("roles") or {}).get(role) or {}).get("purpose")
         if p:
             return p
     return DEFAULT_PURPOSE.get(role, {"reasoning": 1.0})

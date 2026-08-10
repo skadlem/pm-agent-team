@@ -24,7 +24,7 @@
     "frontend":  {"purpose": {"coding": 0.6, "design": 0.4}},
     "business":  {"purpose": {"business": 1.0}},
     "marketing": {"purpose": {"marketing": 0.7, "writing": 0.3}},
-    "qa":        {"purpose": {"verification": 1.0}},
+    "qa":        {"purpose": {"coding": 1.0}},
     "devops":    {"purpose": {"ops": 1.0}}
   },
   "waves": [
