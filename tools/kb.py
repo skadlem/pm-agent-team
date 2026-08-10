@@ -18,6 +18,7 @@ Commands:
   budget --db PATH --config CONFIG_JSON [--json]
   reindex-vectors --db PATH
   stats --db PATH [--json]
+  clear --db PATH --ns ROLE
   selftest
 """
 import argparse, hashlib, json, math, os, sqlite3, struct, sys, time, urllib.request, urllib.error
@@ -376,6 +377,16 @@ def cmd_stats(con, args):
             total += d["tokens"]
         print("%-12s %6d chunks  ~%8d tokens total" % ("ALL", sum(d["chunks"] for d in data), total))
 
+def cmd_clear(con, args):
+    count = con.execute("SELECT COUNT(*) FROM chunks WHERE ns=?", (args.ns,)).fetchone()[0]
+    rows = con.execute("SELECT id FROM chunks WHERE ns=?", (args.ns,)).fetchall()
+    for (cid,) in rows:
+        con.execute("DELETE FROM kb_fts WHERE rowid=?", (cid,))
+        con.execute("DELETE FROM vectors WHERE id=?", (cid,))
+    con.execute("DELETE FROM chunks WHERE ns=?", (args.ns,))
+    con.commit()
+    print("cleared %d chunk(s) from namespace '%s'" % (count, args.ns))
+
 def cmd_selftest(args):
     import tempfile
     tmp = Path(tempfile.mkdtemp()) / "selftest.sqlite3"
@@ -401,6 +412,13 @@ def cmd_selftest(args):
     left = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='backend'").fetchone()[0]
     assert left < 3, "cap enforcement failed"
     print("-- cap enforcement dropped %d chunk(s), backend chunks left: %d" % (len(dropped), left))
+
+    before = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
+    args3 = argparse.Namespace(ns="pm")
+    cmd_clear(con, args3)
+    after = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
+    assert after == 0, "clear failed: %d chunks remain" % after
+    print("-- clear: removed %d pm chunk(s), %d remaining" % (before, after))
     print("SELFTEST PASS")
 
 def main():
@@ -431,6 +449,8 @@ def main():
     p.add_argument("--config", required=True); p.add_argument("--json", action="store_true")
     p = sub.add_parser("reindex-vectors"); add_db(p)
     p = sub.add_parser("stats"); add_db(p); p.add_argument("--json", action="store_true")
+    p = sub.add_parser("clear"); add_db(p)
+    p.add_argument("--ns", required=True)
     sub.add_parser("selftest")
 
     args = ap.parse_args()
@@ -459,6 +479,8 @@ def main():
         cmd_reindex(con, args)
     elif args.cmd == "stats":
         cmd_stats(con, args)
+    elif args.cmd == "clear":
+        cmd_clear(con, args)
 
 if __name__ == "__main__":
     main()
