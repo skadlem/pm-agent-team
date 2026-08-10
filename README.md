@@ -176,6 +176,7 @@ python tools/kb.py add-dir --db <db> --ns <role> --path <dir> [--priority N]
 python tools/kb.py search --db <db> "query" [--role <role>] [-k N] [--json]
 python tools/kb.py budget --db <db> --config config.json
 python tools/kb.py stats --db <db>
+python tools/kb.py clear --db <db> --ns <role>
 python tools/kb.py reindex-vectors --db <db>
 python tools/kb.py selftest
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
