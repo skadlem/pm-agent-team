@@ -93,6 +93,11 @@ cost, which the recommender treats as "expensive" when choosing within the best 
 LiveBench flags:
 - `--livebench-date <suffix>` — which release to fetch (default `2026_06_25`, the latest).
 - `--no-livebench` — skip the LiveBench fetch/merge (Epoch-only build).
+- `--livebench-only` — build from LiveBench alone (no Epoch CSVs, no baseline); rankings
+  reflect only LiveBench category scores. Note: LiveBench has no design or verification
+  categories, so those roles get no suggestion. Example:
+  `python TPL/tools/build_benchmarks.py --livebench-only --out benchmarks-livebench.json`
+  then `python TPL/tools/recommend.py --available <file> --benchmarks benchmarks-livebench.json`.
 - `--baseline <existing benchmarks.json>` — seed from a previous file when the raw Epoch
   CSVs are absent, so a regeneration only ADDS LiveBench instead of dropping curated data.
   The baseline may itself already contain a LiveBench merge: models already carrying one are

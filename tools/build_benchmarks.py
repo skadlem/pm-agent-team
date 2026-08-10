@@ -290,10 +290,15 @@ def main():
                     help="LiveBench release date suffix (e.g. 2026_06_25)")
     ap.add_argument("--no-livebench", action="store_true",
                     help="skip LiveBench fetch/merge (Epoch-only build)")
+    ap.add_argument("--livebench-only", action="store_true",
+                    help="build from LiveBench alone (no Epoch CSVs, no baseline): "
+                         "rankings reflect only LiveBench category scores")
     ap.add_argument("--baseline", default=None,
                     help="existing benchmarks.json to seed Epoch scores from when the "
                          "benchmark_data CSVs are absent (non-destructive regeneration)")
     a = ap.parse_args()
+    if a.livebench_only and a.no_livebench:
+        ap.error("--livebench-only and --no-livebench are mutually exclusive")
 
     data_dir = pathlib.Path(a.data_dir)
     # per normalized-model -> purpose -> list of scores from its benchmarks
@@ -304,7 +309,7 @@ def main():
 
     # Seed from an existing benchmarks.json when the Epoch CSVs are absent, so a
     # regeneration only ADDS LiveBench instead of dropping the curated Epoch data.
-    if a.baseline:
+    if a.baseline and not a.livebench_only:
         with open(a.baseline, encoding="utf-8") as fh:
             base = json.load(fh)
         for m, e in (base.get("models") or {}).items():
@@ -322,50 +327,51 @@ def main():
                 model_scores[m].setdefault(p, []).append(v)
         print(f"  baseline: seeded {len(baseline_entries)} models from {a.baseline}")
 
-    for fname, (purposes, col, lower) in BENCHMARKS.items():
-        f = data_dir / fname
-        if not f.exists():
-            print(f"  ! missing {fname}")
-            continue
-        with open(f, encoding="utf-8") as fh:
-            rows = list(csv.DictReader(fh))
-        # collect (model, score) pairs, then min-max normalize THIS benchmark to 0-100
-        pairs = []
-        for row in rows:
-            name = (row.get("Model version") or "").strip()
-            score = norm_score(col, row.get(col))
-            if name and score is not None:
-                pairs.append((norm_model(name), score))
-        if not pairs:
-            print(f"  {fname}: 0 rows used")
-            continue
-        vals = [s for _, s in pairs]
-        lo, hi = min(vals), max(vals)
-        span = hi - lo
-        for m, raw in pairs:
-            if span > 0:
-                z = (hi - raw) / span if lower else (raw - lo) / span
-                score = round(z * 100.0, 1)
-            else:
-                score = 100.0
-            model_scores.setdefault(m, {})
-            model_meta.setdefault(m, {})
-            # metadata from the first row for this model (org may be blank in some files)
-            model_meta[m].setdefault("org", "")
+    if not a.livebench_only:
+        for fname, (purposes, col, lower) in BENCHMARKS.items():
+            f = data_dir / fname
+            if not f.exists():
+                print(f"  ! missing {fname}")
+                continue
+            with open(f, encoding="utf-8") as fh:
+                rows = list(csv.DictReader(fh))
+            # collect (model, score) pairs, then min-max normalize THIS benchmark to 0-100
+            pairs = []
             for row in rows:
-                if (row.get("Model version") or "").strip() == name and (row.get("Organization") or row.get("Company") or ""):
-                    model_meta[m]["org"] = row.get("Organization") or row.get("Company") or ""
-                    model_meta[m]["country"] = row.get("Country") or ""
-                    model_meta[m]["release"] = (row.get("Release date") or "")[:10]
-                    break
-            model_benchmarks.setdefault(m, set()).add(fname)
-            for purpose, w in purposes.items():
-                model_scores[m].setdefault(purpose, []).append(score)
-        print(f"  {fname}: {len(pairs)} rows used")
+                name = (row.get("Model version") or "").strip()
+                score = norm_score(col, row.get(col))
+                if name and score is not None:
+                    pairs.append((norm_model(name), score))
+            if not pairs:
+                print(f"  {fname}: 0 rows used")
+                continue
+            vals = [s for _, s in pairs]
+            lo, hi = min(vals), max(vals)
+            span = hi - lo
+            for m, raw in pairs:
+                if span > 0:
+                    z = (hi - raw) / span if lower else (raw - lo) / span
+                    score = round(z * 100.0, 1)
+                else:
+                    score = 100.0
+                model_scores.setdefault(m, {})
+                model_meta.setdefault(m, {})
+                # metadata from the first row for this model (org may be blank in some files)
+                model_meta[m].setdefault("org", "")
+                for row in rows:
+                    if (row.get("Model version") or "").strip() == name and (row.get("Organization") or row.get("Company") or ""):
+                        model_meta[m]["org"] = row.get("Organization") or row.get("Company") or ""
+                        model_meta[m]["country"] = row.get("Country") or ""
+                        model_meta[m]["release"] = (row.get("Release date") or "")[:10]
+                        break
+                model_benchmarks.setdefault(m, set()).add(fname)
+                for purpose, w in purposes.items():
+                    model_scores[m].setdefault(purpose, []).append(score)
+            print(f"  {fname}: {len(pairs)} rows used")
 
     # --- third source: LiveBench ----------------------------------------------
     lb_stats = None
-    if not a.no_livebench:
+    if a.livebench_only or not a.no_livebench:
         lb_dir = data_dir / f"livebench_{a.livebench_date}"
         if fetch_livebench(a.livebench_date, lb_dir):
             lb_stats = ingest_livebench(model_scores, model_meta, model_benchmarks,
@@ -403,9 +409,9 @@ def main():
             entry["confidence"] = "sourced"
             models_out[m] = entry
             continue
-        # Brand-new model from the Epoch CSV loop (no baseline).
+        # Brand-new model (no baseline) from the Epoch CSV loop and/or LiveBench.
         cin, cout = PRICING.get(m, (None, None))
-        srcs = ["Epoch AI Benchmarking Hub (epoch.ai/benchmarks)"]
+        srcs = [] if a.livebench_only else ["Epoch AI Benchmarking Hub (epoch.ai/benchmarks)"]
         if lb_files:
             srcs.append(f"LiveBench ({', '.join(lb_files)})")
         src = " + ".join(srcs)
@@ -421,25 +427,35 @@ def main():
             "meta": model_meta[m],
         }
 
-    as_of = "2026-08-08"
-    lb_note = ""
-    lb_present = bool(lb_stats and lb_stats["models"]) or any(
-        "already_livebenched" in bset for bset in model_benchmarks.values()
-    )
-    if lb_present:
+    if a.livebench_only:
         as_of = "2026-08-10"
-        lb_note = (f" LiveBench release {a.livebench_date} (livebench.ai, "
-                   "contamination-free) was merged as a third source: category scores "
-                   "min-max normalized per category then mapped to purposes via "
-                   "tools/build_benchmarks.py LIVEBENCH_PURPOSE. cost prices for models "
-                   "missing from the curated overlay were filled from LiveBench's cost file.")
-    out = {
-        "as_of": as_of,
-        "note": "Generated by tools/build_benchmarks.py from Epoch AI benchmark hub CSVs "
+        note = (f"Generated by tools/build_benchmarks.py from LiveBench release "
+                f"{a.livebench_date} only (livebench.ai, contamination-free). Category scores "
+                "are min-max normalized per category then mapped to purposes via "
+                "tools/build_benchmarks.py LIVEBENCH_PURPOSE. Cost prices come from "
+                "LiveBench's cost file; models without pricing get null (recommend.py treats "
+                "null cost as expensive). No Epoch data is included.")
+    else:
+        as_of = "2026-08-08"
+        lb_note = ""
+        lb_present = bool(lb_stats and lb_stats["models"]) or any(
+            "already_livebenched" in bset for bset in model_benchmarks.values()
+        )
+        if lb_present:
+            as_of = "2026-08-10"
+            lb_note = (f" LiveBench release {a.livebench_date} (livebench.ai, "
+                       "contamination-free) was merged as a third source: category scores "
+                       "min-max normalized per category then mapped to purposes via "
+                       "tools/build_benchmarks.py LIVEBENCH_PURPOSE. cost prices for models "
+                       "missing from the curated overlay were filled from LiveBench's cost file.")
+        note = ("Generated by tools/build_benchmarks.py from Epoch AI benchmark hub CSVs "
                 "(epoch.ai/benchmarks, CC BY 4.0). Scores are 0-100 purpose means across the "
                 "mapped benchmarks. cost_in/cost_out are USD per 1M tokens estimates; "
                 "models without pricing get null (recommend.py treats null cost as expensive)."
-                + lb_note,
+                + lb_note)
+    out = {
+        "as_of": as_of,
+        "note": note,
         "models": models_out,
         "purposes": sorted({p for m in models_out.values() for p in m["scores"]}),
     }
