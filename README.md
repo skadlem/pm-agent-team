@@ -71,16 +71,30 @@ it. See ORCHESTRATOR.md "Worker model fallback".
 
 `benchmarks.json` is GENERATED from Epoch AI's benchmark hub data (CC BY 4.0,
 `benchmark_data/`, ~75 benchmark CSVs: SWE-bench Verified, GPQA, ARC-AGI, MMLU, webdev,
-terminalbench, etc.). Regenerate it whenever you refresh the data:
+terminalbench, etc.), merged with **LiveBench** (livebench.ai, contamination-free,
+fetched from the `LiveBench/new-livebench` repo) as a third source. Regenerate it whenever
+you refresh the data:
 
 ```
 python TPL/tools/build_benchmarks.py --data-dir <path/to/benchmark_data> --out benchmarks.json
 ```
 
 Scores are per-benchmark min-max normalized to 0-100 (handles arbitrary scales and
-lower-is-better benchmarks), then averaged per purpose. Costs come from a curated pricing
-overlay inside the generator (Epoch data has no prices); models without pricing get null
+lower-is-better benchmarks), then averaged per purpose. LiveBench category scores
+(reasoning, coding, agentic coding, math, data analysis, language, instruction-following)
+are min-max normalized per category and mapped to purposes via `LIVEBENCH_PURPOSE` in the
+generator. Costs come from a curated pricing overlay (Epoch has no prices), supplemented
+from LiveBench's cost file for models the overlay lacks; models without pricing get null
 cost, which the recommender treats as "expensive" when choosing within the best tier.
+
+LiveBench flags:
+- `--livebench-date <suffix>` — which release to fetch (default `2026_06_25`, the latest).
+- `--no-livebench` — skip the LiveBench fetch/merge (Epoch-only build).
+- `--baseline <existing benchmarks.json>` — seed from a previous file when the raw Epoch
+  CSVs are absent, so a regeneration only ADDS LiveBench instead of dropping curated data.
+  The baseline may itself already contain a LiveBench merge: models already carrying one are
+  preserved byte-identically (regeneration is idempotent, no double-counting), and only the
+  `as_of` date advances.
 
 Route ids that differ from dataset names are aliased (e.g. `gpt-5.6-pro[web]` -> the
 closest scored 5.6-class entry). Models with no benchmark data are reported explicitly and

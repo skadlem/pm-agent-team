@@ -172,7 +172,17 @@ for rr in res:
     if not rr["suggested"]:
         continue
     scores = {}
+    # mirror recommend()'s forbidden_models filter so the "expected" cheapest
+    # model is computed over the same set recommend actually suggests from
+    forbid = set()
+    for f in (roster.get("forbidden_models") or []):
+        if f.endswith("*"):
+            forbid.update(m["id"] for m in avail if m["id"].startswith(f[:-1]))
+        else:
+            forbid.add(f)
     for mid in avail:
+        if mid["id"] in forbid:
+            continue
         bmid = rmod.normalize_id(mid["id"])
         e = bench.get(bmid)
         if e:
