@@ -1,6 +1,6 @@
 {
   "common_skills": ["verification-before-completion"],
-  "forbidden_models": ["claude-fable-5"],
+  "forbidden_models": ["claude-fable-5", "gpt-*"],
   "spawn_defaults": {
     "model": null,
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
