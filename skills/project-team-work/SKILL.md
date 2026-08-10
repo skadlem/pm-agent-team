@@ -22,9 +22,14 @@ Read `TPL/ORCHESTRATOR.md` in full, plus `TPL/roster.json` and `TPL/config.json`
 ## Step 2: existing state or fresh brownfield launch
 
 If the current working directory already contains `.pmos/`:
-- RESUME: read `.pmos/log.md` (tail) and `.pmos/charter.md`, run
-  `python TPL/tools/kb.py budget --db .pmos/kb.sqlite3 --config TPL/config.json`,
-  ask the user what to continue, proceed from the log.
+- RESUME: run the state detector FIRST (do not guess from memory):
+  `python TPL/tools/state.py --project . --config TPL/config.json`.
+  It reports the stage (0..9), the next launch step, and pre-flight checks for everything
+  completed so far (artifacts non-empty, team-model JSON valid, KB budget runs, gates logged,
+  jurisdiction `as_of` fresh).
+- All OK: report "project is at stage N (<name>); next: <step>", confirm with the user, proceed
+  from that step. WARNs: note, continue. FAILs: fix the broken artifact from log/git, re-run
+  state.py until clean; never redo a completed stage. Then ask the user what to continue with.
 
 Otherwise:
 

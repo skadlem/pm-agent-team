@@ -137,6 +137,48 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "budget", "--d
                     "--config", str(TPL / "config.json")], capture_output=True, text=True)
 check("budget", r.returncode == 0 and "shared" in r.stdout)
 
+print("== 6b. State detector (stage detection + pre-flight) ==")
+st = tmp / "proj"
+(st / ".pmos" / "plans").mkdir(parents=True)
+(st / ".pmos" / "out" / "pm").mkdir(parents=True)
+(st / "config.json").write_text(json.dumps({"legal_strict": False}))
+subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "init", "--db", str(st / ".pmos" / "kb.sqlite3")],
+               capture_output=True)
+(st / ".pmos" / "charter.md").write_text("# C\n" + "x" * 200)
+(st / ".pmos" / "plans" / "plan.md").write_text("# P\n" + "y" * 200)
+(st / ".pmos" / "team-model.json").write_text(json.dumps({"architect": {"model": "m", "effort": "low"},
+                                                          "designer": {"model": "m", "effort": "low"},
+                                                          "budget_usd": 20.0}))
+(st / ".pmos" / "team-model-ladder.json").write_text(json.dumps({"architect": ["m"]}))
+for role, rel in [("architect", "architecture.md"), ("designer", "ui-spec.md")]:
+    (st / ".pmos" / "out" / role).mkdir(parents=True)
+    (st / ".pmos" / "out" / role / rel).write_text("# %s\n" % role + "z" * 200)
+(st / ".pmos" / "log.md").write_text("## GATE 1\nok\n## Enrich\ndone\n## GATE 2\nok\n")
+
+def state_out(project):
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "state.py"), "--project", str(project),
+                        "--config", str(project / "config.json"), "--json"],
+                       capture_output=True, text=True)
+    try:
+        return r.returncode, json.loads(r.stdout)
+    except json.JSONDecodeError:
+        return r.returncode, {}
+
+rc, so = state_out(st)
+check("state.py detects GATE 2 passed (light legal)", so.get("stage") == 5 and rc == 0,
+      "stage=%s rc=%s" % (so.get("stage"), rc))
+
+# rollback: delete a wave-2 artifact -> stage must roll back to 2, exit 0
+broken = tmp / "proj-broken"
+subprocess.run(["cp", "-r", str(st), str(broken)])
+(broken / ".pmos" / "out" / "architect" / "architecture.md").unlink()
+rc, so = state_out(broken)
+check("state.py rolls back when a marker artifact vanished",
+      so.get("stage") == 2, "stage=%s rc=%s" % (so.get("stage"), rc))
+
+rc, so = state_out(tmp / "no-pmos")
+check("state.py fresh dir -> has_pmos false", so.get("has_pmos") is False, "")
+
 print("== 7. Query edge cases (must not crash) ==")
 for label, q in [("garbage", "zzzznonsensequery"), ("empty", ""),
                  ("FTS special chars", 'C++ "quoted" (fast) [beta] *star*')]:

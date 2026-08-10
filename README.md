@@ -178,7 +178,13 @@ python tools/kb.py budget --db <db> --config config.json
 python tools/kb.py stats --db <db>
 python tools/kb.py reindex-vectors --db <db>
 python tools/kb.py selftest
+python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
+python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 ```
+
+On resume, `state.py` tells you where the project left off (stage 0..9 derived from artifacts on
+disk), whether everything before that stage is intact (pre-flight checks), and the next launch
+step — see ORCHESTRATOR.md "Resume in a future session".
 
 ## Customizing
 

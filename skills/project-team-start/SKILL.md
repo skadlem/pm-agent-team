@@ -23,8 +23,14 @@ Read `TPL/ORCHESTRATOR.md` in full. It is your operating manual for this launch.
 ## Step 2: check for an existing project
 
 If the current working directory already contains `.pmos/`:
-- This is a RESUME, not a fresh start. Read `.pmos/log.md` (tail), `.pmos/charter.md`, and run
-  `python TPL/tools/kb.py budget --db .pmos/kb.sqlite3 --config TPL/config.json`.
+- This is a RESUME, not a fresh start. Run the state detector FIRST (do not guess from memory):
+  `python TPL/tools/state.py --project . --config TPL/config.json`.
+  It reports the stage the project is at (0..9), the next launch step, and a pre-flight check
+  list for everything completed so far (artifacts non-empty, team-model JSON valid, KB budget
+  runs, gates logged, jurisdiction `as_of` fresh).
+- All OK: report "project is at stage N (<name>); next: <step>", confirm with the user, and
+  continue the wave protocol from that step. WARNs: note them, continue. FAILs: fix the broken
+  artifact from log/git, re-run state.py until clean; never redo a completed stage.
 - Ask the user what they want to continue with, then continue the wave protocol from the log.
 
 Otherwise detect the MODE, then proceed with a fresh launch per ORCHESTRATOR.md:
