@@ -52,6 +52,10 @@ charter, baseline QA). No extra command or flag is needed.
    before spawning the PM. Greenfield empty repo: skip and note it.
 4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
    user's project description. Wait for charter + plan + roster proposal.
+   IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
+   EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
+   per ORCHESTRATOR.md "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
+   swarm default, e.g. Fable 5). GATE 1 still decides the real team models.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
    selection. If `~/.jcode/pmos-team-defaults.json` exists, propose it as the role -> model table
    (user's saved preference; verify its models are still in `swarm list_models`). Otherwise compute

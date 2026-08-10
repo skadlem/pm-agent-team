@@ -47,6 +47,10 @@ Otherwise:
    `.pmos/out/architect/current-state.md` via graphify queries only.
 9. Wave 1: spawn the PM worker with `TPL/templates/charter-brownfield.md` + the user's change
    description + current-state.md. Wait for charter, plan, roster proposal (justified by impact surface).
+   IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
+   EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
+   per ORCHESTRATOR.md "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
+   swarm default, e.g. Fable 5). GATE 1 still decides the real team models.
 10. GATE 1: present roster + model selection. If `~/.jcode/pmos-team-defaults.json` exists, propose
     that role -> model table as-is (user's saved preference; verify its models still appear in
     `swarm list_models`). Otherwise compute via `swarm list_models` ->

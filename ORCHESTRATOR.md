@@ -52,6 +52,15 @@ to you. Record the answer in `.pmos/log.md`.
    - Load the /graphify skill and build/update the repo graph (skip if empty greenfield repo).
    - Brownfield: propose adding `.pmos/kb.sqlite3` to the project `.gitignore` (binary, regenerable;
      everything else in .pmos is plain markdown and should be committed).
+
+Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the team model table
+  exists (GATE 1). NEVER spawn them without an explicit model: an unmodeled spawn inherits the
+  swarm default (e.g. Fable 5), which may be a model the user forbids. Instead, run
+  `swarm list_models` once, pick the cheapest AVAILABLE model NOT in roster.json
+  `forbidden_models` (the user may name a different temporary model), and pass it explicitly
+  at spawn (`model` in the swarm tool). Log the choice in `.pmos/log.md`. This is temporary:
+  GATE 1 still decides the real per-role team models.
+
 2. Wave 0 (DISCOVERY, brownfield only): spawn ONE architect-labeled worker with the assignment:
    map the existing system using graphify queries (never full reads). Output
    `.pmos/out/architect/current-state.md` (<300 lines): module map with ownership/responsibilities,
@@ -145,7 +154,8 @@ Cost-quality defaults (see roster.json for the live values): critical roles (pm,
 
 ```
 You are the {{role_name}} on this project. Working dir: {{PROJ}}.
-Spawn model: {{model}} (effort {{effort}}) per the user-approved team-model.json.
+Spawn model: {{model}} (effort {{effort}}). Pre-GATE-1 waves: the temporary model picked
+per the "Pre-GATE-1 worker model" rule. Post-GATE-1: per the user-approved team-model.json.
 
 Your assignment:
 {{assignment}}
