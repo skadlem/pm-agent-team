@@ -43,7 +43,7 @@ DEFAULT_PURPOSE = {
     "frontend":  {"coding": 0.6, "design": 0.4},
     "business":  {"business": 1.0},
     "marketing": {"marketing": 0.7, "writing": 0.3},
-    "qa":        {"coding": 1.0},
+    "qa":        {"verification": 1.0},
     "devops":    {"ops": 1.0},
 }
 
