@@ -24,5 +24,9 @@ Status: draft | Owner: PM agent | Updated: {{date}}
 ## 7. Risks
 <!-- Top 3-5 risks with likelihood, impact, mitigation. -->
 
-## 8. Team
+## 8. Deployment jurisdictions (required)
+<!-- Where the project will be deployed or reach users: country/region codes, e.g. EU, US, CN.
+     The PM must ask the user if this is unknown. Drives the legal advisor's jurisdiction pack. -->
+
+## 9. Team
 <!-- Role -> responsibility. Only approved roles from the roster proposal. -->
