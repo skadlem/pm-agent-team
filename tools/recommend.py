@@ -71,17 +71,24 @@ def normalize_id(mid: str) -> str:
 
 
 def parse_available(path):
-    """Parse `swarm list_models` text output or a JSON list into [{id, available}]."""
+    """Parse `swarm list_models` text output or a JSON list into [{id, available, provider}]."""
     text = pathlib.Path(path).read_text(encoding="utf-8", errors="replace").strip()
     if text.startswith("["):
         data = json.loads(text)
-        return [{"id": m["id"], "available": m.get("available", True)} for m in data]
+        return [{"id": m["id"], "available": m.get("available", True),
+                 "provider": m.get("provider")} for m in data]
     models = []
     for line in text.splitlines():
-        m = re.match(r"^\s*[-*]\s+(\S+)\s+via\s+\S+.*?(\[unavailable\])?\s*(?:\(.*\))?$", line)
-        if not m:
+        # - <id> via <provider> [auth-bracket] [unavailable]? (detail)
+        m = re.match(r"^\s*[-*]\s+(\S+)\s+via\s+(.+?)\s*(\[[^\]]*\])\s*(?:\(.*\))?$", line)
+        if m:
+            models.append({"id": m.group(1),
+                           "available": "[unavailable]" not in line,
+                           "provider": m.group(2).strip()})
             continue
-        models.append({"id": m.group(1), "available": not m.group(2)})
+        m2 = re.match(r"^\s*[-*]\s+(\S+)\s+via\s+\S+.*?(\[unavailable\])?\s*(?:\(.*\))?$", line)
+        if m2:
+            models.append({"id": m2.group(1), "available": not m2.group(2)})
     # fallback: any bare id tokens on "- " lines
     if not models:
         for line in text.splitlines():
@@ -162,8 +169,9 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
                 continue
             scores[mid] = {"score": s, "missing": missing, "entry": entry}
         if not scores:
-            out.append({"role": role, "suggested": None, "reason": "no benchmark data for any available model",
-                        "tier": [], "ladder": [], "purpose": purpose})
+            out.append({"role": role, "suggested": None, "suggested_provider": None,
+                        "reason": "no benchmark data for any available model",
+                        "tier": [], "ladder": [], "providers": {}, "purpose": purpose})
             continue
         best = max(s["score"] for s in scores.values())
         in_tier = {m: d for m, d in scores.items() if d["score"] >= tier * best}
@@ -174,27 +182,33 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
         alt = sorted(in_tier, key=lambda m: (-scores[m]["score"], blended_cost(scores[m]["entry"]) or 1e12))[:3]
         ladder = [m for m in sorted(scores, key=lambda m: (-scores[m]["score"],
                  blended_cost(scores[m]["entry"]) or 1e12))]
+        prov = {m["id"]: m.get("provider") for m in available}
+        providers = {m: prov.get(m) for m in scores}
         out.append({
             "role": role,
             "suggested": pick,
+            "suggested_provider": prov.get(pick),
             "reason": "score {:.1f}, cost ${}/1M blended".format(picked["score"],
                      _fmt_cost(blended_cost(picked["entry"]))),
             "missing_data": picked["missing"],
             "tier": alt,
             "ladder": ladder,
+            "providers": providers,
             "purpose": purpose,
         })
     return out
 
 
 def fmt_table(results, benchmarks):
-    lines = ["%-12s %-22s %-34s alternatives" % ("role", "suggested", "basis")]
+    lines = ["%-12s %-22s %-30s %s" % ("role", "suggested", "basis", "alternatives")]
     for r in results:
         if not r["suggested"]:
             lines.append("%-12s %-22s %s" % (r["role"], "(none)", r["reason"]))
             continue
-        lines.append("%-12s %-22s %-34s %s" % (
-            r["role"], r["suggested"], r["reason"],
+        sp = r.get("suggested_provider")
+        shown = "%s @%s" % (r["suggested"], sp) if sp else r["suggested"]
+        lines.append("%-12s %-22s %-30s %s" % (
+            r["role"], shown, r["reason"],
             ", ".join(a for a in r["tier"] if a != r["suggested"]) or "-"))
         if r["missing_data"]:
             lines.append("  ! no data for purposes: %s (refresh benchmarks)" % ", ".join(r["missing_data"]))
