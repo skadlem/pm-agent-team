@@ -21,6 +21,7 @@
     "designer":  {"purpose": {"design": 1.0}},
     "backend":   {"purpose": {"coding": 1.0}},
     "frontend":  {"purpose": {"coding": 0.6, "design": 0.4}},
+    "legal":     {"purpose": {"reasoning": 0.4, "business": 0.4, "writing": 0.2}},
     "business":  {"purpose": {"business": 1.0}},
     "marketing": {"purpose": {"marketing": 0.7, "writing": 0.3}},
     "qa":        {"purpose": {"verification": 1.0}},
@@ -100,6 +101,21 @@
       "skills": ["verification-before-completion", "karpathy-guidelines"],
       "when": "Projects needing CI, deployment, environments, secrets, backups, or observability. Also carries security hardening.",
       "artifacts": [".pmos/out/devops/infra.md", "CI/deploy config per plan"]
+    },
+    "legal": {
+      "name": "Legal Advisor (Risk & Policy)",
+      "kb_namespace": "legal",
+      "skills": [
+        "verification-before-completion",
+        "karpathy-guidelines"
+      ],
+      "when": "Every project: regulatory risk assessment for the charter's deployment jurisdictions. Strict mode (config.json legal_strict) does a jurisdiction pack + gate blocking; light mode is advisory only.",
+      "artifacts": [
+        ".pmos/out/legal/data-inventory.md",
+        ".pmos/out/legal/licenses.md",
+        ".pmos/out/legal/risk-register.md",
+        ".pmos/out/legal/compliance-calendar.md"
+      ]
     }
   }
 }

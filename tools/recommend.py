@@ -48,6 +48,7 @@ DEFAULT_PURPOSE = {
     "designer":  {"design": 1.0},
     "backend":   {"coding": 1.0},
     "frontend":  {"coding": 0.6, "design": 0.4},
+    "legal":     {"reasoning": 0.4, "business": 0.4, "writing": 0.2},
     "business":  {"business": 1.0},
     "marketing": {"marketing": 0.7, "writing": 0.3},
     "qa":        {"verification": 1.0},
