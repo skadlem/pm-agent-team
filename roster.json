@@ -45,7 +45,7 @@
     "designer": {
       "name": "Designer",
       "kb_namespace": "designer",
-      "skills": ["hallmark", "brand"],
+      "skills": ["ui-ux-pro-max", "hallmark", "brand"],
       "when": "Projects with a user-facing surface. Owns UI spec, design tokens, states, accessibility requirements.",
       "artifacts": [".pmos/out/designer/ui-spec.md", ".pmos/out/designer/design-tokens.md"]
     },
