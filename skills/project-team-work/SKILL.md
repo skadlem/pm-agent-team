@@ -43,6 +43,8 @@ Otherwise:
 5. Run the /pm-kb-bootstrap skill (per-role fundamentals, capped).
 6. Propose adding `.pmos/kb.sqlite3` to the project `.gitignore`.
 7. Build/update the graphify index on the repo (load /graphify; `--update` if `graphify-out/` exists).
+   If `graphify-out/graph.json` is MISSING, run `/graphify <path>` NOW and do not proceed until
+   the graph exists (Wave 0 and every worker repo query depend on it).
 8. Wave 0 (discovery): spawn ONE architect-labeled worker per ORCHESTRATOR.md to produce
    `.pmos/out/architect/current-state.md` via graphify queries only.
 9. Wave 1: spawn the PM worker with `TPL/templates/charter-brownfield.md` + the user's change

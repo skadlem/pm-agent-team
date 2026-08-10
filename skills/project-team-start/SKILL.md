@@ -48,8 +48,9 @@ charter, baseline QA). No extra command or flag is needed.
 2. If the user has NOT already run /pm-kb-bootstrap for this project, run the /pm-kb-bootstrap
    skill now (it fills the per-role fundamentals into the KB with the token cap enforced).
 3. If the repo has code (brownfield), build/update the graphify index (load the /graphify skill;
-   use `--update` if `graphify-out/` already exists) and run WAVE 0 discovery per ORCHESTRATOR.md
-   before spawning the PM. Greenfield empty repo: skip and note it.
+   use `--update` if `graphify-out/` already exists). If `graphify-out/graph.json` is MISSING,
+   run `/graphify <path>` NOW and do not proceed to Wave 0 until the graph exists (Wave 0 and
+   every worker repo query depend on it). Greenfield empty repo: skip and note it.
 4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
    user's project description. Wait for charter + plan + roster proposal.
    IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an

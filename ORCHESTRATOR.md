@@ -24,6 +24,9 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
    a. KB: `python TPL/tools/kb.py search --db PROJ/.pmos/kb.sqlite3 "query" --role <ns> -k 5`
    b. Repo questions: use the /graphify skill's query tools (never re-read the whole codebase).
       After material changes to the repo, the coordinator refreshes with `/graphify <path> --update`.
+      Code-touching workers (architect, backend, frontend, devops, qa) MUST run at least one
+      graphify query before editing anything and record each query in their notes
+      (.pmos/out/<role>/notes.md). The coordinator checks this at every checkpoint.
    c. Targeted file read (read tool) ONLY for a specific file you already know you need.
 3. Artifacts are small files (markdown) under `.pmos/out/<role>/`. Keep each under ~300 lines.
 4. Before claiming done, apply the verification-before-completion skill: evidence, not assertions.
@@ -50,6 +53,9 @@ to you. Record the answer in `.pmos/log.md`.
    - `mkdir .pmos/{plans,decisions,log,kb-sources}` and `python TPL/tools/kb.py init --db .pmos/kb.sqlite3`
    - If `.pmos/kb.sqlite3` already exists, this is a resumed project: read `.pmos/log.md` tail and charter instead.
    - Load the /graphify skill and build/update the repo graph (skip if empty greenfield repo).
+     Brownfield: if `graphify-out/graph.json` is missing, run `/graphify <path>` NOW and do not
+     proceed to Wave 0 until the graph exists (Wave 0 and every worker repo query depends on it).
+     Say so to the user when you build it.
    - Brownfield: propose adding `.pmos/kb.sqlite3` to the project `.gitignore` (binary, regenerable;
      everything else in .pmos is plain markdown and should be committed).
 
@@ -127,6 +133,9 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    accepted it, GATE 2 is BLOCKED until resolved or accepted.
 9. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
    where independent. Workers read plan + their role's out dir, query KB + graphify as needed.
+   BEFORE spawning Wave 3, check the graph is fresh: compare the newest source file mtime under
+   the project (excluding .pmos/, graphify-out/, .git/) against `graphify-out/graph.json`; if any
+   source is newer, run `/graphify <path> --update` first and say so.
 10. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
    to wave 3 with the defect report. Pass -> checkpoint.
    Brownfield: QA FIRST runs the project's existing test suite and records the baseline in its
@@ -137,9 +146,12 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    (nothing silently disappears) and append a wave-4 section with L-ids and status changes,
    without rewriting the register.
 11. Checkpoint: append to `.pmos/log.md` (date, wave, what shipped, what's next), commit if repo,
-   report to user. Commit as you go at each gate. Record measurable facts too, so the run can be
-   evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count, rework
-   loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria pass rate.
+   report to user. Commit as you go at each gate. Also verify each code-touching worker's notes
+   record the graphify queries they ran (rule 2b); flag any worker that edited without one
+   (re-run its graphify queries and re-check its diff). Record measurable facts too, so the run
+   can be evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count,
+   rework loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria
+   pass rate.
    Also log the estimated spend (see GATE 1 cost guardrail) and the remaining budget against
    `budget_usd`; stop and ask if the estimate is over the cap.
 
