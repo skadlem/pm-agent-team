@@ -47,6 +47,8 @@ check("total cap positive", total > 0)
 cost_cfg = cfg.get("cost") or {}
 check("cost cap positive", (cost_cfg.get("max_project_cost_usd") or 0) > 0)
 check("est_tokens_per_worker positive", (cost_cfg.get("est_tokens_per_worker") or 0) > 0)
+mfb = (cfg.get("context_rules") or {}).get("max_fallbacks_per_task")
+check("max_fallbacks_per_task is a positive int", isinstance(mfb, int) and mfb > 0, str(mfb))
 
 print("== 2. Referenced skills are loadable ==")
 roster = json.loads((TPL / "roster.json").read_text(encoding="utf-8"))

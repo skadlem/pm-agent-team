@@ -73,7 +73,8 @@ At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
 That recommended model is only the FIRST attempt. Pass `--ladder-out .pmos/team-model-ladder.json`
 and `recommend.py` also writes each role's best-first fallback ladder. If a worker fails (runs out
 of tokens, crashes, or hits an unrecoverable error), the coordinator retries the same task on the
-next model in that role's ladder (up to 2 fallbacks, then escalates to you) instead of abandoning
+next model in that role's ladder (up to `context_rules.max_fallbacks_per_task` = 4 fallbacks,
+then escalates to you) instead of abandoning
 it. See ORCHESTRATOR.md "Worker model fallback".
 
 When the same model is served by several providers on this system (e.g. `glm-5.2` via the Aliyun

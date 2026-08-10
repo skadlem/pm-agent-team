@@ -60,5 +60,6 @@ Otherwise:
 - Only spawn roles the user approved; the do-not-touch list in the charter is binding.
 - Never skip the verification gate before declaring a milestone done.
 - Model fallback: if a spawned worker fails (out of tokens, crash, unrecoverable error), retry the
-  same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to 2
-  fallbacks per task, then escalate to the user. See ORCHESTRATOR.md "Worker model fallback".
+  same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to
+  `max_fallbacks_per_task` (config.json `context_rules`, default 4) fallbacks per task, then
+  escalate to the user. See ORCHESTRATOR.md "Worker model fallback".

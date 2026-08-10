@@ -18,7 +18,8 @@
   "context_rules": {
     "search_k_default": 5,
     "excerpt_max_chars": 1200,
-    "graphify_budget_tokens": 1500
+    "graphify_budget_tokens": 1500,
+    "max_fallbacks_per_task": 4
   },
   "cost": {
     "note": "Optional project spend guardrail. The coordinator estimates spend as sum over workers of (blended $/1M of the role's model) x (est_tokens_per_worker / 1M), logged in .pmos/log.md. If the running estimate exceeds max_project_cost_usd, the coordinator STOPS and asks the user to raise the cap, cut roles, or downgrade models. The user can override the cap per project at GATE 1.",

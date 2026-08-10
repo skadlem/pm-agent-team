@@ -187,7 +187,7 @@ untried model in that role's ladder:
    spawn). Never continue a half-finished run; re-run the task from its clean start.
 4. Reuse the task's upstream artifacts (plan, out dirs, KB); do not re-run independent
    already-completed tasks.
-5. Cap fallbacks per task at MAX_FALLBACKS (default 2). After that, STOP and escalate to the user:
+5. Cap fallbacks per task at `max_fallbacks_per_task` (config.json `context_rules`, default 4). After that, STOP and escalate to the user:
    give the failure reason and the models already tried. Do not loop indefinitely.
 6. If a role's ladder is empty or exhausted, escalate to the user rather than guessing.
 
