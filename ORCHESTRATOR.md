@@ -74,13 +74,21 @@ to you. Record the answer in `.pmos/log.md`.
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
-      (benchmarks.json), keep the best tier, and pick the cheapest of that tier. Show that table.
+      (benchmarks.json), keep each role's best tier (per-role `role_tiers` in roster.json, NOT a
+      flat threshold), and pick the cheapest of that tier. Show that table, including each role's
+      default effort (roster.json `role_effort`) and its blended $/1M cost.
       The `--ladder-out` file holds each role's best-first fallback ladder for the model-fallback rule.
    c. The user may OK the table, change a model/effort, or remove a role entirely.
       Record the approved (role -> model, effort) map in `.pmos/team-model.json`.
    d. If a role has no benchmark data (marked by recommend.py), refresh first:
       `python TPL/tools/recommend.py refresh` and update benchmarks.json, or let the
       user pick manually for that role. Do not proceed without approval.
+   e. COST GUARDRAIL: ask the user for a project spend cap in USD (default: config.json
+      `cost.max_project_cost_usd`, currently 20). Write it to `.pmos/team-model.json`
+      as `budget_usd`. Before each wave, estimate spend = sum over spawned workers of
+      (model's `cost_per_1m` from recommend.py --json) x (config.json `cost.est_tokens_per_worker`
+      / 1M); log each wave's estimate in `.pmos/log.md`. If the running estimate exceeds
+      `budget_usd`, STOP and ask: raise the cap, drop a role, or move a role to a cheaper model.
 5. Jurisdiction pack (legal): read the charter's Deployment jurisdictions section.
    For each country/region, research and write `.pmos/kb-sources/legal/jurisdiction-<cc>.md`
    with an `as_of` date, citing each law and its source URL. Checklist:
@@ -123,6 +131,15 @@ to you. Record the answer in `.pmos/log.md`.
    report to user. Commit as you go at each gate. Record measurable facts too, so the run can be
    evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count, rework
    loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria pass rate.
+   Also log the estimated spend (see GATE 1 cost guardrail) and the remaining budget against
+   `budget_usd`; stop and ask if the estimate is over the cap.
+
+Cost-quality defaults (see roster.json for the live values): critical roles (pm, architect, qa)
+  keep a 0.95 tier (near-best score only), implementation roles (backend, legal) 0.92, frontend/
+  devops 0.88, and advisory roles (designer, business, marketing) 0.80 so cheap models win there.
+  Advisory roles also default to `low` effort. This is the template's default balance: swap a role
+  to a HIGHER tier (0.95) when its output quality matters more than cost, or LOWER (0.80) for
+  one-off advisory output.
 
 ## Worker spawn prompt template
 

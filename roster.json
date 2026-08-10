@@ -14,6 +14,32 @@
     "model": null,
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
   },
+  "role_tiers": {
+    "note": "Per-role score-acceptance threshold (fraction of best available score). Higher = more selective (only near-best models qualify), lower = more cost-aggressive. Critical roles (pm/architect/qa) stay at 0.95; implementation roles at 0.92; non-critical advisory roles at 0.80. This replaces the old flat --tier 0.92 flag.",
+    "pm": 0.95,
+    "architect": 0.95,
+    "backend": 0.92,
+    "frontend": 0.88,
+    "designer": 0.82,
+    "business": 0.80,
+    "marketing": 0.80,
+    "qa": 0.95,
+    "devops": 0.88,
+    "legal": 0.92
+  },
+  "role_effort": {
+    "note": "Default reasoning effort per role when the model supports it. Advisory roles get 'low' (cheaper, faster); implementation roles get 'medium'. The user can override at GATE 1.",
+    "pm": "medium",
+    "architect": "medium",
+    "backend": "medium",
+    "frontend": "medium",
+    "designer": "low",
+    "business": "low",
+    "marketing": "low",
+    "qa": "medium",
+    "devops": "low",
+    "legal": "low"
+  },
   "model_suggestions": {
     "note": "Model choices are COMPUTED at launch, not hardcoded. The launch flow runs `swarm list_models`, saves the output, then `python TPL/tools/recommend.py --available <file>` which scores each available model per role's purpose (benchmarks.json), keeps the best tier, and picks the cheapest of that tier. The table is then presented for user OK/edit/remove. `purpose` below is the role -> benchmark-purpose weight map used by the recommender.",
     "pm":        {"purpose": {"reasoning": 0.5, "writing": 0.3, "business": 0.2}},

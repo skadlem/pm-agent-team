@@ -6,8 +6,9 @@ How it works (matches the launch flow):
   2. This tool parses that output (or a JSON list), keeping only AVAILABLE models.
   3. For each role it computes a purpose-weighted benchmark score per model from
      benchmarks.json (per-purpose scores x cost per 1M tokens, sourced + dated).
-  4. It keeps the BEST TIER (models within --tier of the best score), then picks
-     the CHEAPEST of that tier by blended cost (3:1 input:output).
+  4. It keeps the BEST TIER per role (models within that role's tier of the best
+     score, from roster.json role_tiers; default 0.92), then picks the CHEAPEST of
+     that tier by blended cost (3:1 input:output).
   5. Outputs a table + JSON, flagging models with missing benchmark data so the
      coordinator can refresh the dataset.
 
@@ -34,6 +35,9 @@ Usage:
                            [--roster roster.json] [--tier 0.92] [--json]
                            [--ladder-out <path>] [--roles <a,b,c>]
   python tools/recommend.py refresh --benchmarks benchmarks.json
+
+--tier sets the FALLBACK threshold for roles without a per-role tier in roster.json
+(role_tiers map); roles with an entry use that instead.
 """
 import argparse
 import json
@@ -198,7 +202,11 @@ def group_models(available):
     return out
 
 
-def recommend(available, benchmarks, roster, tier, role_filter=None):
+def recommend(available, benchmarks, roster, tier=0.92, role_filter=None):
+    """Suggest one model per role. `tier` is the FALLBACK acceptance threshold;
+    per-role tiers from roster.json role_tiers win when present."""
+    role_tiers = ((roster or {}).get("role_tiers") or {})
+    role_efforts = ((roster or {}).get("role_effort") or {})
     eligible = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
     available = [m for m in available if m["id"] in eligible]
     groups = group_models(available)
@@ -227,12 +235,14 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
             out.append({"role": role, "suggested": None, "suggested_provider": None,
                         "suggested_fallbacks": [], "reason": "no benchmark data for any available model",
                         "tier": [], "ladder": [], "providers": {}, "routes": {},
+                        "effort": role_efforts.get(role), "tier_used": role_tiers.get(role, tier),
                         "purpose": purpose})
             continue
         def display(bmid):
             return scores[bmid]["group"]["display"]
         best = max(s["score"] for s in scores.values())
-        in_tier = {m: d for m, d in scores.items() if d["score"] >= tier * best}
+        r_tier = role_tiers.get(role, tier)
+        in_tier = {m: d for m, d in scores.items() if d["score"] >= r_tier * best}
         def cost_key(item):
             c = blended_cost(item[1]["entry"])
             return (c is None, c if c is not None else 0.0, -item[1]["score"])
@@ -244,14 +254,18 @@ def recommend(available, benchmarks, roster, tier, role_filter=None):
         providers = {display(m): scores[m]["group"]["chain"] for m in scores}
         routes = {display(m): scores[m]["group"]["routes"] for m in scores}
         chain = providers[display(pick)]
+        cpm = blended_cost(picked["entry"])
         out.append({
             "role": role,
             "suggested": display(pick),
             "suggested_provider": chain[0] if chain else None,
             "suggested_fallbacks": chain[1:],
+            "cost_per_1m": cpm,
             "reason": "score {:.1f}, cost ${}/1M blended".format(picked["score"],
-                     _fmt_cost(blended_cost(picked["entry"]))),
+                     _fmt_cost(cpm)),
             "missing_data": picked["missing"],
+            "effort": role_efforts.get(role),
+            "tier_used": r_tier,
             "tier": alt,
             "ladder": ladder,
             "providers": providers,
@@ -300,7 +314,8 @@ def main():
     p.add_argument("--available", required=True, help="swarm list_models output or JSON list file")
     p.add_argument("--benchmarks", default=None)
     p.add_argument("--roster", default=None)
-    p.add_argument("--tier", type=float, default=0.92, help="best-tier threshold as fraction of best score")
+    p.add_argument("--tier", type=float, default=0.92,
+                   help="fallback best-tier threshold as fraction of best score (per-role tiers in roster.json win)")
     p.add_argument("--roles", default=None, help="comma-separated role filter")
     p.add_argument("--ladder-out", default=None,
                    help="write per-role fallback ladders to this JSON file (e.g. .pmos/team-model-ladder.json)")

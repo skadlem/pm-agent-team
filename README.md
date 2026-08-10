@@ -64,8 +64,9 @@ At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
 3. Scores each against per-purpose benchmarks (`benchmarks.json`): reasoning, coding, design,
    business, marketing, verification, ops, writing. Each role maps to a purpose mix
    (`roster.json` -> `model_suggestions` -> `purpose`, weights sum to 1).
-4. Keeps the BEST TIER (score >= 92% of the best), then picks the CHEAPEST of that tier
-   by blended cost (3:1 input:output, USD per 1M tokens).
+4. Keeps each role's BEST TIER (score >= role's `role_tiers` threshold in roster.json; default
+   0.92, critical roles like pm/architect/qa use 0.95, advisory roles 0.80), then picks the
+   CHEAPEST of that tier by blended cost (3:1 input:output, USD per 1M tokens).
 5. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
    to `.pmos/team-model.json` and used for every spawn.
 
@@ -98,6 +99,12 @@ are min-max normalized per category and mapped to purposes via `LIVEBENCH_PURPOS
 generator. Costs come from a curated pricing overlay (Epoch has no prices), supplemented
 from LiveBench's cost file for models the overlay lacks; models without pricing get null
 cost, which the recommender treats as "expensive" when choosing within the best tier.
+
+Cost guardrail: config.json `cost.max_project_cost_usd` (default 20) caps estimated project
+spend. At GATE 1 you approve a `budget_usd`; each wave logs an estimated spend in `.pmos/log.md`
+(role model `cost_per_1m` x config.json `cost.est_tokens_per_worker` per worker), and the
+coordinator stops and asks you before exceeding the cap. Advisory roles default to `low`
+reasoning effort (roster.json `role_effort`) to cut cost further.
 
 LiveBench flags:
 - `--livebench-date <suffix>` — which release to fetch (default `2026_06_25`, the latest).

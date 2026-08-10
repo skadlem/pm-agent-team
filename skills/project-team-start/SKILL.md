@@ -53,13 +53,21 @@ charter, baseline QA). No extra command or flag is needed.
    a. Run `swarm list_models` and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
-      from `TPL/benchmarks.json`, keep the best tier, and pick the cheapest of that tier. Show the
-      resulting role -> model table. The ladder file is the per-role fallback order for the
-      model-fallback rule (see ORCHESTRATOR.md "Worker model fallback").
+      from `TPL/benchmarks.json`, keep each role's best tier (per-role `role_tiers` in
+      `TPL/roster.json`, NOT a flat threshold), and pick the cheapest of that tier. Show the
+      resulting role -> model table with each role's default effort (`role_effort`) and blended
+      $/1M cost. The ladder file is the per-role fallback order for the model-fallback rule
+      (see ORCHESTRATOR.md "Worker model fallback").
    c. The user can OK all, change a model/effort, or remove a role. Record the approved map in
       `.pmos/team-model.json`. Use exactly those models and efforts when spawning workers via the
       `swarm` tool. Adjust roster on request.
-   d. If recommend.py flags missing benchmark data for a role, either run
+   d. COST GUARDRAIL: ask the user for a project spend cap in USD (default
+      `TPL/config.json` `cost.max_project_cost_usd`); write it as `budget_usd` in
+      `.pmos/team-model.json`. Before each wave, estimate spend per worker as
+      (model `cost_per_1m`) x (`est_tokens_per_worker` / 1M) and log the running total in
+      `.pmos/log.md`. Stop and ask if the estimate exceeds the cap (raise cap, drop a role,
+      or downgrade a model).
+   e. If recommend.py flags missing benchmark data for a role, either run
       `python TPL/tools/recommend.py refresh` and update `TPL/benchmarks.json` with current
       evidence, or let the user pick manually for that role.
  Also confirm the charter's Deployment jurisdictions with the user (edit

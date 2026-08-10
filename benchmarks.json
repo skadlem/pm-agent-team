@@ -6744,8 +6744,8 @@
     "business": 53.5,
     "marketing": 89.4
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 0.95,
+   "cost_out": 4.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, apex_agents_external.csv, epoch_capabilities_index.csv, exploitbench_external.csv, frontiermath.csv, frontiermath_tier_4.csv, frontierswe_external.csv, gdp_pdf_external.csv, gpqa_diamond.csv, osworld_2_external.csv, scicode_external.csv, swe_bench_verified.csv, vending_bench_2_external.csv, webdev_arena_external.csv, weirdml_external.csv",
    "confidence": "sourced",
    "meta": {
@@ -8359,8 +8359,8 @@
    "scores": {
     "reasoning": 64.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 0.8,
+   "cost_out": 2.4,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: gpqa_diamond.csv",
    "confidence": "sourced",
    "meta": {

@@ -44,6 +44,10 @@ check("role budgets + shared == total cap", shared + role_sum == total, f"{share
 check("weights sum to 1.0", abs(sum(weights.values()) - 1.0) < 1e-9)
 check("total cap positive", total > 0)
 
+cost_cfg = cfg.get("cost") or {}
+check("cost cap positive", (cost_cfg.get("max_project_cost_usd") or 0) > 0)
+check("est_tokens_per_worker positive", (cost_cfg.get("est_tokens_per_worker") or 0) > 0)
+
 print("== 2. Referenced skills are loadable ==")
 roster = json.loads((TPL / "roster.json").read_text(encoding="utf-8"))
 referenced = set(roster["common_skills"])
@@ -79,6 +83,20 @@ for r, v in ms.items():
     elif abs(sum(v["purpose"].values()) - 1.0) > 1e-9:
         bad.append(f"{r}(weights={sum(v['purpose'].values())})")
 check("all purpose maps well-formed (weights sum to 1, valid purposes)", not bad, ", ".join(bad) if bad else "")
+
+tiers = roster.get("role_tiers") or {}
+tier_roles = {k for k in tiers if k != "note"}
+check("role_tiers cover every role", tier_roles == set(roster["roles"]),
+      "missing: " + ", ".join(sorted(set(roster["roles"]) - tier_roles)) or "")
+bad_tier = [k for k, v in tiers.items() if k != "note" and not (0.5 <= v <= 1.0)]
+check("role_tiers in [0.5, 1.0]", not bad_tier, ", ".join(bad_tier))
+efforts = roster.get("role_effort") or {}
+eff_roles = {k for k in efforts if k != "note"}
+check("role_effort covers every role", eff_roles == set(roster["roles"]),
+      "missing: " + ", ".join(sorted(set(roster["roles"]) - eff_roles)) or "")
+allowed_efforts = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
+bad_eff = [k for k, v in efforts.items() if k != "note" and v not in allowed_efforts]
+check("role_effort values valid", not bad_eff, ", ".join(bad_eff))
 
 print("== 4. Documented kb.py commands exist in the CLI ==")
 kb_src = (TPL / "tools" / "kb.py").read_text(encoding="utf-8")
@@ -192,7 +210,8 @@ for rr in res:
             s = sum(w * (e["scores"].get(p, 0.0)) for p, w in rr["purpose"].items())
             scores[mid["id"]] = (s, rmod.blended_cost(e))
     best = max(s for s, _ in scores.values())
-    tier = {m: d for m, d in scores.items() if d[0] >= 0.92 * best}
+    r_tier = (roster.get("role_tiers") or {}).get(rr["role"], 0.92)
+    tier = {m: d for m, d in scores.items() if d[0] >= r_tier * best}
     cheapest = min(tier, key=lambda m: (tier[m][1] is None, tier[m][1] or 0.0, -tier[m][0]))
     check(f"{rr['role']} suggestion is best-tier cheapest", rr["suggested"] == cheapest,
           f"{rr['suggested']} vs {cheapest}")
