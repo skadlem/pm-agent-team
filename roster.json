@@ -1,5 +1,5 @@
 {
-  "common_skills": ["verification-before-completion", "receiving-code-review"],
+  "common_skills": ["verification-before-completion"],
   "spawn_defaults": {
     "model": null,
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
@@ -31,63 +31,63 @@
     "pm": {
       "name": "Project Manager / Planner",
       "kb_namespace": "pm",
-      "skills": ["brainstorming", "writing-plans", "dispatching-parallel-agents", "karpathy-guidelines"],
+      "skills": ["brainstorming", "writing-plans", "karpathy-guidelines"],
       "when": "Always first. Drafts charter, phased plan with task graph, and the minimal team proposal.",
       "artifacts": [".pmos/charter.md", ".pmos/plans/plan.md", ".pmos/out/pm/roster-proposal.md"]
     },
     "architect": {
       "name": "Project Architect",
       "kb_namespace": "architect",
-      "skills": ["writing-plans", "karpathy-guidelines", "ponytail", "optimization", "systematic-debugging"],
+      "skills": ["writing-plans", "karpathy-guidelines", "ponytail"],
       "when": "Any project with code or infrastructure. Owns ADRs, module boundaries, API contracts, data model.",
       "artifacts": [".pmos/decisions/ADR-*.md", ".pmos/out/architect/architecture.md", ".pmos/out/architect/interfaces.md"]
     },
     "designer": {
       "name": "Designer",
       "kb_namespace": "designer",
-      "skills": ["ui-ux-pro-max", "design-system", "ui-styling", "hallmark", "design", "banner-design", "brand"],
+      "skills": ["hallmark", "brand"],
       "when": "Projects with a user-facing surface. Owns UI spec, design tokens, states, accessibility requirements.",
       "artifacts": [".pmos/out/designer/ui-spec.md", ".pmos/out/designer/design-tokens.md"]
     },
     "backend": {
       "name": "Backend Developer",
       "kb_namespace": "backend",
-      "skills": ["test-driven-development", "systematic-debugging", "karpathy-guidelines", "optimization", "ponytail"],
+      "skills": ["test-driven-development", "karpathy-guidelines", "ponytail"],
       "when": "Server-side logic, APIs, data persistence, integrations.",
       "artifacts": ["source code per plan", ".pmos/out/backend/notes.md"]
     },
     "frontend": {
       "name": "Frontend Developer",
       "kb_namespace": "frontend",
-      "skills": ["ui-styling", "ui-ux-pro-max", "test-driven-development", "hallmark", "systematic-debugging"],
+      "skills": ["test-driven-development", "hallmark"],
       "when": "Client-side UI implementation against the designer's spec.",
       "artifacts": ["source code per plan", ".pmos/out/frontend/notes.md"]
     },
     "business": {
       "name": "Business Advisor",
       "kb_namespace": "business",
-      "skills": ["brainstorming", "brand", "slides"],
+      "skills": ["brainstorming", "brand"],
       "when": "Products with a monetization, market, or viability question.",
       "artifacts": [".pmos/out/business/model.md"]
     },
     "marketing": {
       "name": "Marketing Manager",
       "kb_namespace": "marketing",
-      "skills": ["brand", "banner-design", "design", "slides", "hallmark"],
+      "skills": ["brand", "hallmark"],
       "when": "Projects needing positioning, launch assets, landing page copy, or channel plan.",
       "artifacts": [".pmos/out/marketing/positioning.md", ".pmos/out/marketing/launch-plan.md"]
     },
     "qa": {
       "name": "QA / Test Engineer",
       "kb_namespace": "qa",
-      "skills": ["test-driven-development", "verification-before-completion", "systematic-debugging", "caveman-review"],
+      "skills": ["test-driven-development", "verification-before-completion", "caveman-review"],
       "when": "Always for projects with code. Runs the verification gate against acceptance criteria.",
       "artifacts": [".pmos/out/qa/test-report.md", "test code per plan"]
     },
     "devops": {
       "name": "DevOps Engineer",
       "kb_namespace": "devops",
-      "skills": ["optimization", "verification-before-completion", "karpathy-guidelines", "systematic-debugging"],
+      "skills": ["verification-before-completion", "karpathy-guidelines"],
       "when": "Projects needing CI, deployment, environments, secrets, backups, or observability. Also carries security hardening.",
       "artifacts": [".pmos/out/devops/infra.md", "CI/deploy config per plan"]
     }

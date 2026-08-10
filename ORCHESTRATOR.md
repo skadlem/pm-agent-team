@@ -120,7 +120,7 @@ Mandatory procedure:
 ```
 
 Spawn via the `swarm` tool with a clear `label` like "pm", "architect", "backend-1". Use one
-worker per task chunk; parallelize independent chunks (see /dispatching-parallel-agents).
+worker per task chunk; parallelize independent chunks.
 
 ## Resume in a future session
 
