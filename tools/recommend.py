@@ -129,6 +129,10 @@ def role_purpose(roster, role):
 
 def recommend(available, benchmarks, roster, tier, role_filter=None):
     avail = {m["id"] for m in available if m.get("available", True)}
+    # forbidden models (roster.json "forbidden_models") are never suggested or in any ladder
+    forbidden = set((roster or {}).get("forbidden_models") or [])
+    if forbidden:
+        avail = {m for m in avail if m not in forbidden}
     roles = [r for r in roster["roles"] if role_filter is None or r in role_filter]
     out = []
     for role in roles:
