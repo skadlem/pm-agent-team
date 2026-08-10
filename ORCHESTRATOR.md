@@ -81,21 +81,45 @@ to you. Record the answer in `.pmos/log.md`.
    d. If a role has no benchmark data (marked by recommend.py), refresh first:
       `python TPL/tools/recommend.py refresh` and update benchmarks.json, or let the
       user pick manually for that role. Do not proceed without approval.
-4. Wave 2: spawn approved roles from {architect, designer, business} IN PARALLEL. Each reads
+5. Jurisdiction pack (legal): read the charter's Deployment jurisdictions section.
+   For each country/region, research and write `.pmos/kb-sources/legal/jurisdiction-<cc>.md`
+   with an `as_of` date, citing each law and its source URL. Checklist:
+   a. data protection act (and data residency rules),
+   b. AI-specific regulation (incl. phased application dates, e.g. EU AI Act),
+   c. consumer / e-commerce law,
+   d. licensing / export rules,
+   e. industry-specific rules when in scope (fintech, health, ...).
+   Ingest: `python TPL/tools/kb.py add-dir --db .pmos/kb.sqlite3 --ns legal --path .pmos/kb-sources/legal`.
+   Light mode (config.json `legal_strict: false`): skip this step and the data inventory.
+   Renumber the following steps accordingly (wave 2 becomes 6, etc.).
+6. Wave 2: spawn approved roles from {architect, designer, business, legal} IN PARALLEL. Each reads
    `.pmos/charter.md` and searches its KB namespace first. Brownfield: each also reads
    `.pmos/out/architect/current-state.md` and MUST design the change to fit existing conventions,
    not idealized ones. Outputs go to `.pmos/out/<role>/`.
-5. Enrich: run the /pm-kb-enrich skill (adds project-specific facts to each role namespace from
+   Legal (strict mode): reads charter + legal KB namespace (jurisdiction pack first),
+   then produces, in order: data inventory -> license audit -> risk register ->
+   compliance calendar (all under `.pmos/out/legal/`). Rules: every risk register
+   entry cites a specific law/article + source URL; unverifiable items are marked
+   `requires-counsel`, never asserted. Light mode: skip data inventory, advisory
+   only, no gate block.
+7. Enrich: run the /pm-kb-enrich skill (adds project-specific facts to each role namespace from
    charter + wave 2 outputs; brownfield: also from current-state.md). Budget check: `kb.py budget`.
-6. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
-7. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
+8. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
+   Include the risk register highlights (top risks, mitigations, jurisdiction-specific
+   obligations). If any `severity: high` item is `status: open` and the user has not explicitly
+   accepted it, GATE 2 is BLOCKED until resolved or accepted.
+9. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
    where independent. Workers read plan + their role's out dir, query KB + graphify as needed.
-8. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
+10. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
    to wave 3 with the defect report. Pass -> checkpoint.
    Brownfield: QA FIRST runs the project's existing test suite and records the baseline in its
    report (pre-existing failures vs failures introduced by the change), and verifies nothing in
    the charter's do-not-touch list changed.
-9. Checkpoint: append to `.pmos/log.md` (date, wave, what shipped, what's next), commit if repo,
+   QA also re-checks that `status: mitigated` risk register items are actually implemented (owner
+   -> delivered work) and legal does a light re-run: diff risk ids against the wave 2 register
+   (nothing silently disappears) and append a wave-4 section with L-ids and status changes,
+   without rewriting the register.
+11. Checkpoint: append to `.pmos/log.md` (date, wave, what shipped, what's next), commit if repo,
    report to user. Commit as you go at each gate. Record measurable facts too, so the run can be
    evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count, rework
    loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria pass rate.
@@ -159,3 +183,6 @@ moving without surfacing every transient failure to the user.
 When `.pmos/` exists: read `.pmos/log.md` (tail), `.pmos/charter.md`, then `kb.py budget` and
 `kb.py stats` to see KB health, then continue from the last checkpoint. The KB and graphify index
 persist across sessions; nothing is rebuilt from scratch.
+On resume: check the compliance calendar for overdue items (elapsed time vs due dates) and check
+each jurisdiction file's `as_of` date — re-research if older than 6 months or if the charter's
+jurisdictions changed.
