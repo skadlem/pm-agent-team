@@ -211,8 +211,8 @@ Four levels, cheapest first:
    | standard | hybrid (shipped default) | 100% | 1.000 |
    | standard | BM25 only | 100% | 1.000 |
    | standard | offline vectors only | 100% | 0.922 |
-   | paraphrase | hybrid | 100% | 0.850 |
-   | paraphrase | BM25 only | 80.0% | 0.775 |
+   | paraphrase | hybrid | 100% | 0.792 |
+   | paraphrase | BM25 only | 85.0% | 0.800 |
    | paraphrase | offline vectors only | 100% | 0.604 |
    | standard | **hybrid, Gemini embedding-2** (measured 2026-08-08, pre-legal corpus) | **100%** | **1.000** |
    | standard | Gemini vectors only (measured 2026-08-08, pre-legal corpus) | 100% | **1.000** |
@@ -230,6 +230,9 @@ Four levels, cheapest first:
    `python tools/eval_kb_api.py`. Full recorded results, methodology and the weight-tuning
    sweep: [EVALUATION.md](EVALUATION.md). Headline: Gemini embedding-2 lifts vector MRR on
    paraphrased queries from 0.604 to 0.889 (recall already 100%); the gain grows with KB size.
+   When `--role` is given, search ranks within that namespace only (BM25 and vectors alike), so a
+   small namespace is never drowned out by a large one; role-scoped search also skips the
+   cross-namespace fusion pass entirely.
 3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.

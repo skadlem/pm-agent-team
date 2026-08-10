@@ -23,8 +23,8 @@ Metric: hits@5 (correct chunk in top 5) and MRR (mean reciprocal rank, 1.0 = alw
 | standard | offline vectors only | 100% | 0.922 |
 | standard | **hybrid, Gemini embedding-2** | **100%** | **1.000** |
 | standard | Gemini vectors only | 100% | 1.000 |
-| paraphrase | hybrid, offline vectors | 100% | 0.850 |
-| paraphrase | BM25 only | 80.0% | 0.775 |
+| paraphrase | hybrid, offline vectors | 100% | 0.792 |
+| paraphrase | BM25 only | 85.0% | 0.800 |
 | paraphrase | offline vectors only | 100% | 0.604 |
 | paraphrase | **hybrid, Gemini embedding-2** | **100%** | **0.833** |
 | paraphrase | Gemini vectors only | 100% | **0.889** |
@@ -47,6 +47,11 @@ The Gemini rows above and in the table were recorded on the pre-legal corpus (30
 27+18 queries). The 2026-08-10 offline re-measurement covers 44 chunks and 30+20 queries;
 re-run `python tools/eval_kb_api.py` with an embeddings backend configured to refresh the
 Gemini rows on the current corpus.
+
+On 2026-08-10 role-scoped search (`--role`) also changed: the BM25 pass is now scoped to the
+namespace like the vector pass already was, instead of fetching the global top-k and filtering.
+Paraphrase BM25 recall rose 80% -> 85% (a role chunk is no longer drowned out by other
+namespaces), hybrid paraphrase MRR moved 0.850 -> 0.792, and vector rows are unchanged.
 
 ## Expectation for larger corpora
 

@@ -28,6 +28,7 @@ from pathlib import Path
 DIM = 64
 RRF_K = 60
 FTS_LANG = "english"
+SCHEMA_VERSION = 1
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chunks(
@@ -134,6 +135,16 @@ def connect(db_path):
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db_path)
     con.executescript(SCHEMA)
+    version = con.execute("PRAGMA user_version").fetchone()[0]
+    if version > SCHEMA_VERSION:
+        con.close()
+        raise RuntimeError(
+            "db %s is schema v%d but this kb.py only knows v%d; upgrade kb.py "
+            "before opening it" % (db_path, version, SCHEMA_VERSION))
+    if version < SCHEMA_VERSION:
+        # v0 -> v1: SCHEMA is idempotent (CREATE IF NOT EXISTS), so the tables
+        # were just created above; nothing else to migrate.
+        con.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
     return con
 
 def compute_vector(con, text):
@@ -179,6 +190,23 @@ def enforce_cap(con, ns, cap_tokens):
         dropped.append(t)
     return dropped
 
+def _rank_all(blobs, qvec):
+    """Cosine similarity of every packed vector against qvec, in input order.
+
+    numpy fast path when available (one matmul instead of a Python loop over
+    every chunk); pure-Python fallback keeps the stdlib-only promise.
+    """
+    if not blobs:
+        return []
+    try:
+        import numpy as np
+        arr = np.frombuffer(b"".join(blobs), dtype="<f4").reshape(len(blobs), len(qvec))
+        return (arr @ np.asarray(qvec, dtype="<f4")).tolist()
+    except Exception:
+        pass  # numpy missing or malformed blobs; fall back to pure Python
+    return [cosine(qvec, unpack_vec(b)) for b in blobs]
+
+
 def fts_query(text):
     toks = tokenize(text)
     if not toks:
@@ -197,10 +225,18 @@ def cmd_search(con, args, config):
     fts_rank = {}
     if mode != "vector" and fq:
         try:
-            rows = con.execute(
-                "SELECT rowid, bm25(kb_fts) AS s FROM kb_fts WHERE kb_fts MATCH ? ORDER BY s LIMIT ?",
-                (fq, k * 6),
-            ).fetchall()
+            if args.role:
+                rows = con.execute(
+                    "SELECT kb_fts.rowid, bm25(kb_fts) AS s FROM kb_fts "
+                    "JOIN chunks c ON c.rowid = kb_fts.rowid "
+                    "WHERE kb_fts MATCH ? AND c.ns = ? ORDER BY s LIMIT ?",
+                    (fq, args.role, k * 6),
+                ).fetchall()
+            else:
+                rows = con.execute(
+                    "SELECT rowid, bm25(kb_fts) AS s FROM kb_fts WHERE kb_fts MATCH ? ORDER BY s LIMIT ?",
+                    (fq, k * 6),
+                ).fetchall()
             for i, (cid, s) in enumerate(rows):
                 fts_rank[cid] = i
         except sqlite3.OperationalError:
@@ -212,12 +248,13 @@ def cmd_search(con, args, config):
         vrows = con.execute(
             "SELECT v.id, v.vec FROM vectors v JOIN chunks c ON c.id=v.id WHERE 1=1 " + scope, params
         ).fetchall()
-        sims = []
+        ids, blobs = [], []
         for cid, blob in vrows:
             if len(blob) // 4 != len(vec):
                 continue  # backend changed without reindex-vectors; skip stale dims
-            sims.append((cid, cosine(vec, unpack_vec(blob))))
-        sims.sort(key=lambda x: -x[1])
+            ids.append(cid)
+            blobs.append(blob)
+        sims = sorted(zip(ids, _rank_all(blobs, vec)), key=lambda x: -x[1])
         vec_rank = {cid: i for i, (cid, _) in enumerate(sims)}
 
     w_bm25 = w_vec = 0.5
@@ -391,6 +428,7 @@ def cmd_selftest(args):
     import tempfile
     tmp = Path(tempfile.mkdtemp()) / "selftest.sqlite3"
     con = connect(str(tmp))
+    assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION, "schema version"
     config = {"kb": {"total_token_cap": 1000000, "shared_token_budget": 1000,
                      "role_weights": {"pm": 0.5, "backend": 0.5}},
               "context_rules": {"search_k_default": 5, "excerpt_max_chars": 400}}
