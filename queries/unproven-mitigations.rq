@@ -1,0 +1,14 @@
+# Risks marked mitigated whose mitigating task has no passing criterion.
+# The check ORCHESTRATOR step 10 used to ask QA to make by eye.
+SELECT ?risk ?task ?result WHERE {
+    ?risk a pmos:Risk ;
+          pmos:status "mitigated" ;
+          pmos:mitigatedBy ?task .
+    OPTIONAL {
+        ?criterion pmos:verifies ?task ;
+                   pmos:qaResult ?result .
+        FILTER (?result = "pass")
+    }
+    FILTER (!BOUND(?result))
+}
+ORDER BY ?risk

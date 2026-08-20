@@ -94,6 +94,15 @@ def join(by_id, code):
     return claimed, by_file
 
 
+def blocked_by(proj, task_id):
+    """Tasks that transitively depend on this one, via `pmos:dependsOn+`."""
+    import kg  # local import: kg builds on this module, so keep the cycle runtime-only
+    store = kg.build(proj)
+    names, rows = kg.execute(store, kg.parse_query(
+        "SELECT ?blocked WHERE { ?blocked pmos:dependsOn+ :%s }" % task_id))
+    return [term[1].rsplit("#", 1)[-1] for (term,) in rows if term]
+
+
 def outgoing(edges, src, kind):
     return [e["dst"] for e in edges if e["src"] == src and e["kind"] == kind]
 
@@ -187,17 +196,9 @@ def cmd_impact(by_id, edges, qa, code, args):
         out["risks"] = [{"id": r, "severity": by_id[r].fields.get("severity", ""),
                          "status": by_id[r].fields.get("status", "")}
                         for r in sorted(incoming(edges, e.id, "mitigated_by"))]
-        # transitive blast radius through the task graph
-        blocked, frontier = [], [e.id]
-        while frontier:
-            nxt = []
-            for t in frontier:
-                for d in incoming(edges, t, "depends_on"):
-                    if d not in blocked and d != e.id:
-                        blocked.append(d)
-                        nxt.append(d)
-            frontier = nxt
-        out["blocks"] = sorted(blocked)
+        # transitive blast radius: a property path over the triple store, so the
+        # closure is the query engine's job rather than a second hand-rolled walk
+        out["blocks"] = sorted(blocked_by(args.project, e.id))
         out["touches"] = claimed.get(e.id, [])
         if code:
             reach = []

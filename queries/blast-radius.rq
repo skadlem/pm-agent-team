@@ -1,0 +1,5 @@
+# Every task transitively blocked by another: what slips if one task slips.
+SELECT ?task ?blocked WHERE {
+    ?blocked pmos:dependsOn+ ?task .
+}
+ORDER BY ?task ?blocked

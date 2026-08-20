@@ -1,0 +1,12 @@
+# High-severity risks still open with nothing planned to discharge them.
+# Any row here blocks GATE 2.
+SELECT ?risk ?title ?law WHERE {
+    ?risk a pmos:Risk ;
+          pmos:severity "high" ;
+          pmos:status "open" ;
+          pmos:title ?title .
+    OPTIONAL { ?risk pmos:law ?law }
+    OPTIONAL { ?risk pmos:mitigatedBy ?task }
+    FILTER (!BOUND(?task))
+}
+ORDER BY ?risk

@@ -148,3 +148,35 @@ tests/fixtures/<name>/
 
 `expect.json` matches messages by substring, so wording changes do not break fixtures; counts and
 stages are exact. Add one whenever you change protocol behaviour.
+
+
+## RDF conformance
+
+`kg.py` emits Turtle and N-Triples and runs its own SPARQL subset, so the obvious question is
+whether that is real RDF or merely RDF-shaped. `validate.py` answers it when
+[rdflib](https://rdflib.dev) is importable, and skips rather than depending on it (the template
+takes no pip dependencies):
+
+- rdflib parses both `graph.ttl` and `graph.nt` into the **identical triple set** our store holds
+  — not just the same count.
+- rdflib's SPARQL engine and ours return the same bindings for the same query.
+
+Measured 2026-08-21 against rdflib 7.6.0 on the shipped fixtures: 70/70 triples matching on the
+demo project, identical sets, and agreement on basic graph patterns, `FILTER`, and the
+`pmos:dependsOn+` property path.
+
+Two bugs came out of that check, both of which self-written tests had missed:
+
+- `:file:src/auth/reset.py` was emitted as a prefixed name, which Turtle forbids — `PN_LOCAL`
+  has no `/`. Such IRIs are now written in full, and rdflib accepts the output.
+- `PREFIX pmos: <...>` failed to tokenize, because the prefixed-name pattern required a non-empty
+  local part. Every SPARQL query copied from any tutorial opens with a `PREFIX` line, so the
+  engine would have rejected essentially all pasted queries.
+
+## Two implementations, one answer
+
+`artifacts.py` (Python linter) and `queries/*.rq` (stored SPARQL) check the same protocol rules by
+different routes. `validate.py` asserts they return the same findings on **every** fixture project,
+so a change to either that alters behaviour breaks the suite. The linter stays the gate check — it
+needs no code graph and gives `file:line` diagnostics — while the query library answers questions
+nobody thought to hard-code.

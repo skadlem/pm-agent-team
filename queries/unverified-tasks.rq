@@ -1,0 +1,8 @@
+# Tasks with no acceptance criterion: work that cannot be signed off.
+SELECT ?task ?title WHERE {
+    ?task a pmos:Task ;
+          pmos:title ?title .
+    OPTIONAL { ?task pmos:verifiedBy ?criterion }
+    FILTER (!BOUND(?criterion))
+}
+ORDER BY ?task

@@ -1,0 +1,10 @@
+# The full chain: obligation -> planned work -> source file -> verification.
+# Four hops across the artifact graph and the code graph in one query.
+SELECT ?risk ?law ?task ?file ?result WHERE {
+    ?risk a pmos:Risk ;
+          pmos:mitigatedBy ?task .
+    OPTIONAL { ?risk pmos:law ?law }
+    OPTIONAL { ?task pmos:touches ?f . ?f pmos:path ?file }
+    OPTIONAL { ?criterion pmos:verifies ?task ; pmos:qaResult ?result }
+}
+ORDER BY ?risk ?file

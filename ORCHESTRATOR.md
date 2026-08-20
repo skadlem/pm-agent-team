@@ -159,6 +159,9 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    open risk with no mitigating task); the user may accept them knowingly.
    `python TPL/tools/trace.py coverage --project .` renders the same thing as a scope -> task ->
    criterion tree, which is usually the clearest way to show the user what they are approving.
+   For anything the standard reports do not answer, query the graph directly:
+   `python TPL/tools/kg.py query --project . --name open-high-risks` (see `kg.py queries` for the
+   stored library, ARTIFACT-SCHEMA.md for the vocabulary).
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly
    accepted it, GATE 2 is BLOCKED until resolved or accepted.
@@ -181,7 +184,8 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    `- A-NNN: pass|fail - <evidence>`. A criterion with no line is not "passed", it is unreported.
    `python TPL/tools/artifacts.py --project .` then makes the next two checks mechanical: it errors
    on a result for a criterion nobody defined, and warns when a `status: mitigated` risk points at a
-   task whose criteria did not pass.
+   task whose criteria did not pass. `kg.py query --name unproven-mitigations` and
+   `--name untested-code` answer the same questions against the graph when you need the detail.
    QA also re-checks that `status: mitigated` risk register items are actually implemented (owner
    -> delivered work) and legal does a light re-run: diff risk ids against the wave 2 register
    (nothing silently disappears) and append a wave-4 section with L-ids and status changes,

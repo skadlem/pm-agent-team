@@ -40,6 +40,8 @@ pm-agent-team/
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
   tools/eval_project.py    # protocol harness: replays tests/fixtures/ through the tooling
   tools/cost.py            # spend ledger: what workers actually cost vs the GATE 1 budget
+  tools/kg.py              # RDF triple store over the artifacts + a SPARQL subset
+  queries/                 # the protocol's own checks, as stored SPARQL
   tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
@@ -212,6 +214,10 @@ python tools/cost.py record --project . --role backend --model <m> --in N --out 
 python tools/cost.py report --project .           # spend vs budget_usd, estimate accuracy
 python tools/cost.py estimate --project . --roles backend,frontend
 python tools/cost.py calibrate --project . --write
+python tools/kg.py build --project .              # graph.ttl + graph.nt
+python tools/kg.py query --project . --name unproven-mitigations
+python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
+python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 ```
@@ -274,6 +280,45 @@ joined graph, code files included, as JSON.
 `touches:` resolves a file, a directory, or a glob against `graphify-out/graph.json`; without a code
 graph the entries stay literal and every query still works.
 
+## The knowledge graph
+
+The markdown under `.pmos/` is the source of truth; `tools/kg.py` projects it into an RDF-style
+triple store so the graph can be queried rather than traversed by hand. Entities become IRIs
+(`:T-001`), fields and references become triples under a `pmos:` vocabulary, and the code join
+brings in `pmos:File` subjects from graphify:
+
+```turtle
+:T-001 a pmos:Task ;
+    pmos:title "password reset endpoint" ;
+    pmos:satisfies :R-001 ;
+    pmos:touches :file:src/auth/reset.py .
+```
+
+An inverse rule entails `pmos:satisfiedBy`, `pmos:blocks`, `pmos:verifiedBy`, `pmos:mitigates`
+and friends, so queries walk either direction; `kg.py stats` reports asserted and entailed
+triples separately.
+
+`kg.py query` runs a SPARQL subset — `SELECT`/`ASK`, basic graph patterns, `OPTIONAL`, `FILTER`
+(`BOUND`, comparisons, `REGEX`, `CONTAINS`), property paths `p+`/`p*`, `ORDER BY`, `LIMIT` —
+and returns SPARQL 1.1 Results JSON with `--json`. The full vocabulary and the exact supported
+grammar are in [ARTIFACT-SCHEMA.md](ARTIFACT-SCHEMA.md).
+
+`queries/` holds the protocol's own checks as stored SPARQL. This one is the four-hop join from a
+legal obligation to the code that discharges it and the test that proves it:
+
+```sparql
+SELECT ?risk ?law ?task ?file ?result WHERE {
+    ?risk a pmos:Risk ; pmos:mitigatedBy ?task .
+    OPTIONAL { ?risk pmos:law ?law }
+    OPTIONAL { ?task pmos:touches ?f . ?f pmos:path ?file }
+    OPTIONAL { ?criterion pmos:verifies ?task ; pmos:qaResult ?result }
+}
+```
+
+They are not decoration: `validate.py` asserts the stored queries return the same findings as the
+Python linter on every fixture project, so two independent implementations must agree before the
+suite passes.
+
 ## Customizing
 
 - Caps/weights: `config.json`. Roles/skills/waves/models: `roster.json`.
@@ -287,7 +332,7 @@ graph the entries stay literal and every query still works.
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (118 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (127 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), `python tools/artifacts.py selftest` and `python tools/trace.py selftest`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets

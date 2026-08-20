@@ -1,0 +1,9 @@
+# Files claimed by a task whose criteria have not passed: code with no green check.
+SELECT ?file ?task WHERE {
+    ?task a pmos:Task ;
+          pmos:touches ?f .
+    ?f pmos:path ?file .
+    OPTIONAL { ?criterion pmos:verifies ?task ; pmos:qaResult "pass" }
+    FILTER (!BOUND(?criterion))
+}
+ORDER BY ?file

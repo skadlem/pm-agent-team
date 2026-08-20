@@ -1,0 +1,12 @@
+# Scope -> task -> criterion -> QA result, one row per link in the chain.
+SELECT ?requirement ?task ?criterion ?result WHERE {
+    ?requirement a pmos:Requirement .
+    OPTIONAL {
+        ?requirement pmos:satisfiedBy ?task .
+        OPTIONAL {
+            ?task pmos:verifiedBy ?criterion .
+            OPTIONAL { ?criterion pmos:qaResult ?result }
+        }
+    }
+}
+ORDER BY ?requirement ?task ?criterion

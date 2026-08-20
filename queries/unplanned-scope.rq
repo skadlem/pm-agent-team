@@ -1,0 +1,8 @@
+# Charter requirements no task claims: scope that was never planned.
+SELECT ?requirement ?title WHERE {
+    ?requirement a pmos:Requirement ;
+                 pmos:title ?title .
+    OPTIONAL { ?requirement pmos:satisfiedBy ?task }
+    FILTER (!BOUND(?task))
+}
+ORDER BY ?requirement

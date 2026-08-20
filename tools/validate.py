@@ -547,6 +547,125 @@ check("estimate falls back to the flat config default without history",
       est["workers"][0]["basis"] == "flat config estimate" and est["workers"][0]["usd"] > 0,
       json.dumps(est["workers"][0]))
 
+print("== 17. Knowledge graph (triples + SPARQL subset) ==")
+KG = TPL / "tools" / "kg.py"
+r = subprocess.run([sys.executable, str(KG), "selftest"], capture_output=True, text=True)
+check("kg.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+
+schema_doc = (TPL / "ARTIFACT-SCHEMA.md").read_text(encoding="utf-8")
+kg_src = KG.read_text(encoding="utf-8")
+classes = set(re.findall(r'"\w+": "(\w+)"', re.search(r"CLASS_OF = \{(.+?)\}", kg_src, re.S).group(1)))
+undocumented = sorted(c for c in classes if f"pmos:{c}" not in schema_doc)
+check("every RDF class is documented", not undocumented and len(classes) >= 6,
+      ", ".join(undocumented) if undocumented else f"{len(classes)} classes")
+preds = set(re.findall(r'"\w+": "(\w+)"', re.search(r"PREDICATE_OF = \{(.+?)\}", kg_src, re.S).group(1)))
+preds |= set(re.findall(r'"\w+": "(\w+)"', re.search(r"INVERSE = \{(.+?)\}", kg_src, re.S).group(1)))
+undocumented = sorted(p for p in preds if f"pmos:{p}" not in schema_doc)
+check("every RDF predicate is documented", not undocumented,
+      ", ".join(undocumented) if undocumented else f"{len(preds)} predicates")
+
+# The stored SPARQL library and the Python linter are two independent
+# implementations of the same protocol checks. They must agree on every fixture.
+sys.path.insert(0, str(TPL / "tools"))
+import eval_project as harness  # noqa: E402
+
+def ids_from(payload, var):
+    return sorted(b[var]["value"].rsplit("#", 1)[-1]
+                  for b in payload["results"]["bindings"] if var in b)
+
+def warned_ids(lint, needle):
+    return sorted({m.group(1) for w in lint["warnings"]
+                   for m in [re.match(r"([A-Z]+-\d+)", w["message"])]
+                   if m and needle in w["message"]})
+
+fixture_names = sorted(p.name for p in (TPL / "tests" / "fixtures").iterdir()
+                       if (p / "expect.json").is_file())
+agreements = 0
+for name in fixture_names:
+    fx = TPL / "tests" / "fixtures" / name
+    exp = json.loads((fx / "expect.json").read_text(encoding="utf-8"))
+    dest = pathlib.Path(tempfile.mkdtemp()) / "proj"
+    harness.materialize(fx, dest, exp.get("legal_strict", True))
+    harness.apply_dirty(dest, exp.get("dirty", []))
+    lint = json.loads(subprocess.run(
+        [sys.executable, str(TPL / "tools" / "artifacts.py"), "--project", str(dest), "--json"],
+        capture_output=True, text=True).stdout)
+    ok = True
+    for query, var, needle in [
+            ("unplanned-scope", "requirement", "is in scope but no task satisfies it"),
+            ("unproven-mitigations", "risk", "has no passing acceptance criterion"),
+            ("open-high-risks", "risk", "high severity and open")]:
+        out = subprocess.run([sys.executable, str(KG), "query", "--project", str(dest),
+                              "--name", query, "--json"], capture_output=True, text=True)
+        if out.returncode != 0:
+            check(f"{name}: {query} runs", False, out.stderr.strip()[:80])
+            ok = False
+            continue
+        got, expected = ids_from(json.loads(out.stdout), var), warned_ids(lint, needle)
+        if got != expected:
+            check(f"{name}: SPARQL {query} agrees with the linter", False,
+                  f"sparql {got} vs linter {expected}")
+            ok = False
+    agreements += 1 if ok else 0
+    shutil.rmtree(dest.parent, ignore_errors=True)
+check("stored queries agree with the linter on every fixture",
+      agreements == len(fixture_names), f"{agreements}/{len(fixture_names)} fixtures")
+
+# kg.py registers two of its parsers in a loop, so ask argparse rather than the source
+usage = subprocess.run([sys.executable, str(KG), "--help"], capture_output=True, text=True).stdout
+verbs = set(re.search(r"\{([\w,-]+)\}", usage).group(1).split(","))
+docs = "\n".join((TPL / d).read_text(encoding="utf-8")
+                 for d in ["README.md", "ORCHESTRATOR.md", "ARTIFACT-SCHEMA.md"])
+used = {m.group(1) for m in re.finditer(r"kg\.py\s+([a-z][\w-]*)", docs)}  # subcommands, not flags
+unknown = sorted(v for v in used if v not in verbs)
+check("all documented kg.py subcommands exist", not unknown and len(used) >= 3,
+      ", ".join(unknown) if unknown else f"{len(used)} documented")
+
+# Optional: if real RDF tooling is around, it must be able to read what we emit
+# and reach the same answers. Skipped rather than depended on - no pip installs.
+rdf_proj = pathlib.Path(tempfile.mkdtemp()) / "proj"
+fx = TPL / "tests" / "fixtures" / "qa-failed-mitigation"
+harness.materialize(fx, rdf_proj, False)
+r = subprocess.run([sys.executable, str(KG), "build", "--project", str(rdf_proj)],
+                   capture_output=True, text=True)
+check("kg.py build writes graph.ttl and graph.nt",
+      (rdf_proj / ".pmos" / "graph.ttl").is_file() and (rdf_proj / ".pmos" / "graph.nt").is_file(),
+      r.stdout.strip()[:80])
+try:
+    from rdflib import Graph as _RdfGraph
+except ImportError:
+    skip("RDF conformance (rdflib parses our Turtle and N-Triples)",
+         "rdflib not installed; `pip install rdflib` to enable this check")
+    skip("SPARQL agreement (rdflib's engine vs ours)", "rdflib not installed")
+else:
+    sizes, parsed = {}, {}
+    for fmt, name in (("turtle", "graph.ttl"), ("nt", "graph.nt")):
+        g = _RdfGraph()
+        g.parse(str(rdf_proj / ".pmos" / name), format=fmt)
+        sizes[name] = len(g)
+        parsed[name] = {(str(a), str(b), str(c)) for a, b, c in g}
+    ours = json.loads(subprocess.run(
+        [sys.executable, str(KG), "stats", "--project", str(rdf_proj), "--json"],
+        capture_output=True, text=True).stdout)["triples"]
+    check("rdflib parses our Turtle and N-Triples to the same graph",
+          sizes["graph.ttl"] == sizes["graph.nt"] == ours
+          and parsed["graph.ttl"] == parsed["graph.nt"],
+          f"ttl {sizes['graph.ttl']}, nt {sizes['graph.nt']}, ours {ours}")
+    q = ("PREFIX pmos: <https://pmos.dev/schema#>\n"
+         "SELECT ?risk ?task WHERE { ?risk a pmos:Risk ; pmos:mitigatedBy ?task }")
+    g = _RdfGraph()
+    g.parse(str(rdf_proj / ".pmos" / "graph.ttl"), format="turtle")
+    theirs = sorted(tuple(str(x) for x in row) for row in g.query(q))
+    mine_json = json.loads(subprocess.run(
+        [sys.executable, str(KG), "query", "--project", str(rdf_proj), "-q", q, "--json"],
+        capture_output=True, text=True).stdout)
+    mine = sorted((b["risk"]["value"], b["task"]["value"])
+                  for b in mine_json["results"]["bindings"])
+    check("our SPARQL engine agrees with rdflib's on the same query", theirs == mine,
+          f"rdflib {theirs} vs ours {mine}")
+shutil.rmtree(rdf_proj.parent, ignore_errors=True)
+
 print()
 if _failures:
     print(f"VALIDATION FAILED ({_failures} check(s), {_skips} skipped)")

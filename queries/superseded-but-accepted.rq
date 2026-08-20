@@ -1,0 +1,8 @@
+# Decisions another ADR replaced that still claim to be in force.
+SELECT ?decision ?successor WHERE {
+    ?decision a pmos:Decision ;
+              pmos:status ?status ;
+              pmos:supersededBy ?successor .
+    FILTER CONTAINS(?status, "accepted")
+}
+ORDER BY ?decision
