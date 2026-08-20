@@ -489,7 +489,12 @@ print("== 15. Protocol harness fixtures ==")
 FIXTURES = TPL / "tests" / "fixtures"
 names = sorted(p.name for p in FIXTURES.iterdir() if p.is_dir()) if FIXTURES.is_dir() else []
 check("fixtures present", len(names) >= 3, ", ".join(names))
-EXPECT_KEYS = {"description", "legal_strict", "dirty", "state", "artifacts", "trace", "gate2"}
+# read the key set from the harness itself: a second copy here would rot
+EXPECT_KEYS = set(re.findall(r'"(\w+)"',
+                             re.search(r"EXPECT_KEYS = \{(.+?)\}",
+                                       (TPL / "tools" / "eval_project.py").read_text(encoding="utf-8"),
+                                       re.S).group(1)))
+check("harness expect keys readable", len(EXPECT_KEYS) >= 6, ", ".join(sorted(EXPECT_KEYS)))
 for name in names:
     d = FIXTURES / name
     exp = d / "expect.json"
@@ -512,6 +517,35 @@ check("fixtures keep pmos/ undotted (gitignore-safe)", not dotted, ", ".join(dot
 r = subprocess.run(["git", "check-ignore"] + [str(FIXTURES / n) for n in names],
                    cwd=str(TPL), capture_output=True, text=True)
 check("no fixture is gitignored", not r.stdout.strip(), r.stdout.strip()[:80])
+
+print("== 16. Spend ledger ==")
+COST = TPL / "tools" / "cost.py"
+r = subprocess.run([sys.executable, str(COST), "selftest"], capture_output=True, text=True)
+check("cost.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+cost_src = COST.read_text(encoding="utf-8")
+verbs = set(re.findall(r'sub\.add_parser\("([\w-]+)"', cost_src))
+docs = "\n".join((TPL / d).read_text(encoding="utf-8") for d in ["README.md", "ORCHESTRATOR.md"])
+used = {m.group(1) for m in re.finditer(r"cost\.py\s+([\w-]+)", docs)}
+unknown = sorted(v for v in used if v not in verbs)
+check("all documented cost.py subcommands exist", not unknown and len(used) >= 3,
+      ", ".join(unknown) if unknown else f"{len(used)} documented")
+# an empty project must report "unknown", never "zero spent"
+cost_proj = tmp / "costproj"
+(cost_proj / ".pmos").mkdir(parents=True)
+(cost_proj / ".pmos" / "team-model.json").write_text(
+    json.dumps({"backend": {"model": "claude-opus-5"}, "budget_usd": 10}), encoding="utf-8")
+r = subprocess.run([sys.executable, str(COST), "report", "--project", str(cost_proj), "--json"],
+                   capture_output=True, text=True)
+empty = json.loads(r.stdout)
+check("empty ledger reports zero runs, not zero cost",
+      empty["total"]["runs"] == 0 and empty["budget_usd"] == 10 and r.returncode == 0)
+r = subprocess.run([sys.executable, str(COST), "estimate", "--project", str(cost_proj),
+                    "--roles", "backend", "--json"], capture_output=True, text=True)
+est = json.loads(r.stdout)
+check("estimate falls back to the flat config default without history",
+      est["workers"][0]["basis"] == "flat config estimate" and est["workers"][0]["usd"] > 0,
+      json.dumps(est["workers"][0]))
 
 print()
 if _failures:

@@ -7,7 +7,7 @@
       "architect": 0.19,
       "backend": 0.16,
       "frontend": 0.16,
-      "designer": 0.10,
+      "designer": 0.1,
       "business": 0.06,
       "marketing": 0.07,
       "qa": 0.04,
@@ -22,7 +22,7 @@
     "max_fallbacks_per_task": 4
   },
   "cost": {
-    "note": "Optional project spend guardrail. The coordinator estimates spend as sum over workers of (blended $/1M of the role's model) x (est_tokens_per_worker / 1M), logged in .pmos/log.md. If the running estimate exceeds max_project_cost_usd, the coordinator STOPS and asks the user to raise the cap, cut roles, or downgrade models. The user can override the cap per project at GATE 1.",
+    "note": "Project spend guardrail. tools/cost.py keeps the real ledger in .pmos/costs.jsonl (one record per worker run, priced from benchmarks.json) and checks it against budget_usd, approved at GATE 1. est_tokens_per_worker below is only the fallback for a role with no measured history yet; run 'cost.py calibrate' to replace it with a number this project actually measured.",
     "max_project_cost_usd": 20.0,
     "est_tokens_per_worker": 400000
   },

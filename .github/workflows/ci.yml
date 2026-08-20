@@ -28,5 +28,7 @@ jobs:
         run: python tools/validate.py
       - name: Retrieval benchmark (hits@5, MRR)
         run: python tools/eval_kb.py
+      - name: Spend ledger selftest
+        run: python tools/cost.py selftest
       - name: Protocol harness (fixture projects)
         run: python tools/eval_project.py

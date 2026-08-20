@@ -39,6 +39,7 @@ pm-agent-team/
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
   tools/eval_project.py    # protocol harness: replays tests/fixtures/ through the tooling
+  tools/cost.py            # spend ledger: what workers actually cost vs the GATE 1 budget
   tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
@@ -105,10 +106,24 @@ generator. Costs come from a curated pricing overlay (Epoch has no prices), supp
 from LiveBench's cost file for models the overlay lacks; models without pricing get null
 cost, which the recommender treats as "expensive" when choosing within the best tier.
 
-Cost guardrail: config.json `cost.max_project_cost_usd` (default 20) caps estimated project
-spend. At GATE 1 you approve a `budget_usd`; each wave logs an estimated spend in `.pmos/log.md`
-(role model `cost_per_1m` x config.json `cost.est_tokens_per_worker` per worker), and the
-coordinator stops and asks you before exceeding the cap. Advisory roles default to `low`
+Cost guardrail: config.json `cost.max_project_cost_usd` (default 20) caps project spend. At
+GATE 1 you approve a `budget_usd`, and from then on `tools/cost.py` keeps an append-only ledger
+of what workers actually burned (`.pmos/costs.jsonl`, one JSON object per run), priced from
+`benchmarks.json` (`cost_in`/`cost_out` per 1M):
+
+- after each worker returns, the coordinator runs `cost.py record` with the token counts from the
+  swarm result — failed runs included, since a worker that died on a context limit still cost money
+- before each wave, `cost.py estimate --roles ...` prices what is about to be spawned, using THIS
+  project's measured medians for roles that have history (`cost.py calibrate --write`) and the flat
+  `cost.est_tokens_per_worker` default only for roles that do not
+- `cost.py report` shows spend per role/wave/model against `budget_usd`, keeps measured and
+  estimated spend apart, flags unpriced models rather than counting them as free, and prints how
+  far the flat config estimate is from reality so it can be corrected with evidence
+- `estimate` and `report` exit 2 when the cap would be or has been breached, so a wave can be
+  gated on them; `state.py` reports the same on resume
+
+Nothing is invented: if the agent host does not report usage, `record --source estimated` keeps
+the guess visibly a guess. Advisory roles default to `low`
 reasoning effort (roster.json `role_effort`) to cut cost further.
 
 LiveBench flags:
@@ -193,6 +208,10 @@ python tools/artifacts.py selftest
 python tools/trace.py coverage --project .        # scope -> task -> criterion -> QA
 python tools/trace.py impact T-012 --project .    # what rides on one item, down to the code
 python tools/trace.py unplanned --project .       # changed files no task claims
+python tools/cost.py record --project . --role backend --model <m> --in N --out N
+python tools/cost.py report --project .           # spend vs budget_usd, estimate accuracy
+python tools/cost.py estimate --project . --roles backend,frontend
+python tools/cost.py calibrate --project . --write
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 ```
@@ -268,7 +287,7 @@ graph the entries stay literal and every query still works.
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (111 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (118 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), `python tools/artifacts.py selftest` and `python tools/trace.py selftest`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets

@@ -33,7 +33,8 @@ from pathlib import Path
 TPL = Path(__file__).resolve().parent.parent
 FIXTURES = TPL / "tests" / "fixtures"
 
-EXPECT_KEYS = {"description", "legal_strict", "dirty", "state", "artifacts", "trace", "gate2"}
+EXPECT_KEYS = {"description", "legal_strict", "dirty", "state", "artifacts", "trace",
+               "cost", "gate2"}
 
 
 def run_json(cmd):
@@ -84,7 +85,10 @@ def collect(dest, cfg_path):
                        "--project", str(dest), "--json"])
     unp, _ = run_json([sys.executable, str(TPL / "tools" / "trace.py"), "unplanned",
                        "--project", str(dest), "--json"])
-    return {"state": state, "artifacts": lint, "lint_rc": lint_rc, "coverage": cov, "unplanned": unp}
+    cost, cost_rc = run_json([sys.executable, str(TPL / "tools" / "cost.py"), "report",
+                              "--project", str(dest), "--json"])
+    return {"state": state, "artifacts": lint, "lint_rc": lint_rc, "coverage": cov,
+            "unplanned": unp, "cost": cost, "cost_rc": cost_rc}
 
 
 def gate2_verdict(got):
@@ -157,6 +161,20 @@ def check_fixture(name, verbose=False):
     if "unplanned" in tr:
         actual = sorted(r["file"] for r in got["unplanned"].get("unplanned", []))
         want("trace", "unplanned", actual, sorted(tr["unplanned"]))
+
+    co = expect.get("cost", {})
+    if co:
+        total = got["cost"].get("total", {})
+        if "runs" in co:
+            want("cost", "runs", total.get("runs"), co["runs"])
+        if "usd" in co and abs((total.get("usd") or 0) - co["usd"]) > 0.005:
+            findings.append("cost.usd: expected ~%.2f, got %r" % (co["usd"], total.get("usd")))
+        if "over_budget" in co:
+            want("cost", "over_budget", got["cost_rc"] == 2, co["over_budget"])
+        if "remaining_usd" in co and abs((got["cost"].get("remaining_usd") or 0)
+                                         - co["remaining_usd"]) > 0.005:
+            findings.append("cost.remaining_usd: expected ~%.2f, got %r"
+                            % (co["remaining_usd"], got["cost"].get("remaining_usd")))
 
     if "gate2" in expect:
         want("gate2", "verdict", gate2_verdict(got), expect["gate2"])

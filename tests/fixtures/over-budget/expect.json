@@ -1,0 +1,8 @@
+{
+ "description": "a retried worker pushed real spend past the GATE 1 cap: the coordinator must be stopped",
+ "legal_strict": false,
+ "state": {"stage": 6, "fail_checks": ["spend within budget_usd"]},
+ "artifacts": {"error_count": 0},
+ "cost": {"runs": 3, "usd": 4.75, "remaining_usd": -2.75, "over_budget": true},
+ "gate2": "clear"
+}

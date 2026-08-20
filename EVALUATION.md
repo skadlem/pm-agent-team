@@ -107,10 +107,14 @@ and `trace.py` must report.
 | `gate2-blocked-risk` | unplanned scope plus an open high-severity GDPR risk: GATE 2 must block |
 | `qa-failed-mitigation` | QA failed the only criterion while legal claims the risk mitigated |
 | `scope-creep` | a do-not-touch file changed that no task claims |
+| `over-budget` | a retried worker pushed measured spend past the GATE 1 cap |
 
 The GATE 2 verdict is derived from tool output (`errors > 0`, or an open high-severity risk),
 not from a judgement call, so the harness also checks that the tools surface enough to make the
 gate decision mechanically.
+
+Spend is checked the same way: the harness reads `cost.py report --json` for the fixture's
+ledger and asserts the totals, the remaining budget, and that an over-budget project exits 2.
 
 **What it does not cover.** No model is spawned, so it says nothing about the quality of what
 agents write — whether a charter is any good, whether an ADR chose well. That remains the manual

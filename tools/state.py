@@ -269,6 +269,24 @@ def main():
             add("FAIL", "team-model.json valid JSON")
         add("OK" if exists("team-model-ladder.json") else "FAIL",
             "team-model-ladder.json present (fallback ladders)")
+        # spend against the cap the user approved at GATE 1
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "report",
+                            "--project", str(proj), "--json"], capture_output=True, text=True)
+        try:
+            cost = json.loads(r.stdout)
+        except ValueError:
+            cost = None
+        if cost is None:
+            add("WARN", "cost ledger readable", (r.stderr or r.stdout).strip()[:120])
+        elif not cost["total"]["runs"]:
+            add("WARN", "worker spend recorded in .pmos/costs.jsonl",
+                "no runs recorded; the remaining budget is unknown, not zero")
+        else:
+            spent, budget = cost["total"]["usd"], cost["budget_usd"]
+            detail = "$%.2f over %d run(s)%s" % (
+                spent, cost["total"]["runs"],
+                ", $%.2f of $%.2f budget left" % (cost["remaining_usd"], budget) if budget else "")
+            add("FAIL" if budget and spent > budget else "OK", "spend within budget_usd", detail)
 
     if stage >= 3 and strict:
         jfiles = sorted((pmos / "kb-sources" / "legal").glob("jurisdiction-*.md"))

@@ -1,0 +1,3 @@
+{"ts": "2026-08-18T09:00:00+00:00", "wave": 2, "role": "architect", "label": "architect", "model": "claude-opus-5", "effort": "medium", "tokens_in": 240000, "tokens_out": 20000, "usd": 1.7, "source": "measured", "status": "ok"}
+{"ts": "2026-08-18T11:00:00+00:00", "wave": 3, "role": "backend", "label": "backend-1", "model": "claude-opus-5", "effort": "medium", "tokens_in": 120000, "tokens_out": 8000, "usd": 0.8, "source": "measured", "status": "failed", "task": "T-001"}
+{"ts": "2026-08-18T12:00:00+00:00", "wave": 3, "role": "backend", "label": "backend-2", "model": "claude-opus-5", "effort": "medium", "tokens_in": 300000, "tokens_out": 30000, "usd": 2.25, "source": "measured", "status": "ok", "task": "T-001"}

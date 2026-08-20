@@ -109,10 +109,20 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
       user pick manually for that role. Do not proceed without approval.
    e. COST GUARDRAIL: ask the user for a project spend cap in USD (default: config.json
       `cost.max_project_cost_usd`, currently 20). Write it to `.pmos/team-model.json`
-      as `budget_usd`. Before each wave, estimate spend = sum over spawned workers of
-      (model's `cost_per_1m` from recommend.py --json) x (config.json `cost.est_tokens_per_worker`
-      / 1M); log each wave's estimate in `.pmos/log.md`. If the running estimate exceeds
-      `budget_usd`, STOP and ask: raise the cap, drop a role, or move a role to a cheaper model.
+      as `budget_usd`. From then on the ledger, not arithmetic in your head, tracks spend:
+
+      - BEFORE each wave: `python TPL/tools/cost.py estimate --project . --roles <roles> --wave N`.
+        It prices each role's approved model and uses THIS project's measured history for roles
+        that have any (`--write`n by calibrate), the flat config estimate for the rest. Exit code
+        2 means the wave would breach `budget_usd`: STOP and ask the user to raise the cap, drop
+        a role, or move a role to a cheaper model. Log the estimate.
+      - AFTER each worker returns: `python TPL/tools/cost.py record --project . --role <role>
+        --model <model> --wave N --label <label> --in <tokens_in> --out <tokens_out>
+        [--task T-NNN] [--status ok|failed]`, taking the token counts from the swarm result.
+        Record FAILED runs too - a worker that died on a context limit still cost money.
+        If the host does not report usage, pass your own numbers with `--source estimated` so
+        the report can keep guesses apart from measurements. Never skip the record: an unrecorded
+        run makes the remaining budget wrong for every later wave.
 5. Jurisdiction pack (legal): read the charter's Deployment jurisdictions section.
    For each country/region, research and write `.pmos/kb-sources/legal/jurisdiction-<cc>.md`
    with an `as_of` date, citing each law and its source URL. Checklist:
@@ -183,8 +193,10 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    can be evaluated afterwards: number of workers spawned, QA gate pass/fail and defect count,
    rework loops (wave 4 -> wave 3), KB budget usage (`kb.py budget`), and acceptance criteria
    pass rate.
-   Also log the estimated spend (see GATE 1 cost guardrail) and the remaining budget against
-   `budget_usd`; stop and ask if the estimate is over the cap.
+   Also run `python TPL/tools/cost.py report --project .` and log actual spend, the remaining
+   budget, and its estimate-accuracy line; exit code 2 means the project is over `budget_usd`, so
+   stop and ask. Every few waves run `python TPL/tools/cost.py calibrate --project . --write` so
+   later estimates come from this project's own measured usage instead of the flat default.
    Run `python TPL/tools/artifacts.py --project .` at every checkpoint and log its counts plus any
    findings, so traceability breaks surface in the wave that caused them rather than at QA.
    Then run `python TPL/tools/trace.py unplanned --project .`: it lists changed files no task claims.
