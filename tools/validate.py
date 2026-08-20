@@ -11,6 +11,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -340,6 +341,78 @@ if os.name == "nt":
     check("install.cmd idempotent", r.returncode == 0)
     root = pathlib.Path(os.path.expanduser("~/.jcode/pmos-template-root"))
     check("template-root file", root.exists() and root.read_text().strip().rstrip("\\/") == str(TPL).rstrip("\\/"))
+
+print("== 13. Artifact id schema (ids, references, linter) ==")
+ART = TPL / "tools" / "artifacts.py"
+r = subprocess.run([sys.executable, str(ART), "selftest"], capture_output=True, text=True)
+check("artifacts.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+
+# the templates must actually carry the conventions the linter enforces
+tpl_checks = [
+    ("charter defines R ids", TPL / "templates" / "charter.md", r"^-\s*R-\d{3}:"),
+    ("brownfield charter defines R ids", TPL / "templates" / "charter-brownfield.md", r"^-\s*R-\d{3}:"),
+    ("plan defines T blocks", TPL / "templates" / "plan.md", r"^-\s*id:\s*T-\d{3}"),
+    ("plan defines A blocks", TPL / "templates" / "plan.md", r"^-\s*id:\s*A-\d{3}"),
+    ("plan tasks carry satisfies", TPL / "templates" / "plan.md", r"^\s+satisfies:"),
+    ("plan criteria carry verifies", TPL / "templates" / "plan.md", r"^\s+verifies:"),
+    ("adr heading carries its id", TPL / "templates" / "adr.md", r"^#\s*ADR-"),
+    ("adr declares supersedes", TPL / "templates" / "adr.md", r"^Supersedes:"),
+    ("risk register carries mitigated_by",
+     TPL / "kb-sources" / "legal" / "risk-register-template.md", r"^\s+mitigated_by:"),
+]
+for label, path, pattern in tpl_checks:
+    check(label, bool(re.search(pattern, path.read_text(encoding="utf-8"), re.M)))
+
+# doc and code must agree on the vocabulary
+art_src = ART.read_text(encoding="utf-8")
+schema_doc = (TPL / "ARTIFACT-SCHEMA.md").read_text(encoding="utf-8")
+fields = set(re.findall(r'^    "(\w+)": \("\w+", "\w+"\),', art_src, re.M))
+undocumented = sorted(f for f in fields if f"`{f}`" not in schema_doc)
+check("every reference field is documented", not undocumented and len(fields) >= 6,
+      ", ".join(undocumented) if undocumented else f"{len(fields)} fields")
+prefixes = set(re.findall(r'^    "\w+": "([A-Z]+)",', art_src, re.M))
+missing = sorted(p for p in prefixes if f"`{p}-NNN`" not in schema_doc)
+check("every id prefix is documented", not missing and len(prefixes) >= 5,
+      ", ".join(missing) if missing else f"{len(prefixes)} prefixes")
+
+# a project assembled straight from the templates must lint without ERRORS
+art_proj = tmp / "artproj"
+(art_proj / ".pmos" / "plans").mkdir(parents=True)
+(art_proj / ".pmos" / "decisions").mkdir(parents=True)
+shutil.copyfile(TPL / "templates" / "charter.md", art_proj / ".pmos" / "charter.md")
+shutil.copyfile(TPL / "templates" / "plan.md", art_proj / ".pmos" / "plans" / "plan.md")
+shutil.copyfile(TPL / "templates" / "adr.md", art_proj / ".pmos" / "decisions" / "ADR-001.md")
+r = subprocess.run([sys.executable, str(ART), "--project", str(art_proj), "--json"],
+                   capture_output=True, text=True)
+lint = json.loads(r.stdout) if r.stdout.strip() else {}
+check("templates lint with no errors", r.returncode == 0 and not lint.get("errors"),
+      "; ".join(e["message"] for e in lint.get("errors", []))[:120])
+check("unfilled placeholders are warned about",
+      any("placeholder" in w["message"] for w in lint.get("warnings", [])))
+r = subprocess.run([sys.executable, str(ART), "--project", str(art_proj), "--strict"],
+                   capture_output=True, text=True)
+check("--strict fails on warnings", r.returncode == 2, f"rc={r.returncode}")
+
+# graph export: the substrate the traceability graph is built from
+gpath = art_proj / "graph.json"
+subprocess.run([sys.executable, str(ART), "--project", str(art_proj), "--graph", str(gpath)],
+               capture_output=True, text=True)
+graph = json.loads(gpath.read_text(encoding="utf-8")) if gpath.exists() else {}
+check("--graph writes nodes and edges",
+      bool(graph.get("nodes")) and "edges" in graph
+      and {n["kind"] for n in graph["nodes"]} <= {"requirement", "task", "acceptance", "decision", "risk"},
+      f"{len(graph.get('nodes', []))} nodes, {len(graph.get('edges', []))} edges")
+
+# a broken project must fail, or the linter is decoration
+broken = tmp / "brokenproj"
+(broken / ".pmos" / "plans").mkdir(parents=True)
+(broken / ".pmos" / "charter.md").write_text("# C\n- R-001: real requirement\n", encoding="utf-8")
+(broken / ".pmos" / "plans" / "plan.md").write_text(
+    "```yaml\n- id: T-001\n  title: t\n  satisfies: R-404\n```\n", encoding="utf-8")
+r = subprocess.run([sys.executable, str(ART), "--project", str(broken)], capture_output=True, text=True)
+check("dangling reference fails the lint", r.returncode == 1 and "R-404" in r.stdout,
+      f"rc={r.returncode}")
 
 print()
 if _failures:

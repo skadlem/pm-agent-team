@@ -6,7 +6,10 @@ Status: draft | Owner: PM agent | Updated: {{date}} | Mode: brownfield
 <!-- Summarized from .pmos/out/architect/current-state.md; link to it for details. -->
 
 ## 2. Desired change
-<!-- What the user asked for, phrased as a delta on the current state. -->
+<!-- What the user asked for, phrased as a delta on the current state. Give each distinct change
+     an id: `- R-NNN: <change>`. Plan tasks point at these with `satisfies:`, so a delta nobody
+     planned shows up as a warning rather than as a surprise at QA. See ARTIFACT-SCHEMA.md. -->
+- R-001: <change>
 
 ## 3. Impact surface
 <!-- Which modules/files/areas the change touches, from discovery. Drives the roster. -->

@@ -20,6 +20,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - name: KB engine selftest
         run: python tools/kb.py selftest
+      - name: Artifact linter selftest
+        run: python tools/artifacts.py selftest
       - name: Template validation suite
         run: python tools/validate.py
       - name: Retrieval benchmark (hits@5, MRR)

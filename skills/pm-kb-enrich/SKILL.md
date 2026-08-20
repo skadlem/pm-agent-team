@@ -46,6 +46,10 @@ handling, test layout, commit style), the MODULE MAP into `architect`/`backend`/
 (who owns what, integration points), and how-to-run-tests into `qa`. These let later agents
 answer "how does this repo do X" from the KB instead of re-querying graphify.
 
+Keep the artifact ids in the chunk text (`T-012`, `A-004`, `ADR-002`, `R-001`, `L-001`) wherever a
+fact came from an id-bearing item, so a worker searching "T-012" lands on the fact and the KB agrees
+with the traceability graph (see ARTIFACT-SCHEMA.md). Never invent an id that no artifact defines.
+
 Skip namespaces with no relevant facts. Quality over coverage: only facts a later agent would
 actually search for. Phrase titles like search queries ("Auth flow for API tokens").
 

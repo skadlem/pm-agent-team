@@ -15,6 +15,7 @@ Every risk register entry uses exactly this schema (from the legal advisor spec,
   obligation: <what the project must do>
   mitigation: <planned action>
   owner: <role, e.g. backend>
+  mitigated_by: <the plan task id doing the work, e.g. T-012; empty if none yet>
   status: open | mitigated | requires-counsel
 ```
 
@@ -24,4 +25,7 @@ item `requires-counsel` instead of asserting it. A `severity: high` item with `s
 GATE 2 unless the user explicitly accepts the risk. Risk ids are stable and diffed at wave 4: compare the
 wave-4 register against the wave-2 register to ensure nothing silently disappears. `owner` names the role
 responsible for the mitigation (for example backend), and `status` moves from `open` to `mitigated` only
-after the mitigation is implemented and verified.
+after the mitigation is implemented and verified. `mitigated_by` names the plan task that does that
+work, which is what makes "verified" checkable: `python TPL/tools/artifacts.py --project .` warns when a
+`mitigated` risk points at a task with no passing acceptance criterion in the QA report, and when a
+high-severity open risk has no mitigating task at all.

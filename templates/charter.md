@@ -13,7 +13,13 @@ Status: draft | Owner: PM agent | Updated: {{date}}
 
 ## 4. Scope
 ### In scope (this project)
+<!-- One `- R-NNN: <requirement>` per line. These ids are stable and the plan's tasks point at
+     them with `satisfies:`, so anything in scope that no task claims is caught mechanically.
+     See ARTIFACT-SCHEMA.md. -->
+- R-001: <requirement>
+
 ### Out of scope (explicit non-goals)
+<!-- Plain prose. Non-goals get no id: nothing should reference them. -->
 
 ## 5. Tech stack and constraints
 <!-- Language(s), frameworks, hosting, budget, deadlines, compliance. -->

@@ -213,6 +213,37 @@ def main():
         else:
             add("FAIL", "log.md exists")
 
+    if stage >= 1:
+        # ids and references across charter / plan / ADRs / register / QA report.
+        # Errors mean a handoff points at something that does not exist; warnings
+        # are coverage gaps (scope with no task, task with no criterion).
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "artifacts.py"),
+                            "--project", str(proj), "--json"],
+                           capture_output=True, text=True)
+        try:
+            lint = json.loads(r.stdout)
+        except ValueError:
+            lint = None
+        if lint is None:
+            add("WARN", "artifact ids lint", (r.stderr or r.stdout).strip()[:200] or "no output")
+        else:
+            errs, warns = lint["errors"], lint["warnings"]
+            out["artifacts"] = {"counts": lint["counts"], "edges": lint["edges"],
+                                "errors": len(errs), "warnings": len(warns)}
+            detail = "%d entities, %d references" % (sum(lint["counts"].values()), lint["edges"])
+            if errs:
+                add("FAIL", "artifact references all resolve",
+                    "%s%s" % (errs[0]["message"],
+                              "; +%d more" % (len(errs) - 1) if len(errs) > 1 else ""))
+            else:
+                add("OK", "artifact references all resolve", detail)
+            if warns:
+                add("WARN", "artifact coverage complete",
+                    "%s%s" % (warns[0]["message"],
+                              "; +%d more" % (len(warns) - 1) if len(warns) > 1 else ""))
+            else:
+                add("OK", "artifact coverage complete", detail)
+
     if stage >= 2:
         tm = team_model if team_model else load_json(pmos / "team-model.json")
         if isinstance(tm, dict):

@@ -33,13 +33,15 @@ directory. Available trigger phrases:
 ```
 pm-agent-team/
   ORCHESTRATOR.md          # operating manual for the main session (waves, gates, rules)
+  ARTIFACT-SCHEMA.md       # stable ids (R/T/A/ADR/L) and the references between artifacts
   roster.json              # roles, per-role skills, model suggestions, wave order
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
+  tools/artifacts.py       # artifact id/reference linter + traceability graph export
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
   kb-sources/shared/       # agent operating rules (partial-context, evidence, etc.)
-  templates/               # charter.md, adr.md skeletons
+  templates/               # charter.md, plan.md, adr.md skeletons (id-bearing)
   skills/                  # project-team-start, project-team-work, pm-kb-bootstrap, pm-kb-enrich
   install.cmd / install.sh # copy skills to ~/.jcode/skills, record template root
 ```
@@ -184,6 +186,8 @@ python tools/kb.py stats --db <db>
 python tools/kb.py clear --db <db> --ns <role>
 python tools/kb.py reindex-vectors --db <db>
 python tools/kb.py selftest
+python tools/artifacts.py --project . [--json] [--strict] [--graph out.json]
+python tools/artifacts.py selftest
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 ```
@@ -191,6 +195,27 @@ python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-l
 On resume, `state.py` tells you where the project left off (stage 0..9 derived from artifacts on
 disk), whether everything before that stage is intact (pre-flight checks), and the next launch
 step — see ORCHESTRATOR.md "Resume in a future session".
+
+## Artifact traceability
+
+Waves hand work to each other as markdown, so anything another role must point at carries a
+stable id: charter requirements `R-NNN`, plan tasks `T-NNN`, acceptance criteria `A-NNN`,
+decisions `ADR-NNN`, risks `L-NNN`. Tasks say what they `satisfy`, criteria say what they
+`verify`, risks say what task `mitigates` them. Full field reference: [ARTIFACT-SCHEMA.md](ARTIFACT-SCHEMA.md).
+
+`python tools/artifacts.py --project .` turns checks that used to need an agent re-reading prose
+into a deterministic pass:
+
+- **errors** (block GATE 2): a reference to an id nothing defines, a duplicate id, a reference
+  pointing at the wrong kind, a `depends_on` cycle, a QA result for a criterion no plan defines.
+- **warnings**: scope no task claims, a task no criterion verifies, a criterion QA never
+  reported on, a high-severity open risk with no mitigating task, and a risk marked `mitigated`
+  whose task has no passing criterion — the check ORCHESTRATOR step 10 previously asked QA to
+  make by eye.
+
+`state.py` runs the same lint in its resume pre-flight, and `--graph` writes the node/edge list
+(`{"nodes": [...], "edges": [...]}`) that joins to the graphify code graph through each task's
+`touches:` paths.
 
 ## Customizing
 
@@ -205,8 +230,9 @@ step — see ORCHESTRATOR.md "Resume in a future session".
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (76 checks: budget math, frontmatter, bootstrap, edge cases,
-   recommender semantics, re-index idempotency and pruning, installer idempotency).
+   `python tools/validate.py` (95 checks: budget math, frontmatter, bootstrap, edge cases,
+   recommender semantics, re-index idempotency and pruning, artifact id schema, installer
+   idempotency) and `python tools/artifacts.py selftest`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):

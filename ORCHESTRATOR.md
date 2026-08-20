@@ -29,6 +29,12 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
       (.pmos/out/<role>/notes.md). The coordinator checks this at every checkpoint.
    c. Targeted file read (read tool) ONLY for a specific file you already know you need.
 3. Artifacts are small files (markdown) under `.pmos/out/<role>/`. Keep each under ~300 lines.
+3b. Anything another role must point at carries a STABLE ID: charter requirements `R-NNN`, plan
+   tasks `T-NNN` and acceptance criteria `A-NNN`, decisions `ADR-NNN`, risks `L-NNN`. References
+   between them use the fields in ARTIFACT-SCHEMA.md (`satisfies`, `depends_on`, `decided_by`,
+   `verifies`, `mitigated_by`, `supersedes`). Ids are never renumbered or reused. Prose stays
+   prose; only the things other waves depend on need an id. Verify any time with
+   `python TPL/tools/artifacts.py --project .` - it is free, deterministic, and needs no model.
 4. Before claiming done, apply the verification-before-completion skill: evidence, not assertions.
 5. Disagreements between roles are escalated to the coordinator, who asks the user if stakes are high.
 6. Model fallback (see "Worker model fallback" below): a failed worker (out of tokens, crash,
@@ -76,8 +82,11 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
 3. Wave 1 (PM): spawn one PM worker. Its prompt = template below + charter skeleton from
    `TPL/templates/charter.md` (greenfield) or `TPL/templates/charter-brownfield.md` (brownfield)
    + the user's project description + `.pmos/out/architect/current-state.md` when present.
-   PM writes charter, plan, and `out/pm/roster-proposal.md` listing the MINIMAL team needed
-   (roles + one-line justification each).
+   PM writes charter, plan (skeleton: `TPL/templates/plan.md`), and `out/pm/roster-proposal.md`
+   listing the MINIMAL team needed (roles + one-line justification each).
+   The charter's in-scope items get `R-NNN` ids and the plan's tasks/acceptance criteria get
+   `T-NNN`/`A-NNN` blocks pointing back at them (rule 3b). Before reporting done, the PM runs
+   `python TPL/tools/artifacts.py --project .` and fixes every ERROR.
    Brownfield roster rule: justify roles from the IMPACT SURFACE in current-state.md (which
    modules the change touches), not from the project type. E.g. a backend refactor that touches
    no UI gets no designer and no frontend.
@@ -115,7 +124,10 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    Ingest: `python TPL/tools/kb.py add-dir --db .pmos/kb.sqlite3 --ns legal --path .pmos/kb-sources/legal`.
    Light mode (config.json `legal_strict: false`): skip this step and the data inventory.
    Renumber the following steps accordingly (wave 2 becomes 6, etc.).
-6. Wave 2: spawn approved roles from {architect, designer, business, legal} IN PARALLEL. Each reads
+6. Wave 2: spawn approved roles from {architect, designer, business, legal} IN PARALLEL.
+   Architect: every ADR keeps its `# ADR-NNN: title` heading id and names what it `Supersedes:`;
+   tasks it constrains cite it with `decided_by:` in the plan. Legal: each risk entry carries
+   `mitigated_by: <task id>` once the mitigating work exists in the plan. Each reads
    `.pmos/charter.md` and searches its KB namespace first. Brownfield: each also reads
    `.pmos/out/architect/current-state.md` and MUST design the change to fit existing conventions,
    not idealized ones. Outputs go to `.pmos/out/<role>/`.
@@ -131,11 +143,16 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    chunks in place and prunes facts deleted from their source file, so workers stop retrieving a
    decision the project has moved off. Log the `N new, N updated, N pruned` line.
 8. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
+   FIRST run `python TPL/tools/artifacts.py --project .`. Any ERROR blocks the gate: a reference
+   that does not resolve means a wave handed off to something that does not exist. Report the
+   warnings in the summary (scope with no task, task with no acceptance criterion, high-severity
+   open risk with no mitigating task); the user may accept them knowingly.
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly
    accepted it, GATE 2 is BLOCKED until resolved or accepted.
 9. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
-   where independent. Workers read plan + their role's out dir, query KB + graphify as needed.
+   where independent. Name the `T-NNN` ids each worker owns in its assignment, and have it record
+   them in its notes; that is what later ties delivered code back to the charter. Workers read plan + their role's out dir, query KB + graphify as needed.
    BEFORE spawning Wave 3, check the graph is fresh: compare the newest source file mtime under
    the project (excluding .pmos/, graphify-out/, .git/) against `graphify-out/graph.json`; if any
    source is newer, run `/graphify <path> --update` first and say so.
@@ -144,6 +161,11 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    Brownfield: QA FIRST runs the project's existing test suite and records the baseline in its
    report (pre-existing failures vs failures introduced by the change), and verifies nothing in
    the charter's do-not-touch list changed.
+   QA reports one line per acceptance criterion in `.pmos/out/qa/test-report.md`:
+   `- A-NNN: pass|fail - <evidence>`. A criterion with no line is not "passed", it is unreported.
+   `python TPL/tools/artifacts.py --project .` then makes the next two checks mechanical: it errors
+   on a result for a criterion nobody defined, and warns when a `status: mitigated` risk points at a
+   task whose criteria did not pass.
    QA also re-checks that `status: mitigated` risk register items are actually implemented (owner
    -> delivered work) and legal does a light re-run: diff risk ids against the wave 2 register
    (nothing silently disappears) and append a wave-4 section with L-ids and status changes,
@@ -157,6 +179,8 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    pass rate.
    Also log the estimated spend (see GATE 1 cost guardrail) and the remaining budget against
    `budget_usd`; stop and ask if the estimate is over the cap.
+   Run `python TPL/tools/artifacts.py --project .` at every checkpoint and log its counts plus any
+   findings, so traceability breaks surface in the wave that caused them rather than at QA.
 
 Cost-quality defaults (see roster.json for the live values): critical roles (pm, architect, qa)
   keep a 0.95 tier (near-best score only), implementation roles (backend, legal) 0.92, frontend/
@@ -185,7 +209,11 @@ Mandatory procedure:
    BROWNFIELD RULE: before writing or changing any code, graphify-query for existing similar
    patterns and read .pmos/out/architect/current-state.md conventions; conform to them.
    New code must look like it belongs in this codebase.
-5. Write outputs to {{artifacts}}. Keep them concise.
+5. Write outputs to {{artifacts}}. Keep them concise. Anything another role must reference
+   carries a stable id, and every reference you make (`satisfies`, `depends_on`, `decided_by`,
+   `verifies`, `mitigated_by`, `supersedes`) names an id that already exists - see
+   ARTIFACT-SCHEMA.md. Check your own work with
+   `python "{{TPL}}/tools/artifacts.py" --project "{{PROJ}}"` before reporting done.
 6. Report back: what you did, decisions made, blockers, artifacts written.
 ```
 
