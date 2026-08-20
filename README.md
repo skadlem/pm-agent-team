@@ -161,6 +161,11 @@ from the log. The KB and graphify index persist.
   Offline by default (deterministic hashed vectors). For real embeddings set
   `PMOS_EMBEDDINGS_URL` + `PMOS_EMBEDDINGS_KEY` + `PMOS_EMBEDDINGS_MODEL` (OpenAI-compatible
   /embeddings endpoint), then `kb.py reindex-vectors`.
+- Re-indexing is idempotent. A chunk is identified by (namespace, source file, section
+  heading): re-running `add-dir` after an artifact changes REPLACES those sections in place and
+  prunes the ones deleted from the file (`--no-prune` opts out). So `/pm-kb-enrich` can be re-run
+  after every scope change without a superseded ADR lingering in the index next to the current
+  one. Stores written before this (schema v1) are deduped automatically on first open.
 - Token caps: 150K total, shared budget 15K + role-weighted pools. Overflow drops
   lowest-priority chunks first (scraped top-ups before curated fundamentals; project facts rank
   highest below shared rules). Check with `kb.py budget`.
@@ -172,7 +177,7 @@ from the log. The KB and graphify index persist.
 ```
 python tools/kb.py init --db <db>
 python tools/kb.py add --db <db> --ns <role> --title "..." --content "..." [--priority N]
-python tools/kb.py add-dir --db <db> --ns <role> --path <dir> [--priority N]
+python tools/kb.py add-dir --db <db> --ns <role> --path <dir> [--priority N] [--no-prune]
 python tools/kb.py search --db <db> "query" [--role <role>] [-k N] [--json]
 python tools/kb.py budget --db <db> --config config.json
 python tools/kb.py stats --db <db>
@@ -200,8 +205,8 @@ step — see ORCHESTRATOR.md "Resume in a future session".
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (70 checks: budget math, frontmatter, bootstrap, edge cases,
-   recommender semantics, installer idempotency).
+   `python tools/validate.py` (76 checks: budget math, frontmatter, bootstrap, edge cases,
+   recommender semantics, re-index idempotency and pruning, installer idempotency).
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):

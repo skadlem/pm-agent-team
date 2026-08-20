@@ -294,17 +294,44 @@ else:
     gen_out.unlink()
 
 print("== 12. Idempotent re-add / reindex / installer ==")
-# Re-adding the same dir must replace docs, not duplicate
-r1 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
-                    capture_output=True, text=True)
-before = r1.stdout.count("chunks")
+
+def ns_chunks(ns):
+    """Actual chunk count for a namespace, from stats --json."""
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB),
+                        "--json"], capture_output=True, text=True)
+    return next((d["chunks"] for d in json.loads(r.stdout) if d["ns"] == ns), 0)
+
+# Re-adding the same dir must replace chunks in place, not stack a second copy
+# beside the stale one (a re-run of pm-kb-enrich after any scope change).
+before = ns_chunks("pm")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "add-dir", "--db", str(DB),
+                    "--ns", "pm", "--path", str(TPL / "kb-sources" / "pm"), "--priority", "8"],
+                   capture_output=True, text=True)
+after = ns_chunks("pm")
+check("re-add same dir does not duplicate", before == after and before > 0, f"{before} vs {after}")
+check("re-add reports updates, not inserts", "0 new," in r.stdout and "0 pruned" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else "no output")
+
+# A section deleted from a source file must leave the KB on the next index pass
+pruned_dir = tmp / "prunable"
+pruned_dir.mkdir()
+(pruned_dir / "facts.md").write_text("## Alpha fact\nOne.\n\n## Beta fact\nTwo.\n", encoding="utf-8")
+add_prunable = [sys.executable, str(TPL / "tools" / "kb.py"), "add-dir", "--db", str(DB),
+                "--ns", "qa", "--path", str(pruned_dir), "--glob", "*.md", "--priority", "8"]
+base = ns_chunks("qa")
+subprocess.run(add_prunable, capture_output=True, text=True)
+check("add-dir indexes both sections", ns_chunks("qa") == base + 2)
+(pruned_dir / "facts.md").write_text("## Alpha fact\nOne.\n", encoding="utf-8")
+r = subprocess.run(add_prunable, capture_output=True, text=True)
+check("deleted section is pruned on re-index", ns_chunks("qa") == base + 1 and "1 pruned" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else "no output")
+r = subprocess.run(add_prunable + ["--no-prune"], capture_output=True, text=True)
+check("--no-prune keeps vanished sections", "0 pruned" in r.stdout)
+subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "clear", "--db", str(DB),
+                "--ns", "qa"], capture_output=True, text=True)
 subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "add-dir", "--db", str(DB),
-                "--ns", "pm", "--path", str(TPL / "kb-sources" / "pm"), "--priority", "8"],
+                "--ns", "qa", "--path", str(TPL / "kb-sources" / "qa"), "--priority", "8"],
                capture_output=True, text=True)
-r2 = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "stats", "--db", str(DB)],
-                    capture_output=True, text=True)
-after = r2.stdout.count("chunks")
-check("re-add same dir does not duplicate", before == after, f"{before} vs {after}")
 r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "reindex-vectors", "--db", str(DB)],
                    capture_output=True, text=True)
 check("reindex-vectors offline", r.returncode == 0 and "offline" in r.stdout)

@@ -68,3 +68,8 @@ waves may start.
 - Never copy whole upstream artifacts into the KB; extract and compress. The original files stay
   on disk for full reads when truly needed.
 - Re-run this skill after major scope changes (new ADRs, revised plan) to keep the KB current.
+  Re-running is safe and is the intended way to retire stale facts: chunks are keyed by
+  (namespace, source file, `## ` heading), so rewriting `.pmos/kb-sources/project/<ns>.md` and
+  re-running step 2 updates those chunks in place and DELETES the ones you dropped from the file.
+  A superseded decision must be edited or removed there - leaving it in the file keeps it
+  searchable. Check the reported `N new, N updated, N pruned` line.

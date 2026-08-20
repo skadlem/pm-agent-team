@@ -127,6 +127,9 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    only, no gate block.
 7. Enrich: run the /pm-kb-enrich skill (adds project-specific facts to each role namespace from
    charter + wave 2 outputs; brownfield: also from current-state.md). Budget check: `kb.py budget`.
+   Re-run it after ANY later scope change (new/superseded ADR, revised plan): re-indexing updates
+   chunks in place and prunes facts deleted from their source file, so workers stop retrieving a
+   decision the project has moved off. Log the `N new, N updated, N pruned` line.
 8. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly

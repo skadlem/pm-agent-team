@@ -2,6 +2,10 @@
 """PMOS knowledge base engine: hybrid search (BM25 + vectors) with token caps.
 
 One SQLite store per project (.pmos/kb.sqlite3), namespaced per role.
+A chunk is identified by (namespace, source file, section title): re-indexing a
+source replaces its sections in place and prunes the ones that disappeared, so
+enrichment can be re-run after every scope change without stacking stale copies
+next to the current facts.
 BM25 via SQLite FTS5; semantic side is offline (deterministic hashed vectors)
 by default, or a real OpenAI-compatible embeddings endpoint when configured.
 
@@ -13,7 +17,7 @@ Env vars for real embeddings (optional):
 Commands:
   init --db PATH
   add --db PATH --ns ROLE --title T [--kind K] [--source S] [--priority N] (--content TEXT | - )
-  add-dir --db PATH --ns ROLE --path DIR [--glob *.md] [--priority N]
+  add-dir --db PATH --ns ROLE --path DIR [--glob *.md] [--priority N] [--no-prune]
   search --db PATH "query" [--role ROLE] [-k N] [--json] [--min-score F]
   budget --db PATH --config CONFIG_JSON [--json]
   reindex-vectors --db PATH
@@ -28,7 +32,7 @@ from pathlib import Path
 DIM = 64
 RRF_K = 60
 FTS_LANG = "english"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chunks(
@@ -40,12 +44,18 @@ CREATE TABLE IF NOT EXISTS chunks(
   priority INTEGER NOT NULL DEFAULT 5,
   n_tokens INTEGER NOT NULL,
   body TEXT NOT NULL,
-  added TEXT NOT NULL
+  added TEXT NOT NULL,
+  updated TEXT NOT NULL DEFAULT ''
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS kb_fts USING fts5(title, body, content='chunks', content_rowid='id', tokenize='porter unicode61');
 CREATE TABLE IF NOT EXISTS vectors(id INTEGER PRIMARY KEY, vec BLOB NOT NULL, dim INTEGER NOT NULL, mode TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_chunks_ns ON chunks(ns);
 """
+
+# Chunk identity. Applied only after migrate() has collapsed the duplicates a
+# v1 DB may already hold, so it can never fail on an existing store.
+IDENTITY_INDEX = ("CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_identity "
+                  "ON chunks(ns, source, title)")
 
 def tokens_of(text):
     return max(1, len(text) // 4)
@@ -142,10 +152,56 @@ def connect(db_path):
             "db %s is schema v%d but this kb.py only knows v%d; upgrade kb.py "
             "before opening it" % (db_path, version, SCHEMA_VERSION))
     if version < SCHEMA_VERSION:
-        # v0 -> v1: SCHEMA is idempotent (CREATE IF NOT EXISTS), so the tables
-        # were just created above; nothing else to migrate.
+        migrate(con, version, db_path)
         con.execute("PRAGMA user_version = %d" % SCHEMA_VERSION)
+        con.commit()
     return con
+
+def migrate(con, from_version, db_path):
+    """Bring an existing store up to SCHEMA_VERSION. A fresh DB reports version
+    0 and falls through: SCHEMA created its tables already, so only the indexes
+    are left to apply."""
+    if from_version < 2:
+        cols = {r[1] for r in con.execute("PRAGMA table_info(chunks)")}
+        if "updated" not in cols:
+            con.execute("ALTER TABLE chunks ADD COLUMN updated TEXT NOT NULL DEFAULT ''")
+        # v1 stored whatever path string the caller passed. Rewrite those that
+        # still point at a real file to the normalized form, so the first
+        # re-index after the upgrade updates those rows instead of keying
+        # differently and inserting a second copy of every section.
+        root = Path(db_path).resolve().parent.parent
+        for (src,) in con.execute("SELECT DISTINCT source FROM chunks").fetchall():
+            found = next((c for c in (Path(src), root / src) if c.is_file()), None)
+            if found is None:
+                continue  # not a path (e.g. "manual"), or indexed elsewhere: leave it
+            fixed = normalize_source(db_path, found)
+            if fixed != src:
+                con.execute("UPDATE chunks SET source=? WHERE source=?", (fixed, src))
+        # v1 had no identity constraint, so a re-indexed source stacked a second
+        # copy beside the stale one. Keep the newest of each identity (rerun after
+        # the rewrite above, which can itself merge two rows into one identity).
+        dupes = con.execute(
+            "SELECT id FROM chunks WHERE id NOT IN "
+            "(SELECT MAX(id) FROM chunks GROUP BY ns, source, title)").fetchall()
+        for (cid,) in dupes:
+            delete_chunk(con, cid)
+        con.execute("DELETE FROM vectors WHERE id NOT IN (SELECT id FROM chunks)")
+        if dupes:
+            print("kb: schema v%d -> v%d, dropped %d duplicate chunk(s)"
+                  % (from_version, SCHEMA_VERSION, len(dupes)), file=sys.stderr)
+    con.execute(IDENTITY_INDEX)
+
+def normalize_source(db_path, path):
+    """Stable identity for an indexed file: its path relative to the project
+    root (the DB lives at PROJ/.pmos/kb.sqlite3), absolute when it lives
+    outside. Without this the same file indexed from a different working
+    directory would key as a different source and duplicate itself."""
+    f = Path(path).resolve()
+    root = Path(db_path).resolve().parent.parent
+    try:
+        return f.relative_to(root).as_posix()
+    except ValueError:
+        return f.as_posix()
 
 def compute_vector(con, text):
     mode = "api"
@@ -157,18 +213,54 @@ def compute_vector(con, text):
         vec = vecs[0]
     return vec, mode
 
-def insert_doc(con, ns, title, kind, source, priority, body):
+def delete_chunk(con, cid):
+    """Remove a chunk from all three tables. FTS first: the external-content
+    index reads the still-present chunks row to unindex it."""
+    con.execute("DELETE FROM kb_fts WHERE rowid=?", (cid,))
+    con.execute("DELETE FROM vectors WHERE id=?", (cid,))
+    con.execute("DELETE FROM chunks WHERE id=?", (cid,))
+
+def upsert_doc(con, ns, title, kind, source, priority, body):
+    """Add a chunk, or replace the one that already holds this identity.
+
+    Identity is (ns, source, title): re-indexing a source file rewrites its
+    sections in place, keeping their ids, rather than leaving the superseded
+    text in the index to be retrieved alongside the current one.
+    Returns (id, n_tokens, "added" | "updated").
+    """
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     n_tokens = tokens_of(body)
-    cur = con.execute(
-        "INSERT INTO chunks(ns,title,kind,source,priority,n_tokens,body,added) VALUES(?,?,?,?,?,?,?,?)",
-        (ns, title, kind, source, priority, n_tokens, body, now),
-    )
-    cid = cur.lastrowid
+    row = con.execute("SELECT id FROM chunks WHERE ns=? AND source=? AND title=?",
+                      (ns, source, title)).fetchone()
+    if row:
+        action, cid = "updated", row[0]
+        con.execute("DELETE FROM kb_fts WHERE rowid=?", (cid,))  # unindex the old body first
+        con.execute("UPDATE chunks SET kind=?, priority=?, n_tokens=?, body=?, updated=? WHERE id=?",
+                    (kind, priority, n_tokens, body, now, cid))
+        con.execute("DELETE FROM vectors WHERE id=?", (cid,))
+    else:
+        action = "added"
+        cur = con.execute(
+            "INSERT INTO chunks(ns,title,kind,source,priority,n_tokens,body,added,updated) "
+            "VALUES(?,?,?,?,?,?,?,?,?)",
+            (ns, title, kind, source, priority, n_tokens, body, now, now),
+        )
+        cid = cur.lastrowid
     con.execute("INSERT INTO kb_fts(rowid,title,body) VALUES(?,?,?)", (cid, title, body))
     vec, mode = compute_vector(con, title + "\n" + body[:800])
     con.execute("INSERT INTO vectors(id,vec,dim,mode) VALUES(?,?,?,?)", (cid, pack_vec(vec), len(vec), mode))
-    return cid, n_tokens
+    return cid, n_tokens, action
+
+def prune_missing(con, ns, source, keep_titles):
+    """Drop chunks of this (ns, source) whose section no longer exists in the
+    file, so deleting a fact from a source actually removes it from the KB."""
+    keep = set(keep_titles)
+    gone = [cid for cid, t in
+            con.execute("SELECT id, title FROM chunks WHERE ns=? AND source=?", (ns, source))
+            if t not in keep]
+    for cid in gone:
+        delete_chunk(con, cid)
+    return len(gone)
 
 def enforce_cap(con, ns, cap_tokens):
     """Drop lowest-priority (then oldest) chunks until namespace fits its budget."""
@@ -184,9 +276,7 @@ def enforce_cap(con, ns, cap_tokens):
             break
         cid = row[0]
         t = con.execute("SELECT title FROM chunks WHERE id=?", (cid,)).fetchone()[0]
-        con.execute("DELETE FROM kb_fts WHERE rowid=?", (cid,))
-        con.execute("DELETE FROM vectors WHERE id=?", (cid,))
-        con.execute("DELETE FROM chunks WHERE id=?", (cid,))
+        delete_chunk(con, cid)
         dropped.append(t)
     return dropped
 
@@ -354,7 +444,8 @@ def cmd_add(con, args, config):
     weights = config.get("kb", {}).get("role_weights", {})
     if args.ns not in weights and args.ns != "shared":
         print("warning: namespace '%s' is not a known role" % args.ns, file=sys.stderr)
-    cid, n = insert_doc(con, args.ns, args.title, args.kind, args.source or "manual", args.priority, body)
+    cid, n, action = upsert_doc(con, args.ns, args.title, args.kind,
+                                args.source or "manual", args.priority, body)
     con.commit()
     total_cap = config.get("kb", {}).get("total_token_cap", 150000)
     shared = config.get("kb", {}).get("shared_token_budget", 15000)
@@ -362,25 +453,40 @@ def cmd_add(con, args, config):
     cap = shared if args.ns == "shared" else int(w * (total_cap - shared))
     dropped = enforce_cap(con, args.ns, cap)
     con.commit()
-    print("added id=%d ns=%s tokens~%d title=%s" % (cid, args.ns, n, args.title))
+    print("%s id=%d ns=%s tokens~%d title=%s" % (action, cid, args.ns, n, args.title))
     if dropped:
         print("cap enforced: dropped %d lower-priority chunk(s): %s" % (len(dropped), "; ".join(dropped[:5])))
+    return action
 
 def cmd_add_dir(con, args, config):
     root = Path(args.path)
     files = sorted(root.glob(args.glob)) if args.glob else sorted(p for p in root.rglob("*") if p.is_file())
-    n_docs = 0
+    counts = {"added": 0, "updated": 0}
+    pruned = 0
     for p in files:
         text = p.read_text(encoding="utf-8", errors="replace").strip()
         if not text:
             continue
+        source = normalize_source(args.db, p)
         sections = split_markdown_sections(text) or [(p.stem, text)]
+        titles = [t for t, _ in sections]
+        repeats = sorted({t for t in titles if titles.count(t) > 1})
+        if repeats:
+            # identity is (ns, source, title), so same-titled sections of one
+            # file collapse into the last one. Say so instead of losing text.
+            print("warning: %s has repeated heading(s) %s; only the last of each is kept"
+                  % (p, ", ".join('"%s"' % t for t in repeats)), file=sys.stderr)
         for title, sec in sections:
-            args2 = argparse.Namespace(ns=args.ns, title=title, kind="doc", source=str(p),
+            args2 = argparse.Namespace(ns=args.ns, title=title, kind="doc", source=source,
                                        priority=args.priority, content=sec, file=None)
-            cmd_add(con, args2, config)
-            n_docs += 1
-    print("indexed %d chunk(s) from %s" % (n_docs, root))
+            action = cmd_add(con, args2, config)
+            if action in counts:
+                counts[action] += 1
+        if not getattr(args, "no_prune", False):
+            pruned += prune_missing(con, args.ns, source, [t for t, _ in sections])
+    con.commit()
+    print("indexed %d chunk(s) from %s (%d new, %d updated, %d pruned)"
+          % (counts["added"] + counts["updated"], root, counts["added"], counts["updated"], pruned))
 
 def cmd_reindex(con, args):
     rows = con.execute("SELECT id, title, body FROM chunks").fetchall()
@@ -418,25 +524,24 @@ def cmd_clear(con, args):
     count = con.execute("SELECT COUNT(*) FROM chunks WHERE ns=?", (args.ns,)).fetchone()[0]
     rows = con.execute("SELECT id FROM chunks WHERE ns=?", (args.ns,)).fetchall()
     for (cid,) in rows:
-        con.execute("DELETE FROM kb_fts WHERE rowid=?", (cid,))
-        con.execute("DELETE FROM vectors WHERE id=?", (cid,))
-    con.execute("DELETE FROM chunks WHERE ns=?", (args.ns,))
+        delete_chunk(con, cid)
     con.commit()
     print("cleared %d chunk(s) from namespace '%s'" % (count, args.ns))
 
 def cmd_selftest(args):
     import tempfile
-    tmp = Path(tempfile.mkdtemp()) / "selftest.sqlite3"
-    con = connect(str(tmp))
+    tmp = Path(tempfile.mkdtemp())
+    db = tmp / "selftest.sqlite3"
+    con = connect(str(db))
     assert con.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION, "schema version"
     config = {"kb": {"total_token_cap": 1000000, "shared_token_budget": 1000,
-                     "role_weights": {"pm": 0.5, "backend": 0.5}},
+                     "role_weights": {"pm": 0.4, "backend": 0.4, "architect": 0.1, "devops": 0.1}},
               "context_rules": {"search_k_default": 5, "excerpt_max_chars": 400}}
-    insert_doc(con, "pm", "Scope management", "doc", "selftest", 5,
+    upsert_doc(con, "pm", "Scope management", "doc", "selftest", 5,
                "A project charter defines scope, milestones and success metrics. Avoid scope creep.")
-    insert_doc(con, "backend", "SQLite WAL mode", "doc", "selftest", 5,
+    upsert_doc(con, "backend", "SQLite WAL mode", "doc", "selftest", 5,
                "Write-ahead logging lets SQLite handle concurrent readers with a single writer.")
-    insert_doc(con, "backend", "HTTP caching", "doc", "selftest", 5,
+    upsert_doc(con, "backend", "HTTP caching", "doc", "selftest", 5,
                "ETag and Cache-Control headers reduce load; validate conditional requests.")
     con.commit()
 
@@ -445,11 +550,54 @@ def cmd_selftest(args):
     print("-- search 'database concurrency' in backend ns:")
     cmd_search(con, args2, config)
 
-    dropped = enforce_cap(con, "backend", 40)
+    # -- upsert: re-indexing a section replaces it instead of stacking a copy
+    a1, _, act1 = upsert_doc(con, "architect", "Session storage", "doc", "adr.md", 8,
+                             "ADR-003: sessions are persisted in Postgres.")
+    a2, _, act2 = upsert_doc(con, "architect", "Session storage", "doc", "adr.md", 9,
+                             "ADR-007 supersedes ADR-003: sessions now live in Redis.")
+    con.commit()
+    assert (act1, act2) == ("added", "updated"), "upsert actions: %s/%s" % (act1, act2)
+    assert a1 == a2, "upsert must keep the chunk id stable (%d != %d)" % (a1, a2)
+    n = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='architect'").fetchone()[0]
+    assert n == 1, "re-index duplicated the chunk (%d copies)" % n
+    prio, body = con.execute("SELECT priority, body FROM chunks WHERE id=?", (a1,)).fetchone()
+    assert prio == 9 and "Redis" in body, "upsert did not replace content/priority"
+    stale = con.execute("SELECT COUNT(*) FROM kb_fts WHERE kb_fts MATCH 'postgres'").fetchone()[0]
+    fresh = con.execute("SELECT COUNT(*) FROM kb_fts WHERE kb_fts MATCH 'redis'").fetchone()[0]
+    assert stale == 0, "FTS still serves the superseded body"
+    assert fresh == 1, "FTS missing the replacement body"
+    assert con.execute("SELECT COUNT(*) FROM vectors WHERE id=?", (a1,)).fetchone()[0] == 1, \
+        "vector row not replaced"
+    print("-- upsert: section replaced in place (id=%d, 1 copy, stale text unindexed)" % a1)
+
+    # -- add-dir: a section deleted from the source is pruned from the KB
+    src = tmp / "src"
+    src.mkdir()
+    f = src / "notes.md"
+    f.write_text("## Kept fact\nStill true.\n\n## Dropped fact\nRemoved later.\n", encoding="utf-8")
+    dir_args = argparse.Namespace(ns="devops", path=str(src), glob="*.md", priority=8,
+                                  db=str(db), no_prune=False)
+    cmd_add_dir(con, dir_args, config)
+    assert con.execute("SELECT COUNT(*) FROM chunks WHERE ns='devops'").fetchone()[0] == 2, \
+        "add-dir did not index both sections"
+    f.write_text("## Kept fact\nStill true.\n", encoding="utf-8")
+    cmd_add_dir(con, dir_args, config)
+    left = [t for (t,) in con.execute("SELECT title FROM chunks WHERE ns='devops'")]
+    assert left == ["Kept fact"], "prune failed, left: %s" % left
+    assert con.execute("SELECT COUNT(*) FROM kb_fts WHERE kb_fts MATCH 'removed'").fetchone()[0] == 0, \
+        "pruned chunk still in the FTS index"
+    print("-- add-dir: re-index pruned the deleted section, kept %s" % left)
+
+    # cap below the namespace total, so eviction must actually happen
+    dropped = enforce_cap(con, "backend", 20)
     con.commit()
     left = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='backend'").fetchone()[0]
-    assert left < 3, "cap enforcement failed"
-    print("-- cap enforcement dropped %d chunk(s), backend chunks left: %d" % (len(dropped), left))
+    used = con.execute("SELECT COALESCE(SUM(n_tokens),0) FROM chunks WHERE ns='backend'").fetchone()[0]
+    assert len(dropped) == 1 and left == 1, \
+        "cap enforcement dropped %d chunk(s), %d left" % (len(dropped), left)
+    assert used <= 20, "namespace still over cap: %d tokens" % used
+    print("-- cap enforcement dropped %d chunk(s) (%s), backend left: %d chunk(s), ~%d tokens"
+          % (len(dropped), "; ".join(dropped), left, used))
 
     before = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
     args3 = argparse.Namespace(ns="pm")
@@ -457,6 +605,65 @@ def cmd_selftest(args):
     after = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
     assert after == 0, "clear failed: %d chunks remain" % after
     print("-- clear: removed %d pm chunk(s), %d remaining" % (before, after))
+    con.close()
+
+    # -- migration: a v1 store carrying duplicates is repaired when opened
+    schema_v1 = """
+    CREATE TABLE chunks(id INTEGER PRIMARY KEY, ns TEXT NOT NULL, title TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'doc', source TEXT NOT NULL DEFAULT '',
+      priority INTEGER NOT NULL DEFAULT 5, n_tokens INTEGER NOT NULL, body TEXT NOT NULL,
+      added TEXT NOT NULL);
+    CREATE VIRTUAL TABLE kb_fts USING fts5(title, body, content='chunks', content_rowid='id',
+      tokenize='porter unicode61');
+    CREATE TABLE vectors(id INTEGER PRIMARY KEY, vec BLOB NOT NULL, dim INTEGER NOT NULL,
+      mode TEXT NOT NULL);
+    CREATE INDEX idx_chunks_ns ON chunks(ns);
+    """
+    # a v1 store as it really sits on disk: inside PROJ/.pmos/, sources stored
+    # as whatever path string the caller happened to pass (here absolute)
+    proj = tmp / "proj"
+    (proj / ".pmos").mkdir(parents=True)
+    notes = proj / "notes.md"
+    notes.write_text("## Roadmap\nSecond version of the roadmap.\n", encoding="utf-8")
+    old_db = proj / ".pmos" / "kb.sqlite3"
+    ocon = sqlite3.connect(str(old_db))
+    ocon.executescript(schema_v1)
+    for i, text in enumerate(["First version of the roadmap.", "Second version of the roadmap."]):
+        cur = ocon.execute(
+            "INSERT INTO chunks(ns,title,kind,source,priority,n_tokens,body,added) "
+            "VALUES('pm','Roadmap','doc',?,5,?,?,?)",
+            (str(notes.resolve()), tokens_of(text), text, "2026-01-0%d" % (i + 1)))
+        cid = cur.lastrowid
+        ocon.execute("INSERT INTO kb_fts(rowid,title,body) VALUES(?,?,?)", (cid, "Roadmap", text))
+        ocon.execute("INSERT INTO vectors(id,vec,dim,mode) VALUES(?,?,?,'offline')",
+                     (cid, pack_vec(offline_vector(text)), DIM))
+    ocon.execute("PRAGMA user_version = 1")
+    ocon.commit()
+    ocon.close()
+
+    mcon = connect(str(old_db))
+    assert mcon.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION, "migration version"
+    rows = [b for (b,) in mcon.execute("SELECT body FROM chunks WHERE ns='pm' AND title='Roadmap'")]
+    assert rows == ["Second version of the roadmap."], "migration kept the wrong rows: %s" % rows
+    assert mcon.execute("SELECT COUNT(*) FROM vectors").fetchone()[0] == 1, "orphan vector left"
+    assert mcon.execute("SELECT COUNT(*) FROM kb_fts WHERE kb_fts MATCH 'first'").fetchone()[0] == 0, \
+        "dropped duplicate still in the FTS index"
+    assert "updated" in {r[1] for r in mcon.execute("PRAGMA table_info(chunks)")}, "updated column"
+    src = mcon.execute("SELECT source FROM chunks WHERE ns='pm'").fetchone()[0]
+    assert src == "notes.md", "migration left the source unnormalized: %r" % src
+    try:
+        mcon.execute("INSERT INTO chunks(ns,title,kind,source,priority,n_tokens,body,added,updated) "
+                     "VALUES('pm','Roadmap','doc','notes.md',5,1,'dup','now','now')")
+        raise AssertionError("identity index missing: a duplicate insert succeeded")
+    except sqlite3.IntegrityError:
+        pass
+    # the upgrade hop itself must not duplicate: the next index pass updates
+    cmd_add_dir(mcon, argparse.Namespace(ns="pm", path=str(proj), glob="*.md", priority=5,
+                                         db=str(old_db), no_prune=False), config)
+    n = mcon.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
+    assert n == 1, "re-index after migration duplicated the chunk (%d copies)" % n
+    mcon.close()
+    print("-- migration: v1 store deduped, sources normalized, re-index stayed at 1 chunk")
     print("SELFTEST PASS")
 
 def main():
@@ -477,6 +684,8 @@ def main():
     p = sub.add_parser("add-dir"); add_db(p); add_cfg(p)
     p.add_argument("--ns", required=True); p.add_argument("--path", required=True)
     p.add_argument("--glob", default=None); p.add_argument("--priority", type=int, default=5)
+    p.add_argument("--no-prune", action="store_true",
+                   help="keep chunks whose section vanished from the source file")
     p = sub.add_parser("search"); add_db(p); add_cfg(p)
     p.add_argument("query", nargs="+"); p.add_argument("--role", default=None)
     p.add_argument("-k", type=int, default=None); p.add_argument("--json", action="store_true")
