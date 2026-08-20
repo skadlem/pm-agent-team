@@ -137,8 +137,12 @@ Entailed by the inverse rule, so a query can walk either direction: `pmos:satisf
     pmos:title "password reset endpoint" ;
     pmos:role "backend" ;
     pmos:satisfies :R-001 ;
-    pmos:touches :file:src/auth/reset.py .
+    pmos:touches <https://pmos.dev/project#file:src/auth/reset.py> .
 ```
+
+A file subject is written as a full IRI rather than `:file:src/...`, because Turtle's `PN_LOCAL`
+production does not admit `/` in a prefixed name. `shorten()` abbreviates only when the local part
+is legal, and falls back to `<IRI>` otherwise.
 
 `kg.py build` writes both `graph.ttl` (Turtle, for reading and for other tools) and `graph.nt`
 (N-Triples, which `kg.py --from-file` reads back).

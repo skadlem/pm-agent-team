@@ -41,8 +41,8 @@ pm-agent-team/
   tools/eval_project.py    # protocol harness: replays tests/fixtures/ through the tooling
   tools/cost.py            # spend ledger: what workers actually cost vs the GATE 1 budget
   tools/kg.py              # RDF triple store over the artifacts + a SPARQL subset
-  queries/                 # the protocol's own checks, as stored SPARQL
   tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
+  queries/*.rq             # the protocol's own checks, as stored SPARQL
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
   kb-sources/shared/       # agent operating rules (partial-context, evidence, etc.)
@@ -291,8 +291,11 @@ brings in `pmos:File` subjects from graphify:
 :T-001 a pmos:Task ;
     pmos:title "password reset endpoint" ;
     pmos:satisfies :R-001 ;
-    pmos:touches :file:src/auth/reset.py .
+    pmos:touches <https://pmos.dev/project#file:src/auth/reset.py> .
 ```
+
+(File subjects are written as full IRIs: a path contains `/`, which Turtle's `PN_LOCAL` does not
+allow in a prefixed name.)
 
 An inverse rule entails `pmos:satisfiedBy`, `pmos:blocks`, `pmos:verifiedBy`, `pmos:mitigates`
 and friends, so queries walk either direction; `kg.py stats` reports asserted and entailed
@@ -329,12 +332,13 @@ suite passes.
 
 ## Measuring performance
 
-Four levels, cheapest first:
+Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (127 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (128 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
-   idempotency), `python tools/artifacts.py selftest` and `python tools/trace.py selftest`.
+   idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
+   `cost.py`, `kg.py`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):

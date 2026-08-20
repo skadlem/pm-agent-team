@@ -622,6 +622,24 @@ unknown = sorted(v for v in used if v not in verbs)
 check("all documented kg.py subcommands exist", not unknown and len(used) >= 3,
       ", ".join(unknown) if unknown else f"{len(used)} documented")
 
+# Documented snippets must be real: a README that teaches invalid syntax is worse
+# than one that shows none. The SPARQL half needs no dependency - our own parser.
+import kg as _kg  # noqa: E402  (sibling tool)
+DOCS = ["README.md", "ARTIFACT-SCHEMA.md", "ORCHESTRATOR.md"]
+sparql_blocks = turtle_blocks = 0
+bad = []
+for doc in DOCS:
+    text = (TPL / doc).read_text(encoding="utf-8")
+    for block in re.findall(r"```sparql\n(.*?)```", text, re.S):
+        sparql_blocks += 1
+        try:
+            _kg.parse_query(block)
+        except Exception as exc:  # noqa: BLE001
+            bad.append(f"{doc}: {exc}")
+    turtle_blocks += len(re.findall(r"```turtle\n(.*?)```", text, re.S))
+check("documented SPARQL snippets parse", not bad and sparql_blocks >= 1,
+      "; ".join(bad)[:100] if bad else f"{sparql_blocks} block(s)")
+
 # Optional: if real RDF tooling is around, it must be able to read what we emit
 # and reach the same answers. Skipped rather than depended on - no pip installs.
 rdf_proj = pathlib.Path(tempfile.mkdtemp()) / "proj"
@@ -664,6 +682,19 @@ else:
                   for b in mine_json["results"]["bindings"])
     check("our SPARQL engine agrees with rdflib's on the same query", theirs == mine,
           f"rdflib {theirs} vs ours {mine}")
+    header = ('@prefix pmos: <https://pmos.dev/schema#> .\n'
+              '@prefix : <https://pmos.dev/project#> .\n')
+    bad = []
+    for doc in DOCS:
+        for block in re.findall(r"```turtle\n(.*?)```",
+                                (TPL / doc).read_text(encoding="utf-8"), re.S):
+            try:
+                _RdfGraph().parse(data=block if "@prefix" in block else header + block,
+                                  format="turtle")
+            except Exception as exc:  # noqa: BLE001
+                bad.append(f"{doc}: {str(exc)[:60]}")
+    check("documented Turtle snippets parse", not bad and turtle_blocks >= 1,
+          "; ".join(bad)[:100] if bad else f"{turtle_blocks} block(s)")
 shutil.rmtree(rdf_proj.parent, ignore_errors=True)
 
 print()
