@@ -38,6 +38,7 @@ pm-agent-team/
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
+  tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
   kb-sources/shared/       # agent operating rules (partial-context, evidence, etc.)
@@ -188,6 +189,9 @@ python tools/kb.py reindex-vectors --db <db>
 python tools/kb.py selftest
 python tools/artifacts.py --project . [--json] [--strict] [--graph out.json]
 python tools/artifacts.py selftest
+python tools/trace.py coverage --project .        # scope -> task -> criterion -> QA
+python tools/trace.py impact T-012 --project .    # what rides on one item, down to the code
+python tools/trace.py unplanned --project .       # changed files no task claims
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 ```
@@ -213,9 +217,42 @@ into a deterministic pass:
   whose task has no passing criterion — the check ORCHESTRATOR step 10 previously asked QA to
   make by eye.
 
-`state.py` runs the same lint in its resume pre-flight, and `--graph` writes the node/edge list
-(`{"nodes": [...], "edges": [...]}`) that joins to the graphify code graph through each task's
-`touches:` paths.
+`state.py` runs the same lint in its resume pre-flight.
+
+### Querying the graph
+
+Each task's `touches:` paths join the project graph to the graphify code graph, and
+`tools/trace.py` queries the result:
+
+```
+$ python tools/trace.py coverage --project .
+R-001  users can reset their own password
+    T-001  password reset endpoint  [backend]
+        touches: src/auth/mail.py, src/auth/reset.py
+        A-001  reset mail arrives and new password works    PASS
+R-003  admins can see an audit log
+    (nothing planned)
+
+2/3 requirements planned | 2/2 tasks verified | 2/2 criteria reported, 1 passing
+  gap: R-003 is in scope but no task satisfies it
+
+$ python tools/trace.py impact L-001 --project .
+L-001  reset token stays valid after use
+  mitigated_by   T-001
+  evidence       A-001 via T-001 (pass)
+  touches        src/auth/mail.py, src/auth/reset.py
+  status         mitigated
+  severity       high
+```
+
+`impact` walks either direction from any id — a task shows the requirement it serves, the ADR that
+constrains it, the criteria and their QA results, the work it transitively blocks, the files it
+touches and the code importing those files. `unplanned` inverts it: changed files no task claims,
+which catches scope creep in the wave that caused it rather than at QA. `export` writes the whole
+joined graph, code files included, as JSON.
+
+`touches:` resolves a file, a directory, or a glob against `graphify-out/graph.json`; without a code
+graph the entries stay literal and every query still works.
 
 ## Customizing
 
@@ -230,9 +267,9 @@ into a deterministic pass:
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (95 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (103 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
-   idempotency) and `python tools/artifacts.py selftest`.
+   idempotency), `python tools/artifacts.py selftest` and `python tools/trace.py selftest`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):

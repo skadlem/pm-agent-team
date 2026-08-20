@@ -414,6 +414,77 @@ r = subprocess.run([sys.executable, str(ART), "--project", str(broken)], capture
 check("dangling reference fails the lint", r.returncode == 1 and "R-404" in r.stdout,
       f"rc={r.returncode}")
 
+print("== 14. Traceability join (project graph x code graph) ==")
+TRACE = TPL / "tools" / "trace.py"
+r = subprocess.run([sys.executable, str(TRACE), "selftest"], capture_output=True, text=True)
+check("trace.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+
+trace_src = TRACE.read_text(encoding="utf-8")
+verbs = set(re.findall(r'sub\.add_parser\("([\w-]+)"', trace_src))
+docs = "\n".join((TPL / d).read_text(encoding="utf-8")
+                 for d in ["README.md", "ORCHESTRATOR.md", "ARTIFACT-SCHEMA.md"])
+used = {m.group(1) for m in re.finditer(r"trace\.py\s+([\w-]+)", docs)}
+unknown = sorted(v for v in used if v not in verbs)
+check("all documented trace.py subcommands exist", not unknown and len(used) >= 3,
+      ", ".join(unknown) if unknown else f"{len(used)} documented")
+
+# the queries must run on a real project tree, with and without a code graph
+tr_proj = tmp / "traceproj"
+(tr_proj / ".pmos" / "plans").mkdir(parents=True)
+(tr_proj / ".pmos" / "out" / "qa").mkdir(parents=True)
+(tr_proj / "src" / "auth").mkdir(parents=True)
+(tr_proj / ".pmos" / "charter.md").write_text(
+    "# C\n- R-001: reset password\n- R-002: unplanned scope\n", encoding="utf-8")
+(tr_proj / ".pmos" / "plans" / "plan.md").write_text(
+    "```yaml\n- id: T-001\n  title: reset endpoint\n  satisfies: R-001\n  touches: src/auth\n"
+    "- id: A-001\n  title: mail arrives\n  verifies: T-001\n```\n", encoding="utf-8")
+(tr_proj / ".pmos" / "out" / "qa" / "test-report.md").write_text("- A-001: pass - green\n",
+                                                                 encoding="utf-8")
+(tr_proj / "graphify-out").mkdir()
+(tr_proj / "graphify-out" / "graph.json").write_text(json.dumps({
+    "nodes": [{"id": "n1", "source_file": "src/auth/reset.py", "file_type": "code"},
+              {"id": "n2", "source_file": "src/api.py", "file_type": "code"}],
+    "links": [{"source": "n2", "target": "n1", "relation": "imports"}],
+    "built_at_commit": "cafe"}), encoding="utf-8")
+
+r = subprocess.run([sys.executable, str(TRACE), "coverage", "--project", str(tr_proj), "--json"],
+                   capture_output=True, text=True)
+cov = json.loads(r.stdout) if r.stdout.strip() else {}
+check("coverage counts planned vs unplanned scope",
+      cov.get("summary", {}).get("requirements") == 2 and cov["summary"]["planned"] == 1
+      and any("R-002" in g for g in cov.get("gaps", [])),
+      json.dumps(cov.get("summary", {})))
+
+r = subprocess.run([sys.executable, str(TRACE), "impact", "T-001", "--project", str(tr_proj),
+                    "--json"], capture_output=True, text=True)
+imp = json.loads(r.stdout) if r.stdout.strip() else {}
+check("impact joins a task to its code and QA",
+      imp.get("touches") == ["src/auth/reset.py"]
+      and imp.get("satisfies", [{}])[0].get("id") == "R-001"
+      and imp.get("verified_by", [{}])[0].get("qa") == "pass"
+      and any(x["file"] == "src/api.py" for x in imp.get("referenced_by", [])),
+      ", ".join(imp.get("touches", [])))
+
+r = subprocess.run([sys.executable, str(TRACE), "impact", "T-404", "--project", str(tr_proj)],
+                   capture_output=True, text=True)
+check("impact on an unknown id exits non-zero", r.returncode == 1)
+
+gout = tr_proj / "trace.json"
+r = subprocess.run([sys.executable, str(TRACE), "export", "--project", str(tr_proj),
+                    "--out", str(gout)], capture_output=True, text=True)
+g = json.loads(gout.read_text(encoding="utf-8")) if gout.exists() else {}
+check("export joins file nodes into the graph",
+      any(n["kind"] == "file" for n in g.get("nodes", []))
+      and any(e["kind"] == "touches" for e in g.get("edges", []))
+      and g.get("code_graph", {}).get("commit") == "cafe")
+
+(tr_proj / "graphify-out" / "graph.json").unlink()
+r = subprocess.run([sys.executable, str(TRACE), "coverage", "--project", str(tr_proj)],
+                   capture_output=True, text=True)
+check("queries work without a code graph", r.returncode == 0 and "T-001" in r.stdout,
+      r.stderr.strip()[:80])
+
 print()
 if _failures:
     print(f"VALIDATION FAILED ({_failures} check(s), {_skips} skipped)")

@@ -147,17 +147,23 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    that does not resolve means a wave handed off to something that does not exist. Report the
    warnings in the summary (scope with no task, task with no acceptance criterion, high-severity
    open risk with no mitigating task); the user may accept them knowingly.
+   `python TPL/tools/trace.py coverage --project .` renders the same thing as a scope -> task ->
+   criterion tree, which is usually the clearest way to show the user what they are approving.
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly
    accepted it, GATE 2 is BLOCKED until resolved or accepted.
 9. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
    where independent. Name the `T-NNN` ids each worker owns in its assignment, and have it record
-   them in its notes; that is what later ties delivered code back to the charter. Workers read plan + their role's out dir, query KB + graphify as needed.
+   them in its notes; that is what later ties delivered code back to the charter. Each worker fills
+   in its task's `touches:` with the paths it actually changed - that is the join between the plan
+   and the code graph, and what `trace.py unplanned` checks against. Workers read plan + their role's out dir, query KB + graphify as needed.
    BEFORE spawning Wave 3, check the graph is fresh: compare the newest source file mtime under
    the project (excluding .pmos/, graphify-out/, .git/) against `graphify-out/graph.json`; if any
    source is newer, run `/graphify <path> --update` first and say so.
 10. Wave 4 (QA): run the verification gate against the acceptance criteria in the plan. Fail -> back
    to wave 3 with the defect report. Pass -> checkpoint.
+   `python TPL/tools/trace.py coverage --project .` prints the requirement -> task -> criterion -> QA
+   matrix to work through, so no criterion is verified twice and none is silently skipped.
    Brownfield: QA FIRST runs the project's existing test suite and records the baseline in its
    report (pre-existing failures vs failures introduced by the change), and verifies nothing in
    the charter's do-not-touch list changed.
@@ -181,6 +187,9 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    `budget_usd`; stop and ask if the estimate is over the cap.
    Run `python TPL/tools/artifacts.py --project .` at every checkpoint and log its counts plus any
    findings, so traceability breaks surface in the wave that caused them rather than at QA.
+   Then run `python TPL/tools/trace.py unplanned --project .`: it lists changed files no task claims.
+   Each one is either work that needs a task (scope creep, caught in the wave that caused it) or a
+   `touches:` entry a worker forgot. Resolve them before the checkpoint closes; log the count.
 
 Cost-quality defaults (see roster.json for the live values): critical roles (pm, architect, qa)
   keep a 0.95 tier (near-best score only), implementation roles (backend, legal) 0.92, frontend/

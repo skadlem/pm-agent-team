@@ -83,3 +83,16 @@ Run it at every gate. It is cheap, deterministic, and needs no model.
 `file`, `line`, and `role`/`status`/`severity`/`touches`/`qa` when known) and one edge per
 reference. That is the project half of the traceability graph; the code half comes from
 graphify, joined on a task's `touches` paths.
+
+`tools/trace.py` performs that join and queries it:
+
+```
+python TPL/tools/trace.py coverage  --project .    # scope -> task -> criterion -> QA, with gaps
+python TPL/tools/trace.py impact T-012 --project . # what rides on one item, down to the code
+python TPL/tools/trace.py unplanned --project .    # changed files no task claims
+python TPL/tools/trace.py export --project . --out .pmos/traceability.json
+```
+
+`touches:` accepts a file, a directory, or a glob, resolved against the files in
+`graphify-out/graph.json` — a task claiming `src/auth` picks up every file under it. Without a
+code graph the entries stay literal and every other query still works.
