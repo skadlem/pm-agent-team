@@ -28,3 +28,5 @@ jobs:
         run: python tools/validate.py
       - name: Retrieval benchmark (hits@5, MRR)
         run: python tools/eval_kb.py
+      - name: Protocol harness (fixture projects)
+        run: python tools/eval_project.py

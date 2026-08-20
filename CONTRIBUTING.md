@@ -17,8 +17,11 @@ No pip dependencies.
 ## Before you open a PR
 
 ```
-python tools/validate.py      # 70-check self-check: budgets, costs, tiers, skills, paths, recommender
-python tools/kb.py selftest   # KB engine smoke test
+python tools/validate.py         # 111-check self-check: budgets, costs, tiers, skills, paths, recommender
+python tools/kb.py selftest      # KB engine smoke test
+python tools/artifacts.py selftest  # artifact id/reference linter
+python tools/trace.py selftest   # traceability join
+python tools/eval_project.py     # protocol harness: fixture projects end to end
 ```
 
 Both must pass. CI runs them on Ubuntu and Windows.

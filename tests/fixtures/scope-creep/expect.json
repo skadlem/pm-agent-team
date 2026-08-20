@@ -1,0 +1,10 @@
+{
+ "description": "backend also edited a do-not-touch file: no task claims it, so the checkpoint must catch it",
+ "legal_strict": false,
+ "dirty": ["src/billing.py", "src/auth/reset.py"],
+ "state": {"stage": 6, "fail_checks": [], "exact_fail_checks": true},
+ "artifacts": {"error_count": 0},
+ "trace": {"summary": {"requirements": 1, "planned": 1, "tasks": 1, "verified": 1},
+           "unplanned": ["src/billing.py"]},
+ "gate2": "clear"
+}

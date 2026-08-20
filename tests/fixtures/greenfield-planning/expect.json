@@ -1,0 +1,9 @@
+{
+ "description": "wave 1 done: every scope item planned and verifiable, nothing built yet",
+ "legal_strict": false,
+ "state": {"stage": 1, "stage_name": "charter drafted", "fail_checks": [], "exact_fail_checks": true},
+ "artifacts": {"error_count": 0, "counts": {"requirement": 2, "task": 2, "acceptance": 2}},
+ "trace": {"summary": {"requirements": 2, "planned": 2, "tasks": 2, "verified": 2,
+                       "criteria": 2, "reported": 0}, "unplanned": []},
+ "gate2": "clear"
+}

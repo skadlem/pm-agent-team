@@ -132,6 +132,20 @@ def main():
         text = log.read_text(encoding="utf-8", errors="replace").lower()
         return any(n.lower() in text for n in needles)
 
+    def qa_failures():
+        """Criteria the QA report marks fail/blocked. A report that exists is not
+        a gate that passed: ORCHESTRATOR step 10 sends a failed gate back to
+        wave 3, so those ids are what decides whether stage 8 was reached."""
+        p = pmos / QA_ARTIFACT
+        if not p.is_file():
+            return []
+        text = p.read_text(encoding="utf-8", errors="replace")
+        return sorted(set(re.findall(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(?:fail|blocked)\b",
+                                     text, re.I | re.M)))
+
+    failing_criteria = qa_failures()
+    qa_passed = exists(QA_ARTIFACT) and not failing_criteria
+
     markers = {
         0: exists("kb.sqlite3"),
         1: exists("charter.md"),
@@ -142,8 +156,8 @@ def main():
         5: log_mentions("enrich"),
         6: log_mentions("gate 2"),
         7: None,  # computed below
-        8: exists(QA_ARTIFACT),
-        9: exists("charter.md") and exists("team-model.json") and exists(QA_ARTIFACT),
+        8: qa_passed,
+        9: exists("charter.md") and exists("team-model.json") and qa_passed,
     }
 
     team_model = load_json(pmos / "team-model.json") if markers[2] else None
@@ -302,6 +316,11 @@ def main():
         p = pmos / QA_ARTIFACT
         add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
             "qa/test-report.md present and non-empty")
+
+    if failing_criteria:
+        add("WARN", "QA gate: every acceptance criterion passes",
+            "failing: %s; rework in wave 3, then re-run the gate"
+            % ", ".join(failing_criteria))
 
     # half-written artifacts anywhere under .pmos/out
     truncated = []

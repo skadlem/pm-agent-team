@@ -1,0 +1,11 @@
+{
+ "description": "a wave handed off to ids that do not exist: must fail loudly, not proceed",
+ "legal_strict": false,
+ "state": {"stage": 1, "fail_checks": ["artifact references all resolve"]},
+ "artifacts": {
+  "errors": ["R-009 is not defined anywhere",
+             "T-001 is a task, expected a requirement",
+             "duplicate id A-001",
+             "dependency cycle"]},
+ "gate2": "blocked"
+}

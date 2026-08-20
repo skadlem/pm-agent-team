@@ -485,6 +485,34 @@ r = subprocess.run([sys.executable, str(TRACE), "coverage", "--project", str(tr_
 check("queries work without a code graph", r.returncode == 0 and "T-001" in r.stdout,
       r.stderr.strip()[:80])
 
+print("== 15. Protocol harness fixtures ==")
+FIXTURES = TPL / "tests" / "fixtures"
+names = sorted(p.name for p in FIXTURES.iterdir() if p.is_dir()) if FIXTURES.is_dir() else []
+check("fixtures present", len(names) >= 3, ", ".join(names))
+EXPECT_KEYS = {"description", "legal_strict", "dirty", "state", "artifacts", "trace", "gate2"}
+for name in names:
+    d = FIXTURES / name
+    exp = d / "expect.json"
+    if not exp.is_file():
+        check(f"{name}: expect.json", False, "missing")
+        continue
+    try:
+        e = json.loads(exp.read_text(encoding="utf-8"))
+    except ValueError as err:
+        check(f"{name}: expect.json parses", False, str(err)[:60])
+        continue
+    unknown = sorted(set(e) - EXPECT_KEYS)
+    check(f"{name}: fixture well-formed",
+          not unknown and len(e.get("description", "")) > 20 and (d / "pmos").is_dir()
+          and (d / "pmos" / "charter.md").is_file(),
+          ", ".join(unknown) if unknown else "")
+# a fixture whose .pmos were literally named .pmos would be swallowed by the template .gitignore
+dotted = [n for n in names if (FIXTURES / n / ".pmos").exists()]
+check("fixtures keep pmos/ undotted (gitignore-safe)", not dotted, ", ".join(dotted))
+r = subprocess.run(["git", "check-ignore"] + [str(FIXTURES / n) for n in names],
+                   cwd=str(TPL), capture_output=True, text=True)
+check("no fixture is gitignored", not r.stdout.strip(), r.stdout.strip()[:80])
+
 print()
 if _failures:
     print(f"VALIDATION FAILED ({_failures} check(s), {_skips} skipped)")

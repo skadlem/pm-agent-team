@@ -1,0 +1,14 @@
+{
+ "description": "wave 2 done, but scope R-002 is unplanned and its GDPR risk is open: GATE 2 must block",
+ "legal_strict": true,
+ "state": {"stage": 4, "stage_name": "wave 2 design done",
+           "fail_checks": [], "exact_fail_checks": true,
+           "warn_checks": ["artifact coverage complete"]},
+ "artifacts": {
+  "error_count": 0,
+  "warnings": ["R-002 is in scope but no task satisfies it",
+               "L-001 is high severity and open with no mitigated_by task"]},
+ "trace": {"summary": {"requirements": 2, "planned": 1, "tasks": 1, "verified": 1},
+           "gaps": ["R-002 is in scope but no task satisfies it"]},
+ "gate2": "blocked"
+}

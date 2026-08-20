@@ -1,0 +1,2 @@
+{"architect": {"model": "claude-opus-5"}, "legal": {"model": "qwen3.8-max"},
+ "backend": {"model": "claude-opus-5"}, "budget_usd": 20}

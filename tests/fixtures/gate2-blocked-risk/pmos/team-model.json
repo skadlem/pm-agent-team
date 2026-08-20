@@ -1,0 +1,4 @@
+{"architect": {"model": "claude-opus-5", "effort": "medium"},
+ "legal": {"model": "qwen3.8-max", "effort": "low"},
+ "backend": {"model": "claude-opus-5", "effort": "medium"},
+ "budget_usd": 20}

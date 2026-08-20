@@ -1,0 +1,33 @@
+{
+ "nodes": [
+  {
+   "id": "src_auth_reset",
+   "label": "reset.py",
+   "source_file": "src/auth/reset.py",
+   "file_type": "code",
+   "community_name": "auth"
+  },
+  {
+   "id": "src_auth_mail",
+   "label": "mail.py",
+   "source_file": "src/auth/mail.py",
+   "file_type": "code",
+   "community_name": "auth"
+  },
+  {
+   "id": "src_billing",
+   "label": "billing.py",
+   "source_file": "src/billing.py",
+   "file_type": "code",
+   "community_name": "billing"
+  }
+ ],
+ "links": [
+  {
+   "source": "src_billing",
+   "target": "src_auth_mail",
+   "relation": "imports"
+  }
+ ],
+ "built_at_commit": "fixture0"
+}

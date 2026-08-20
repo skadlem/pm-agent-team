@@ -1,4 +1,9 @@
-# PMOS Retrieval Evaluation Report
+# PMOS Evaluation Report
+
+Two things are measured automatically: how well the KB retrieves (below), and whether the
+protocol behaves correctly end to end ([protocol harness](#protocol-harness-toolseval_projectpy)).
+
+## Retrieval
 
 Recorded 2026-08-08 on the shipped corpus (10 role namespaces + shared, 30 chunks total,
 ~2.4K tokens). Re-measured 2026-08-10 after the legal role's fundamentals joined the corpus
@@ -85,3 +90,57 @@ current corpus; only worth revisiting on larger corpora.
 - CI fails if hybrid on the standard set drops below hits@5 90% or MRR 0.65.
 - This report is the recorded baseline; update it (with date) whenever kb-sources,
   kb.py fusion, or the embedding backend changes materially.
+
+
+## Protocol harness (tools/eval_project.py)
+
+Retrieval quality is one component. The harness measures the layer above it: given a `.pmos/`
+tree at some stage, does the tooling tell the coordinator the right thing? Each fixture in
+`tests/fixtures/` is a whole project — charter, plan, ADRs, risk register, QA report, optionally a
+source tree and a graphify graph — plus an `expect.json` stating what `state.py`, `artifacts.py`
+and `trace.py` must report.
+
+| fixture | pins |
+|---------|------|
+| `greenfield-planning` | wave 1 complete: all scope planned and verifiable, no findings |
+| `broken-references` | a handoff to ids nothing defines: dangling ref, wrong kind, duplicate id, dependency cycle |
+| `gate2-blocked-risk` | unplanned scope plus an open high-severity GDPR risk: GATE 2 must block |
+| `qa-failed-mitigation` | QA failed the only criterion while legal claims the risk mitigated |
+| `scope-creep` | a do-not-touch file changed that no task claims |
+
+The GATE 2 verdict is derived from tool output (`errors > 0`, or an open high-severity risk),
+not from a judgement call, so the harness also checks that the tools surface enough to make the
+gate decision mechanically.
+
+**What it does not cover.** No model is spawned, so it says nothing about the quality of what
+agents write — whether a charter is any good, whether an ADR chose well. That remains the manual
+outcome evaluation (README level 5). What it does cover is every deterministic decision the
+protocol makes about a project's state.
+
+### What it caught on the first run
+
+`state.py` reported a project whose QA gate **failed** as stage "checkpointed / all 11 steps
+complete; project finished". Stage 8's marker was "a test report exists", but ORCHESTRATOR step 10
+sends a failed gate back to wave 3. On resume, the coordinator would have been told a project
+needing rework was done. Stage 8 now requires the report to show no `fail`/`blocked` criterion, and
+a failed gate rolls the stage back to implementation with "Wave 4 QA gate" as the next step.
+
+### Keeping it honest
+
+Every fixture was mutation-tested: reverting the stage-8 marker, removing the linter's
+dangling-reference error, and dropping untracked files from `unplanned` each made exactly one
+fixture fail. A fixture that cannot fail is not a test — see the two checks in this repo's history
+that passed without asserting anything.
+
+### Adding a fixture
+
+```
+tests/fixtures/<name>/
+  expect.json     stage, lint findings (substring match), coverage summary, unplanned, gate2
+  pmos/           becomes .pmos/ (undotted so the template's .gitignore keeps it)
+  files/          optional source tree
+  graphify/       optional graph.json, becomes graphify-out/
+```
+
+`expect.json` matches messages by substring, so wording changes do not break fixtures; counts and
+stages are exact. Add one whenever you change protocol behaviour.

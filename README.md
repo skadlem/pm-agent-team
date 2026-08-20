@@ -38,6 +38,7 @@ pm-agent-team/
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
+  tools/eval_project.py    # protocol harness: replays tests/fixtures/ through the tooling
   tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
@@ -267,7 +268,7 @@ graph the entries stay literal and every query still works.
 Four levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (103 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (111 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), `python tools/artifacts.py selftest` and `python tools/trace.py selftest`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
@@ -301,10 +302,20 @@ Four levels, cheapest first:
    When `--role` is given, search ranks within that namespace only (BM25 and vectors alike), so a
    small namespace is never drowned out by a large one; role-scoped search also skips the
    cross-namespace fusion pass entirely.
-3. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
+3. **Protocol behaviour (CI, automatic):** `python tools/eval_project.py` replays the fixture
+   projects in `tests/fixtures/` through `state.py`, `artifacts.py` and `trace.py` and asserts what
+   the coordinator would be told: the stage and next step, the traceability findings, the coverage
+   summary, and whether GATE 2 blocks. Each fixture pins one failure mode — a broken handoff, an
+   open high-severity risk, a QA gate that failed while legal claimed the risk mitigated, code
+   changed that no task claims. No model is spawned, so it is deterministic and free; it proves the
+   machinery and the gate decisions, not the quality of what agents write. Add a fixture whenever
+   you change protocol behaviour: `tests/fixtures/<name>/` with `expect.json`, a `pmos/` tree
+   (undotted so the template's own `.gitignore` keeps it), optional `files/` and `graphify/`.
+
+4. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
    Compare these across projects to see if the system improves.
-4. **Outcome evaluation (manual):** after a project, judge the deliverables themselves:
+5. **Outcome evaluation (manual):** after a project, judge the deliverables themselves:
    did the acceptance criteria actually hold under real use, how much rework was needed after
    handoff, and whether the KB enrichment step saved workers from re-reading upstream artifacts
    (spot-check a worker's KB search logs against its behavior).

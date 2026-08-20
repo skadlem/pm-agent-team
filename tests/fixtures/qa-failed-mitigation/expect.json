@@ -1,0 +1,14 @@
+{
+ "description": "QA failed the only criterion, yet legal still claims the risk is mitigated",
+ "legal_strict": false,
+ "state": {"stage": 6, "stage_name": "implementation started",
+           "fail_checks": [], "exact_fail_checks": true,
+           "warn_checks": ["QA gate: every acceptance criterion passes",
+                           "artifact coverage complete"]},
+ "artifacts": {
+  "error_count": 0,
+  "warnings": ["L-001 claims mitigated by T-001, which has no passing acceptance criterion"]},
+ "trace": {"summary": {"requirements": 1, "planned": 1, "tasks": 1, "verified": 1,
+                       "criteria": 1, "reported": 1, "passing": 0}},
+ "gate2": "clear"
+}
