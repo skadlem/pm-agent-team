@@ -39,9 +39,10 @@ pm-agent-team/
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
   tools/eval_project.py    # protocol harness: replays tests/fixtures/ through the tooling
-  tools/cost.py            # spend ledger: what workers actually cost vs the GATE 1 budget
-  tools/kg.py              # RDF triple store over the artifacts + a SPARQL subset
-  tools/trace.py           # joins that graph to the graphify code graph; coverage/impact queries
+  tools/cost.py              # spend ledger: what workers actually cost vs the GATE 1 budget
+  tools/events.py            # wave-event trace: per-run ok/fail, ladder retries, rework loops
+  tools/kg.py                # RDF triple store over the artifacts + a SPARQL subset
+  tools/trace.py             # joins that graph to the graphify code graph; coverage/impact queries
   queries/*.rq             # the protocol's own checks, as stored SPARQL
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
@@ -221,6 +222,8 @@ python tools/cost.py record --project . --role backend --model <m> --in N --out 
 python tools/cost.py report --project .           # spend vs budget_usd, estimate accuracy
 python tools/cost.py estimate --project . --roles backend,frontend
 python tools/cost.py calibrate --project . --write
+python tools/events.py record --project . --ladder 0   # right after cost.py record
+python tools/events.py report --project .         # ok/fail, ladder retries, rework loops
 python tools/kg.py build --project .              # graph.ttl + graph.nt
 python tools/kg.py query --project . --name unproven-mitigations
 python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
@@ -342,10 +345,10 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (130 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (133 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
-   `cost.py`, `kg.py`.
+   `cost.py`, `events.py`, `kg.py`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (45 standard + 33 paraphrased queries; the standard set covers every corpus section,
    enforced by a coverage guard) against a freshly built KB and reports hits@5 and MRR,
@@ -390,7 +393,9 @@ Five levels, cheapest first:
 
 4. **Per-run project metrics:** every checkpoint in `.pmos/log.md` records workers spawned,
    QA gate results, defect counts, rework loops, KB budget usage, and acceptance pass rate.
-   Compare these across projects to see if the system improves.
+   The machine-readable side lives in `.pmos/waves.jsonl` (one event per worker run):
+   `python tools/events.py report --project .` aggregates ok/fail per role, fallback-ladder
+   retries, and rework loops — compare those across projects instead of eyeballing prose.
 5. **Outcome evaluation (manual):** after a project, judge the deliverables themselves:
    did the acceptance criteria actually hold under real use, how much rework was needed after
    handoff, and whether the KB enrichment step saved workers from re-reading upstream artifacts

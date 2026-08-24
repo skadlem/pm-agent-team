@@ -14,6 +14,8 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
   kb.sqlite3          # hybrid KB store (never dump it; only search)
   kb-sources/         # markdown files that were indexed (audit trail)
   out/<role>/         # each worker's artifacts
+  costs.jsonl         # spend ledger (one row per worker run, cost.py)
+  waves.jsonl         # wave-event trace (one row per run, events.py)
   log.md              # append-only checkpoint log
 ```
 
@@ -124,6 +126,12 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
         If the host does not report usage, pass your own numbers with `--source estimated` so
         the report can keep guesses apart from measurements. Never skip the record: an unrecorded
         run makes the remaining budget wrong for every later wave.
+      - THEN the event: `python TPL/tools/events.py record --project . --ladder <index>
+        [--role <role> --wave N --model <model>]` — it attaches the ledger row just written to
+        the wave-event trace (`.pmos/waves.jsonl`), with the fallback-ladder index used (0 =
+        first attempt; the ladder rule below increments it on every retry). Pass the identity
+        flags when several workers return in a burst. This is what makes per-run metrics
+        comparable across projects; `state.py` reports it on resume.
 5. Jurisdiction pack (legal): read the charter's Deployment jurisdictions section.
    For each country/region, research and write `.pmos/kb-sources/legal/jurisdiction-<cc>.md`
    with an `as_of` date, citing each law and its source URL. Checklist:
@@ -205,6 +213,9 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    budget, and its estimate-accuracy line; exit code 2 means the project is over `budget_usd`, so
    stop and ask. Every few waves run `python TPL/tools/cost.py calibrate --project . --write` so
    later estimates come from this project's own measured usage instead of the flat default.
+   Also run `python TPL/tools/events.py report --project .` and log the rework-loop count and
+   ladder retries — two rework loops (wave 4 -> wave 3) is the signal to stop and re-plan with
+   the user instead of looping a third time.
    Run `python TPL/tools/artifacts.py --project .` at every checkpoint and log its counts plus any
    findings, so traceability breaks surface in the wave that caused them rather than at QA.
    Then run `python TPL/tools/trace.py unplanned --project .`: it lists changed files no task claims.

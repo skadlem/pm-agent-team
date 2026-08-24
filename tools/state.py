@@ -46,6 +46,9 @@ import subprocess
 import sys
 from datetime import date
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from events import read_events, summarize  # noqa: E402  (sibling tool)
+
 TPL = pathlib.Path(__file__).resolve().parent.parent
 
 # role -> primary artifact that proves that role's wave completed.
@@ -358,6 +361,18 @@ def main():
     outside = [l for l in dirty if not l.split(None, 1)[-1].startswith(".pmos/")]
     add("OK" if not outside else "WARN", "git tree: no modified files outside .pmos/",
         "dirty: %d path(s)" % len(dirty) if dirty else "clean")
+
+    # wave-event trace (informational: how the team has been running so far)
+    events = read_events(proj)
+    if events:
+        ev = summarize(events)
+        out["events"] = {"runs": ev["runs"], "ok": ev["ok"], "failed": ev["failed"],
+                         "ladder_retries": ev["ladder_retries"],
+                         "rework_loops": ev["rework_loops"]}
+        add("OK" if not ev["rework_loops"] else "WARN",
+            "wave-event trace healthy (.pmos/waves.jsonl)",
+            "%d run(s), %d failed, %d ladder retry(ies), %d rework loop(s)"
+            % (ev["runs"], ev["failed"], ev["ladder_retries"], ev["rework_loops"]))
 
     if a.json:
         print(json.dumps(out, indent=1, ensure_ascii=False))

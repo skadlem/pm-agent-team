@@ -18,11 +18,12 @@ conformance and SPARQL-agreement checks in validate.py; CI runs both.)
 ## Before you open a PR
 
 ```
-python tools/validate.py         # 130-check self-check: budgets, costs, tiers, skills, paths, recommender
+python tools/validate.py         # 133-check self-check: budgets, costs, tiers, skills, paths, recommender
 python tools/kb.py selftest      # KB engine smoke test
 python tools/artifacts.py selftest  # artifact id/reference linter
 python tools/trace.py selftest   # traceability join
 python tools/cost.py selftest    # spend ledger
+python tools/events.py selftest  # wave-event trace
 python tools/kg.py selftest      # triple store + SPARQL subset
 python tools/eval_project.py     # protocol harness: fixture projects end to end
 ruff check tools/ --select F,E9,B --ignore B905   # B905 needs zip(strict=), Python 3.10+

@@ -34,7 +34,7 @@ TPL = Path(__file__).resolve().parent.parent
 FIXTURES = TPL / "tests" / "fixtures"
 
 EXPECT_KEYS = {"description", "legal_strict", "dirty", "state", "artifacts", "trace",
-               "cost", "gate2"}
+               "cost", "gate2", "events"}
 
 
 def run_json(cmd):
@@ -87,8 +87,10 @@ def collect(dest, cfg_path):
                        "--project", str(dest), "--json"])
     cost, cost_rc = run_json([sys.executable, str(TPL / "tools" / "cost.py"), "report",
                               "--project", str(dest), "--json"])
+    events, _ = run_json([sys.executable, str(TPL / "tools" / "events.py"), "report",
+                          "--project", str(dest), "--json"])
     return {"state": state, "artifacts": lint, "lint_rc": lint_rc, "coverage": cov,
-            "unplanned": unp, "cost": cost, "cost_rc": cost_rc}
+            "unplanned": unp, "cost": cost, "cost_rc": cost_rc, "events": events}
 
 
 def gate2_verdict(got):
@@ -178,6 +180,12 @@ def check_fixture(name, verbose=False):
 
     if "gate2" in expect:
         want("gate2", "verdict", gate2_verdict(got), expect["gate2"])
+
+    ev = expect.get("events", {})
+    if ev:
+        for key in ("runs", "ok", "failed", "ladder_retries", "rework_loops"):
+            if key in ev:
+                want("events", key, got["events"].get(key), ev[key])
 
     if verbose:
         print(json.dumps(got, indent=1))

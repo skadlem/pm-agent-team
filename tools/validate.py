@@ -551,6 +551,18 @@ check("estimate falls back to the flat config default without history",
       est["workers"][0]["basis"] == "flat config estimate" and est["workers"][0]["usd"] > 0,
       json.dumps(est["workers"][0]))
 
+print("== 16b. Wave-event trace (events.py) ==")
+EVENTS = TPL / "tools" / "events.py"
+r = subprocess.run([sys.executable, str(EVENTS), "selftest"], capture_output=True, text=True)
+check("events.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+ev_src = EVENTS.read_text(encoding="utf-8")
+ev_verbs = set(re.findall(r'sub\.add_parser\("([\w-]+)"', ev_src))
+ev_used = {m.group(1) for m in re.finditer(r"events\.py\s+([\w-]+)", docs)}
+check("all documented events.py subcommands exist",
+      not sorted(ev_used - ev_verbs) and len(ev_used) >= 2,
+      ", ".join(sorted(ev_used - ev_verbs)) if ev_used - ev_verbs else "%d documented" % len(ev_used))
+
 print("== 17. Knowledge graph (triples + SPARQL subset) ==")
 KG = TPL / "tools" / "kg.py"
 r = subprocess.run([sys.executable, str(KG), "selftest"], capture_output=True, text=True)
