@@ -8,6 +8,9 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
    + the user's project description + `.pmos/out/architect/current-state.md` when present.
    PM writes charter, plan (skeleton: `TPL/templates/plan.md`), and `out/pm/roster-proposal.md`
    listing the MINIMAL team needed (roles + one-line justification each).
+   The charter template opens with six forcing questions (section 0); the PM answers them FIRST
+   and asks the user for anything unknown — a charter that skips them builds the wrong thing
+   well.
    The charter's in-scope items get `R-NNN` ids and the plan's tasks/acceptance criteria get
    `T-NNN`/`A-NNN` blocks pointing back at them (rule 3b). Before reporting done, the PM runs
    `python TPL/tools/artifacts.py --project .` and fixes every ERROR.

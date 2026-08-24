@@ -2,6 +2,20 @@
 
 Status: draft | Owner: PM agent | Updated: {{date}} | Mode: brownfield
 
+## 0. Before you write this charter (forcing questions)
+<!-- Answer these BEFORE drafting; record the answers here, one line each. Adapted from
+     gstack's /office-hours methodology (docs/research/2026-08-24-gstack.md), tuned for a
+     change to code that already exists. Unknown answers: ASK THE USER, do not invent. -->
+1. Demand reality: what specific evidence shows this change is worth the regression risk?
+2. Status quo: what happens today without the change, and why is that no longer acceptable?
+3. Desperate specificity: which user/operator/hit hurts most, in what concrete case?
+4. Narrowest wedge: what is the smallest delta that delivers the value? Everything else is
+   out of scope until proven (brownfield scope creep is the top failure mode).
+5. Alternatives considered: at least two other ways to reach the same outcome (different
+   module, config, no-code), and why this one wins.
+6. Premises challenged: which assumptions about the existing code are verified by discovery
+   (current-state.md) vs still believed?
+
 ## 1. Current state
 <!-- Summarized from .pmos/out/architect/current-state.md; link to it for details. -->
 
