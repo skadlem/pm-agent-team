@@ -144,6 +144,11 @@ def api_embeddings(texts):
 def connect(db_path):
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(db_path)
+    # The coordinator and several workers share this one store: WAL lets
+    # readers and one writer proceed concurrently, and busy_timeout makes the
+    # rest wait instead of failing with "database is locked" (5s, per call).
+    con.execute("PRAGMA busy_timeout=5000")
+    con.execute("PRAGMA journal_mode=WAL")
     con.executescript(SCHEMA)
     version = con.execute("PRAGMA user_version").fetchone()[0]
     if version > SCHEMA_VERSION:
@@ -327,7 +332,7 @@ def cmd_search(con, args, config):
                     "SELECT rowid, bm25(kb_fts) AS s FROM kb_fts WHERE kb_fts MATCH ? ORDER BY s LIMIT ?",
                     (fq, k * 6),
                 ).fetchall()
-            for i, (cid, s) in enumerate(rows):
+            for i, (cid, _s) in enumerate(rows):
                 fts_rank[cid] = i
         except sqlite3.OperationalError:
             pass

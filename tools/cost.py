@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from recommend import blended_cost, normalize_id  # noqa: E402  (sibling tool)
+from recommend import normalize_id  # noqa: E402  (sibling tool)
 
 TPL = Path(__file__).resolve().parent.parent
 LEDGER = "costs.jsonl"

@@ -12,7 +12,8 @@ sh install.sh        # macOS/Linux
 ```
 
 Requirements: Python 3.9+ (stdlib only, SQLite with FTS5), jcode with swarm support.
-No pip dependencies.
+No pip dependencies. (Dev-only extras: `pip install rdflib ruff` — rdflib unlocks the RDF
+conformance and SPARQL-agreement checks in validate.py; CI runs both.)
 
 ## Before you open a PR
 
@@ -24,6 +25,7 @@ python tools/trace.py selftest   # traceability join
 python tools/cost.py selftest    # spend ledger
 python tools/kg.py selftest      # triple store + SPARQL subset
 python tools/eval_project.py     # protocol harness: fixture projects end to end
+ruff check tools/ --select F,E9,B --ignore B905   # B905 needs zip(strict=), Python 3.10+
 ```
 
 Both must pass. CI runs them on Ubuntu and Windows.

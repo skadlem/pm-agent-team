@@ -41,7 +41,7 @@ Otherwise:
 4. Create `.pmos/` skeleton (plans, decisions, kb-sources, log, out) and init the KB:
    `python TPL/tools/kb.py init --db .pmos/kb.sqlite3`.
 5. Run the /pm-kb-bootstrap skill (per-role fundamentals, capped).
-6. Propose adding `.pmos/kb.sqlite3` to the project `.gitignore`.
+6. Propose adding `.pmos/kb.sqlite3*` to the project `.gitignore` (covers the WAL sidecars too).
 7. Build/update the graphify index on the repo (load /graphify; `--update` if `graphify-out/` exists).
    If `graphify-out/graph.json` is MISSING, run `/graphify <path>` NOW and do not proceed until
    the graph exists (Wave 0 and every worker repo query depend on it).

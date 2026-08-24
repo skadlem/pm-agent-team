@@ -11,13 +11,17 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python: ["3.9", "3.11", "3.13"]
+        python: ["3.9", "3.11", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
+      - name: Dev-only extras (RDF conformance checks, static analysis)
+        run: python -m pip install rdflib ruff
+      - name: Static analysis (ruff)
+        run: ruff check tools/ --select F,E9,B --ignore B905
       - name: KB engine selftest
         run: python tools/kb.py selftest
       - name: Artifact linter selftest

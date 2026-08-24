@@ -16,7 +16,6 @@ import csv
 import json
 import math
 import pathlib
-import sys
 import urllib.request
 
 # benchmark file -> (purposes/weights it informs, score column, lower_is_better)
@@ -361,7 +360,7 @@ def main():
                         model_meta[m]["release"] = (row.get("Release date") or "")[:10]
                         break
                 model_benchmarks.setdefault(m, set()).add(fname)
-                for purpose, w in purposes.items():
+                for purpose, _w in purposes.items():
                     model_scores[m].setdefault(purpose, []).append(score)
             print(f"  {fname}: {len(pairs)} rows used")
 

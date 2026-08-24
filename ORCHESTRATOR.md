@@ -62,8 +62,9 @@ to you. Record the answer in `.pmos/log.md`.
      Brownfield: if `graphify-out/graph.json` is missing, run `/graphify <path>` NOW and do not
      proceed to Wave 0 until the graph exists (Wave 0 and every worker repo query depends on it).
      Say so to the user when you build it.
-   - Brownfield: propose adding `.pmos/kb.sqlite3` to the project `.gitignore` (binary, regenerable;
-     everything else in .pmos is plain markdown and should be committed).
+   - Brownfield: propose adding `.pmos/kb.sqlite3*` to the project `.gitignore` (binary, regenerable;
+     the `-wal`/`-shm` sidecars appear once the KB runs in WAL mode; everything else in .pmos is
+     plain markdown and should be committed).
 
 Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the team model table
   exists (GATE 1). NEVER spawn them without an explicit model: an unmodeled spawn inherits the

@@ -60,7 +60,7 @@ found = set()
 bases = [os.path.expanduser("~/.jcode"), os.path.expanduser("~/.agents"),
          os.path.expanduser("~/.claude/plugins/cache")]
 for base in bases:
-    for root, dirs, files in os.walk(base):
+    for root, _dirs, files in os.walk(base):
         if "SKILL.md" in files:
             found.add(os.path.basename(root))
 if not any(os.path.isdir(b) for b in bases):

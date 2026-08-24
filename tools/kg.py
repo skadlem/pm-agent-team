@@ -33,7 +33,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import artifacts  # noqa: E402
 import trace as tracetool  # noqa: E402
 
 TPL = Path(__file__).resolve().parent.parent
@@ -175,7 +174,7 @@ def entail(st):
     """Materialize the inverse of every asserted relation. Small, closed rule
     set: enough that queries can walk either direction without every caller
     remembering which way the markdown happened to point."""
-    for field, name in list(PREDICATE_OF.items()):
+    for _field, name in list(PREDICATE_OF.items()):
         inv = INVERSE.get(name)
         if not inv:
             continue
@@ -728,7 +727,7 @@ def cmd_query(args):
 def cmd_stats(args):
     st = store_for(args)
     classes, predicates = {}, {}
-    for s, p, o in st.match():
+    for _s, p, o in st.match():
         predicates[shorten(p)] = predicates.get(shorten(p), 0) + 1
         if p == iri(RDF_TYPE):
             classes[shorten(o)] = classes.get(shorten(o), 0) + 1

@@ -237,7 +237,7 @@ def recommend(available, benchmarks, roster, tier=0.92, role_filter=None):
                         "effort": role_efforts.get(role), "tier_used": role_tiers.get(role, tier),
                         "purpose": purpose})
             continue
-        def display(bmid):
+        def display(bmid, scores=scores):
             return scores[bmid]["group"]["display"]
         best = max(s["score"] for s in scores.values())
         r_tier = role_tiers.get(role, tier)

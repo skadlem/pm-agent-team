@@ -6,6 +6,8 @@ __pycache__/
 # Scratch / test state
 dryrun/
 *.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
 
 # Raw benchmark CSVs are large and regenerable; only benchmarks.json ships
 benchmark_data/
