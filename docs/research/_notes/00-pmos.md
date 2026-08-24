@@ -1,0 +1,15 @@
+# PMOS (subject system) — grounded from local repo /home/madiyar/pm-agent-team
+
+Source: README.md, ORCHESTRATOR.md, EVALUATION.md (read 2026-08-24).
+
+- Roles: 10 in roster.json (pm, architect, designer, backend, frontend, business, marketing, qa, devops, legal) with model suggestions, per-role skills, wave order.
+- Execution: wave-based. GATE 1 = budget + role/model approval (user); GATE 2 = scope/risk review; QA gate wave 4 -> rework loop to wave 3.
+- Model selection: computed at launch from benchmark scores (Epoch AI hub + LiveBench) via tools/recommend.py; per-role purpose weights; role_tiers thresholds (0.95 critical / 0.92 impl / 0.88 / 0.80 advisory); cheapest-in-best-tier; fallback ladders per role (max_fallbacks_per_task=4, then escalate to user); provider fallback chains for same model multi-provider.
+- KB: one SQLite per project .pmos/kb.sqlite3, namespaced per role + shared; hybrid BM25 (FTS5) + vectors (offline hashed by default, optional real embeddings PMOS_EMBEDDINGS_*), RRF fusion; token caps 150K total, shared 15K + role pools, overflow drops lowest priority chunks; agents only ever see search excerpts (-k 5); full dumps forbidden by protocol rule 1.
+- Retrieval eval: eval_kb.py golden sets 30 standard + 20 paraphrase; hybrid paraphrase MRR 0.792 offline / 0.833 Gemini embedding-2; CI thresholds hits@5>=90%, MRR>=0.65 on standard.
+- Artifact ids: R-NNN requirements, T-NNN tasks, A-NNN acceptance criteria, ADR-NNN decisions, L-NNN risks; fields satisfies/depends_on/decided_by/verifies/mitigated_by/supersedes; deterministic linter tools/artifacts.py (errors block GATE 2); RDF triple store tools/kg.py + SPARQL subset; queries/*.rq stored checks; trace.py coverage/impact/unplanned joins to graphify code graph via touches: paths.
+- Cost: config cost.max_project_cost_usd default 20; GATE 1 budget_usd; append-only .pmos/costs.jsonl via cost.py record (failed runs included; --source estimated when host has no usage); estimate before wave uses measured medians (calibrate) else flat default; report separates measured/estimated; exit 2 on breach gates waves; price staleness warning max_price_age_days=60.
+- Failure handling: worker model fallback ladder; fresh worker per retry; never continue half-finished run; log every retry; escalate after cap; coordinator may proactively promote role model.
+- Resume: state.py artifact-based stage detection 0..9 + pre-flight checks; regenerate broken artifacts rather than redo stages.
+- Eval harness: eval_project.py replays tests/fixtures/ whole .pmos/ projects with expect.json through state/artifacts/trace/cost tools — deterministic, no models; fixtures pin failure modes (broken refs, gate2-blocked-risk, qa-failed-mitigation, scope-creep, over-budget); mutation-tested fixtures; does NOT measure agent output quality (manual level 5).
+- Known weak spots (from task brief): paraphrase MRR ~0.79; ORCHESTRATOR.md 300 lines re-read in full every session; locked to one agent host's spawn/list-models/usage primitives (jcode swarm tool).
