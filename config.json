@@ -21,7 +21,8 @@
     "search_k_default": 5,
     "excerpt_max_chars": 1200,
     "graphify_budget_tokens": 1500,
-    "max_fallbacks_per_task": 4
+    "max_fallbacks_per_task": 4,
+    "protocol_context_budget_tokens": 3000
   },
   "cost": {
     "note": "Project spend guardrail. tools/cost.py keeps the real ledger in .pmos/costs.jsonl (one record per worker run, priced from benchmarks.json) and checks it against budget_usd, approved at GATE 1. est_tokens_per_worker is only the fallback for a role with no measured history yet; run 'cost.py calibrate' to replace it with a number this project actually measured. max_price_age_days: report/estimate warn when benchmarks.json's as_of is older than this, since totals priced from stale unit prices silently drift from reality.",

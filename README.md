@@ -231,6 +231,7 @@ python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
 python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
+python tools/context_bill.py [--budget N]   # token bill of the protocol files; exit 2 over budget
 ```
 
 On resume, `state.py` tells you where the project left off (stage 0..9 derived from artifacts on
@@ -338,7 +339,10 @@ suite passes.
 - Caps/weights: `config.json`. Roles/skills/waves/models: `roster.json`.
 - Fundamentals: edit `kb-sources/<role>/*.md` (markdown, one `## ` heading per fact block).
 - Protocol behavior: `ORCHESTRATOR.md` (core rules) + `docs/stages/*.md` (wave steps).
-  Skills are plain markdown; tweak freely.
+  Skills are plain markdown; tweak freely. `tools/context_bill.py` prices the split
+  (always-on core + worst-case stage file, tokens ~= chars/4) and validate.py fails when the
+  session baseline crosses `context_rules.protocol_context_budget_tokens` — keep protocol
+  edits inside the budget or split further instead of bloating the core.
 - After any edit, run `python tools/validate.py` to verify budget math, skill references,
   model suggestions, documented CLI commands, skill frontmatter, bootstrap, and edge cases.
 
@@ -347,7 +351,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (138 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (140 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

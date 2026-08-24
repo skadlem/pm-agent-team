@@ -230,6 +230,24 @@ check("ORCHESTRATOR.md stage map names every stage file",
       "unnamed: %s" % ", ".join(sorted(set(stage_files) - core_map)) if set(stage_files) - core_map
       else "%d files mapped" % len(stage_files))
 
+# Context bill: the split only pays off if the always-on load stays small.
+# Ceiling from config.json context_rules.protocol_context_budget_tokens;
+# validate.py fails CI when protocol bloat crosses it (gstack-context-bill
+# pattern, docs/research/2026-08-24-gstack.md).
+_bill_budget = ((cfg.get("context_rules") or {}).get("protocol_context_budget_tokens"))
+r = subprocess.run([sys.executable, str(TPL / "tools" / "context_bill.py"), "--json",
+                    "--budget", str(_bill_budget)], capture_output=True, text=True)
+try:
+    bill = json.loads(r.stdout)
+except ValueError:
+    bill = {}
+check("protocol context bill within budget (core + worst stage)",
+      r.returncode == 0 and not bill.get("over_budget"),
+      "baseline %s tokens, budget %s" % (bill.get("session_baseline_tokens"), _bill_budget))
+check("context bill prices every stage file",
+      len(bill.get("stage_files", [])) == len(stage_files),
+      "%d priced vs %d on disk" % (len(bill.get("stage_files", [])), len(stage_files)))
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"

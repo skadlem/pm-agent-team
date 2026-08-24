@@ -18,7 +18,7 @@ conformance and SPARQL-agreement checks in validate.py; CI runs both.)
 ## Before you open a PR
 
 ```
-python tools/validate.py         # 138-check self-check: budgets, costs, tiers, skills, paths, recommender
+python tools/validate.py         # 140-check self-check: budgets, costs, tiers, skills, paths, recommender
 python tools/kb.py selftest      # KB engine smoke test
 python tools/artifacts.py selftest  # artifact id/reference linter
 python tools/trace.py selftest   # traceability join
