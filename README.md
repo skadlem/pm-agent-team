@@ -232,6 +232,7 @@ python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
 python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
+python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
 python tools/context_bill.py [--budget N]   # token bill of the protocol files; exit 2 over budget
 ```
 
@@ -352,7 +353,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (143 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (147 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

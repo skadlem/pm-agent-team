@@ -318,6 +318,20 @@ fixture.unlink()
 r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refresh"],
                    capture_output=True, text=True)
 check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
+# second-opinion: a reviewer from a DIFFERENT family than the pm's model
+so_fixture = pathlib.Path(tempfile.mkstemp(suffix=".json")[1])
+so_fixture.write_text(json.dumps(avail), encoding="utf-8")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "second-opinion",
+                    "--pm-model", "claude-opus-5",
+                    "--available", str(so_fixture)], capture_output=True, text=True)
+so_fixture.unlink()
+pick = r.stdout.strip()
+check("second-opinion picks a model", r.returncode == 0 and pick and pick in {m["id"] for m in avail},
+      "%r %s" % (pick, r.stderr.strip()[:80]))
+check("second-opinion is a different family than the pm's",
+      rmod.model_family(pick, roster) != rmod.model_family("claude-opus-5", roster), pick)
+check("second-opinion never suggests a forbidden model",
+      pick not in (roster.get("forbidden_models") or []), pick)
 
 print("== 11. Benchmarks: bundled file integrity + generator ==")
 # The shipped benchmarks.json must be complete even without the raw CSVs.

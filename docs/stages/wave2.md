@@ -48,5 +48,17 @@ wave, KB enrichment, and the second user gate.
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly
    accepted it, the verdict is FAIL and GATE 2 is BLOCKED until resolved or accepted.
+   SECOND OPINION (cross-model, gstack /codex pattern, docs/research/2026-08-24-gstack.md):
+   whenever a high-severity open risk exists at this gate, run ONE extra worker BEFORE
+   presenting — a reviewer on the cheapest model of a DIFFERENT family than the pm's model
+   (they planned the work; the second set of eyes must not be the same brain). Pick it
+   deterministically: `python TPL/tools/recommend.py second-opinion --pm-model <pm model>
+   --available .pmos/available-models.txt` (never a forbidden model, never the pm's family).
+   The task: adversarially re-read ONLY the risk-relevant sections (charter Risks, the risk
+   register, the plan's tasks that claim `mitigated_by`), using `TPL/templates/second-opinion.md`;
+   the output is `.pmos/out/pm/second-opinion.md` listing overlapping vs unique findings and
+   whether any accepted mitigation actually holds. Record the run in the cost ledger like any
+   worker. Two families disagreeing is normal — the unique findings are what the user must
+   see at the gate, not the agreement.
 
 Next: `docs/stages/wave3.md` (steps 9-10).

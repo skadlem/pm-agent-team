@@ -293,6 +293,38 @@ def fmt_table(results, benchmarks):
     return "\n".join(lines)
 
 
+def model_family(model_id, roster):
+    """Longest newest_only prefix that matches the id, e.g. claude-opus-5 ->
+    claude-opus. Unmatched ids get a singleton family (their own id)."""
+    fams = sorted((k for k in (roster or {}).get("newest_only") or {} if k != "note"),
+                  key=len, reverse=True)
+    for fam in fams:
+        if str(model_id).startswith(fam):
+            return fam
+    return str(model_id)
+
+
+def second_opinion(available, benchmarks, roster, pm_model):
+    """Cheapest model of a DIFFERENT family than the pm's (cross-model review,
+    gstack G5): the pm planned the work, so the second set of eyes must not be
+    the same brain. `available` is the parsed list from parse_available().
+    Returns the model id, or None when every available model is the same family."""
+    fam = model_family(pm_model, roster)
+    models = (benchmarks or {}).get("models", benchmarks or {})
+    avail_ids = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
+    others = []
+    for mid, data in models.items():
+        if model_family(mid, roster) == fam or mid not in avail_ids:
+            continue
+        cost = blended_cost(data) if isinstance(data, dict) else None
+        if cost is not None:
+            others.append((cost, mid))
+    if not others:
+        return None
+    others.sort(key=lambda t: (t[0], t[1]))
+    return others[0][1]
+
+
 def refresh_queries(benchmarks_path):
     with open(benchmarks_path, encoding="utf-8") as f:
         data = json.load(f)
@@ -323,9 +355,16 @@ def main():
     p = sub.add_parser("refresh", help="print websearch queries to refresh benchmarks.json")
     p.add_argument("--benchmarks", default=None)
 
+    p = sub.add_parser("second-opinion",
+                       help="cheapest model of a different family than the pm's (GATE 2 cross-model review)")
+    p.add_argument("--available", required=True, help="swarm list_models output or JSON list file")
+    p.add_argument("--benchmarks", default=None)
+    p.add_argument("--roster", default=None)
+    p.add_argument("--pm-model", required=True, help="the model that planned the work")
+
     # allow `recommend.py --available X` (suggest as default) and `recommend.py refresh`
     raw = sys.argv[1:]
-    if raw and raw[0] not in ("suggest", "refresh"):
+    if raw and raw[0] not in ("suggest", "refresh", "second-opinion"):
         raw = ["suggest"] + raw
     a = ap.parse_args(raw)
     base = pathlib.Path(__file__).resolve().parent.parent
@@ -336,6 +375,17 @@ def main():
         print("Refresh benchmarks.json with these websearch queries, then edit the file:")
         for q in refresh_queries(benchmarks_path):
             print("  - " + q)
+        return
+
+    if a.cmd == "second-opinion":
+        available = parse_available(a.available)
+        benchmarks = load_benchmarks(benchmarks_path)
+        roster = load_roster(roster_path)
+        pick = second_opinion(available, benchmarks, roster, a.pm_model)
+        if pick is None:
+            print("no second-opinion model: every available model is the pm's family")
+            return
+        print(pick)
         return
 
     available = parse_available(a.available)
