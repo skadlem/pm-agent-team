@@ -154,10 +154,13 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    chunks in place and prunes facts deleted from their source file, so workers stop retrieving a
    decision the project has moved off. Log the `N new, N updated, N pruned` line.
 8. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
-   FIRST run `python TPL/tools/artifacts.py --project .`. Any ERROR blocks the gate: a reference
-   that does not resolve means a wave handed off to something that does not exist. Report the
-   warnings in the summary (scope with no task, task with no acceptance criterion, high-severity
-   open risk with no mitigating task); the user may accept them knowingly.
+   FIRST run `python TPL/tools/artifacts.py --project .`. Present the gate as a VERDICT, not a
+   dump — one line up front, computed from the linter:
+   - `PASS` — exit 0, no warnings: clean handoff.
+   - `CONCERNS` — exit 0 with warnings: list the top warnings as bullets; the user may accept
+     them knowingly.
+   - `FAIL` — any ERROR (exit 1): a reference that does not resolve means a wave handed off to
+     something that does not exist. The gate is blocked until fixed.
    `python TPL/tools/trace.py coverage --project .` renders the same thing as a scope -> task ->
    criterion tree, which is usually the clearest way to show the user what they are approving.
    For anything the standard reports do not answer, query the graph directly:
@@ -165,7 +168,7 @@ Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the tea
    stored library, ARTIFACT-SCHEMA.md for the vocabulary).
    Include the risk register highlights (top risks, mitigations, jurisdiction-specific
    obligations). If any `severity: high` item is `status: open` and the user has not explicitly
-   accepted it, GATE 2 is BLOCKED until resolved or accepted.
+   accepted it, the verdict is FAIL and GATE 2 is BLOCKED until resolved or accepted.
 9. Wave 3: implementation. Spawn backend/frontend/devops/marketing per the task graph, parallel
    where independent. Name the `T-NNN` ids each worker owns in its assignment, and have it record
    them in its notes; that is what later ties delivered code back to the charter. Each worker fills

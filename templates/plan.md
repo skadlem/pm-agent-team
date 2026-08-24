@@ -26,11 +26,17 @@ Status: draft | Owner: PM agent | Updated: {{date}}
 ## Acceptance criteria
 <!-- One `- id: A-NNN` block per criterion. Each verifies exactly ONE task and
      must be observable: QA reports it as `- A-NNN: pass|fail - evidence`.
-     Every task needs at least one, or it cannot be signed off. -->
+     Every task needs at least one, or it cannot be signed off.
+     `form:` states the criterion in EARS shape — WHEN <trigger> THE SYSTEM
+     SHALL <observable response>. The trigger and the response must both be
+     observable; "works correctly" is rejected. EARS keeps the criterion
+     testable and unambiguous for QA; `how:` is still the command or check
+     that proves it. -->
 
 ```yaml
 - id: A-001
   title: <observable outcome, not "works correctly">
+  form: WHEN <trigger> THE SYSTEM SHALL <observable response>
   verifies: T-001
   how: <the command or check that proves it>
 ```

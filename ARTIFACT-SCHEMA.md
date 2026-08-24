@@ -43,6 +43,16 @@ QA reports results in `.pmos/out/qa/test-report.md`, one line per criterion:
 - A-002: fail - session still valid after 31 minutes
 ```
 
+### Acceptance criteria: EARS form
+
+An A-NNN block may carry a `form:` field stating the criterion in EARS shape —
+`WHEN <trigger> THE SYSTEM SHALL <observable response>`. The template
+(`templates/plan.md`) shows it. It is a writing discipline, not a lint rule:
+`artifacts.py` does not enforce the shape (old plans without it stay valid),
+but it makes criteria testable and unambiguous — QA can execute the trigger
+and observe the response instead of interpreting prose. Keep `title:` for the
+short name and `how:` for the command that proves it.
+
 ## What the linter enforces
 
 **Errors** (`exit 1`) break traceability and must be fixed:
