@@ -16,8 +16,10 @@ Exit code: 1 if any ERROR (2 with --strict when only warnings). Entities and
 their reference fields are specified in ARTIFACT-SCHEMA.md.
 """
 import argparse
+import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -47,7 +49,49 @@ FIELD_LINE = re.compile(r"^\s+([a-z_]+):\s*(.*?)\s*$")
 REQ_LINE = re.compile(r"^\s*[-*]\s+(R-\d{1,4})\s*[:\-]\s*(.+)$", re.I)
 ADR_HEAD = re.compile(r"^#\s*(ADR-\d{1,4})\s*[:\-]?\s*(.*)$", re.I)
 QA_RESULT = re.compile(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(pass|fail|blocked)\b[\s:\-]*(.*)$", re.I)
+QA_TREE = re.compile(r"^\s*(?:tree|Tree)\s*:\s*([0-9a-fA-F]{16,64})\s*$")
 ADR_STATUS = re.compile(r"^\s*(?:status|Status)\s*:\s*([a-z\- ]+)", re.M)
+
+# Fingerprinting skips protocol state and generated graphs: evidence is about
+# the SOURCE tree, and .pmos changes on every checkpoint without invalidating it.
+FINGERPRINT_SKIP = (".pmos/", "graphify-out/", ".git/")
+
+
+def tree_fingerprint(proj):
+    """Stable content hash of the project's source tree (the gstack-wtree
+    pattern, docs/research/2026-08-24-gstack.md): identical content
+    fingerprints identically across renames of history, so QA evidence can be
+    bound to WHAT WAS TESTED instead of a commit SHA. Files under
+    .pmos/ and graphify-out/ are excluded. Git-tracked-plus-untracked when the
+    project is a repo (honors .gitignore); everything otherwise."""
+    proj = Path(proj)
+    names = None
+    r = subprocess.run(["git", "-C", str(proj), "ls-files"], capture_output=True, text=True)
+    if r.returncode == 0:
+        names = sorted(set(r.stdout.split()))
+        r2 = subprocess.run(["git", "-C", str(proj), "ls-files", "--others", "--exclude-standard"],
+                            capture_output=True, text=True)
+        if r2.returncode == 0:
+            names = sorted(set(names) | set(r2.stdout.split()))
+    if names is None:
+        names = []
+        for p in sorted(proj.rglob("*")):
+            if p.is_file():
+                try:
+                    names.append(p.relative_to(proj).as_posix())
+                except ValueError:
+                    pass
+    h = hashlib.sha256()
+    for name in names:
+        if name.startswith(FINGERPRINT_SKIP):
+            continue
+        p = proj / name
+        if not p.is_file():
+            continue
+        h.update(name.encode("utf-8") + b"\x00")
+        h.update(p.read_bytes())
+        h.update(b"\x00")
+    return h.hexdigest()[:16]
 
 
 def canonical(raw):
@@ -155,6 +199,7 @@ def parse_project(proj):
                      rel(register), entities, problems)
 
     report = pmos / "out" / "qa" / "test-report.md"
+    qa_tree = None
     if report.is_file():
         for n, line in enumerate(report.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
             m = QA_RESULT.match(line)
@@ -162,13 +207,17 @@ def parse_project(proj):
                 qa_results[canonical(m.group(1))] = {
                     "result": m.group(2).lower(), "evidence": m.group(3).strip(),
                     "file": rel(report), "line": n}
-    return entities, problems, qa_results, (report.is_file(), register.is_file(), plan.is_file())
+            elif qa_tree is None:
+                mt = QA_TREE.match(line)
+                if mt:
+                    qa_tree = mt.group(1).lower()
+    return entities, problems, qa_results, (report.is_file(), register.is_file(), plan.is_file(), qa_tree)
 
 
 def check(entities, problems, qa_results, present):
     """Validate ids and references. Errors break traceability; warnings are
     coverage gaps the coordinator should see but may knowingly accept."""
-    has_qa, has_register, has_plan = present
+    has_qa, has_register, has_plan = present[:3]
     by_id = {}
     for e in entities:
         if e.id in by_id:
@@ -303,6 +352,14 @@ def build_graph(by_id, edges, qa_results):
 def run(proj, as_json=False, strict=False, graph_out=None, quiet=False):
     entities, problems, qa_results, present = parse_project(proj)
     by_id, edges = check(entities, problems, qa_results, present)
+    qa_tree = present[3] if len(present) > 3 else None
+    if qa_tree is not None:
+        current = tree_fingerprint(proj)
+        if current != qa_tree:
+            problems.append(("warning", ".pmos/out/qa/test-report.md", 1,
+                             "QA evidence is stale: collected against tree %s, current tree is %s;"
+                             " re-run QA or re-bind the evidence (artifacts.py fingerprint)"
+                             % (qa_tree, current)))
     errors = [p for p in problems if p[0] == "error"]
     warnings = [p for p in problems if p[0] == "warning"]
     graph = build_graph(by_id, edges, qa_results)
@@ -463,13 +520,42 @@ def selftest():
     print("   %s unproven mitigation warned" % ("[OK]  " if hit else "[FAIL]"))
     ok = ok and hit
 
+    # -- QA evidence bound to the tree fingerprint (gstack G3): evidence
+    # collected against the tested tree passes silently; a changed tree is
+    # flagged stale instead of silently gating on old results.
+    import contextlib
+    import io
+
+    def lint_warnings(root):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            run(root, as_json=True)
+        return [w["message"] for w in json.loads(buf.getvalue())["warnings"]]
+
+    rooted = build(CLEAN_FIXTURE)
+    (rooted / "src").mkdir()
+    (rooted / "src" / "app.py").write_text("print('v1')\n", encoding="utf-8")
+    rep = rooted / ".pmos" / "out" / "qa" / "test-report.md"
+    rep.write_text(rep.read_text(encoding="utf-8") + "\ntree: %s\n" % tree_fingerprint(rooted),
+                   encoding="utf-8")
+    clean_ws = [w for w in lint_warnings(rooted) if "stale" in w]
+    hit = not clean_ws
+    print("   %s fresh evidence not flagged        %s" % ("[OK]  " if hit else "[FAIL]", clean_ws))
+    ok = ok and hit
+    (rooted / "src" / "app.py").write_text("print('v2')\n", encoding="utf-8")
+    stale_ws = [w for w in lint_warnings(rooted) if "QA evidence is stale" in w]
+    hit = len(stale_ws) == 1
+    print("   %s changed tree flagged stale       %s" % ("[OK]  " if hit else "[FAIL]", stale_ws))
+    ok = ok and hit
+
     print("SELFTEST PASS" if ok else "SELFTEST FAILED")
     return 0 if ok else 1
 
 
 def main():
     ap = argparse.ArgumentParser(description="PMOS artifact id/reference linter")
-    ap.add_argument("mode", nargs="?", default="lint", choices=["lint", "selftest"])
+    ap.add_argument("mode", nargs="?", default="lint",
+                    choices=["lint", "selftest", "fingerprint"])
     ap.add_argument("--project", default=".")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--strict", action="store_true", help="exit non-zero on warnings too")
@@ -477,6 +563,9 @@ def main():
     args = ap.parse_args()
     if args.mode == "selftest":
         return selftest()
+    if args.mode == "fingerprint":
+        print(tree_fingerprint(args.project))
+        return 0
     if not (Path(args.project) / ".pmos").is_dir():
         print("no .pmos/ in %s: nothing to lint" % args.project, file=sys.stderr)
         return 0

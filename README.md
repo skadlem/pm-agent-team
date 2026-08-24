@@ -219,6 +219,7 @@ python tools/artifacts.py selftest
 python tools/trace.py coverage --project .        # scope -> task -> criterion -> QA
 python tools/trace.py impact T-012 --project .    # what rides on one item, down to the code
 python tools/trace.py unplanned --project .       # changed files no task claims
+python tools/artifacts.py fingerprint --project . # content hash of the source tree (QA binds its evidence to it)
 python tools/cost.py record --project . --role backend --model <m> --in N --out N
 python tools/cost.py report --project .           # spend vs budget_usd, estimate accuracy
 python tools/cost.py estimate --project . --roles backend,frontend

@@ -1,0 +1,7 @@
+{
+ "description": "QA passed, but its evidence is bound to a tree hash that no longer matches: the gate must flag stale evidence, not approve it",
+ "legal_strict": false,
+ "state": {"stage": 8, "fail_checks": [], "exact_fail_checks": true},
+ "artifacts": {"error_count": 0, "warnings": ["QA evidence is stale"]},
+ "gate2": "clear"
+}

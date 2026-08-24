@@ -82,10 +82,19 @@ python TPL/tools/artifacts.py --project .                      # report
 python TPL/tools/artifacts.py --project . --json               # machine-readable
 python TPL/tools/artifacts.py --project . --strict             # warnings fail too
 python TPL/tools/artifacts.py --project . --graph .pmos/traceability.json
+python TPL/tools/artifacts.py fingerprint --project .          # content hash of the source tree
 python TPL/tools/artifacts.py selftest                         # fixture self-check
 ```
 
 Run it at every gate. It is cheap, deterministic, and needs no model.
+
+### Evidence freshness
+
+A QA report may carry a `tree: <hash>` line (written from `artifacts.py fingerprint` after the
+run). When present, the linter compares it against the current source tree and warns "QA
+evidence is stale" if they differ — evidence is bound to WHAT WAS TESTED, not to a commit SHA
+(the fingerprint is content-stable across rebase/amend; `.pmos/` and `graphify-out/` are
+excluded). Unbound reports stay valid: this is an opt-in hardening of the gate.
 
 ## Graph output
 

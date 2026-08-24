@@ -19,6 +19,10 @@ Read ORCHESTRATOR.md (core rules) first. This file covers implementation and the
    the charter's do-not-touch list changed.
    QA reports one line per acceptance criterion in `.pmos/out/qa/test-report.md`:
    `- A-NNN: pass|fail - <evidence>`. A criterion with no line is not "passed", it is unreported.
+   QA also binds the report to the tree it tested: run
+   `python TPL/tools/artifacts.py fingerprint --project .` and add a `tree: <hash>` line to the
+   report. `artifacts.py` then warns "QA evidence is stale" whenever the source tree changes
+   after the evidence was collected, so the gate never approves old results against new code.
    `python TPL/tools/artifacts.py --project .` then makes the next two checks mechanical: it errors
    on a result for a criterion nobody defined, and warns when a `status: mitigated` risk points at a
    task whose criteria did not pass. `kg.py query --name unproven-mitigations` and
