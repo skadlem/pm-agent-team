@@ -95,9 +95,21 @@ check("role_tiers cover every role", tier_roles == set(roster["roles"]),
 bad_tier = [k for k, v in tiers.items() if k != "note" and not (0.5 <= v <= 1.0)]
 check("role_tiers in [0.5, 1.0]", not bad_tier, ", ".join(bad_tier))
 efforts = roster.get("role_effort") or {}
-eff_roles = {k for k in efforts if k != "note"}
+eff_roles = set(efforts) - {"note"}
 check("role_effort covers every role", eff_roles == set(roster["roles"]),
       "missing: " + ", ".join(sorted(set(roster["roles"]) - eff_roles)) or "")
+
+# gstack_commands: optional per-role methodology upgrade. Every command must
+# look like a slash command and every role it names must exist; a typo would
+# otherwise be silently passed to workers as a nonexistent /command.
+gstack_cmds = roster.get("gstack_commands") or {}
+gc_roles = set(gstack_cmds) - {"note"}
+check("gstack_commands name only real roles", gc_roles <= set(roster["roles"]),
+      "unknown: " + ", ".join(sorted(gc_roles - set(roster["roles"]))) or "")
+flat = [c for cmds in (gstack_cmds.get(r) or [] for r in gc_roles) for c in cmds]
+check("gstack commands are /slash commands",
+      bool(flat) and all(c.startswith("/") and len(c) > 1 for c in flat),
+      "non-slash: " + ", ".join(c for c in flat if not (c.startswith("/") and len(c) > 1)) or "")
 allowed_efforts = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 bad_eff = [k for k, v in efforts.items() if k != "note" and v not in allowed_efforts]
 check("role_effort values valid", not bad_eff, ", ".join(bad_eff))

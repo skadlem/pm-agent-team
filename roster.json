@@ -14,6 +14,16 @@
     "model": null,
     "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
   },
+  "gstack_commands": {
+    "note": "OPTIONAL per-role methodology upgrade (docs/research/2026-08-24-gstack.md): when the worker's host has gstack installed (~/.claude/skills/gstack or equivalent), the spawn prompt tells the worker to use these slash commands as its methodology INSTEAD of the generic built-in procedure; without gstack, the built-in procedure applies unchanged. Never a hard dependency: a role without gstack_commands, or a host without gstack, runs the standard flow. Commands listed here are checked for shape (must start with '/') by validate.py.",
+    "pm": ["/office-hours", "/retro"],
+    "architect": ["/plan-eng-review"],
+    "designer": ["/design-review"],
+    "backend": ["/review", "/investigate"],
+    "frontend": ["/review", "/design-review"],
+    "qa": ["/qa", "/qa-only"],
+    "devops": ["/cso", "/review"]
+  },
   "role_tiers": {
     "note": "Per-role score-acceptance threshold (fraction of best available score). Higher = more selective (only near-best models qualify), lower = more cost-aggressive. Critical roles (pm/architect/qa) stay at 0.95; implementation roles at 0.92; non-critical advisory roles at 0.80. This replaces the old flat --tier 0.92 flag.",
     "pm": 0.95,
