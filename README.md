@@ -33,6 +33,9 @@ directory. Available trigger phrases:
 ```
 pm-agent-team/
   ORCHESTRATOR.md          # core rules + stage map for the main session (coordinator)
+  HOST-ADAPTER.md          # contract for running PMOS on any agent host (jcode, Claude Code, Hermes)
+  hosts/*.json             # declarative per-host adapter configs (defineHost() pattern)
+  host-bundles/<host>/     # generated protocol + spawn prompts rewritten per host
   docs/stages/*.md         # the wave-by-wave protocol, one file per stage (load only what you need)
   ARTIFACT-SCHEMA.md       # stable ids (R/T/A/ADR/L) and the references between artifacts
   roster.json              # roles, per-role skills, model suggestions, wave order
@@ -44,6 +47,8 @@ pm-agent-team/
   tools/events.py            # wave-event trace: per-run ok/fail, ladder retries, rework loops
   tools/kg.py                # RDF triple store over the artifacts + a SPARQL subset
   tools/trace.py             # joins that graph to the graphify code graph; coverage/impact queries
+  tools/hostgen.py           # renders per-host protocol bundles (jcode / Claude Code / Hermes)
+  tools/context_bill.py      # token bill of the protocol files (guards the split's size)
   queries/*.rq             # the protocol's own checks, as stored SPARQL
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
   kb-sources/legal/        # data protection, AI regulation, licensing, register/calendar templates; per-project jurisdiction packs land in .pmos/kb-sources/legal/
@@ -240,6 +245,16 @@ On resume, `state.py` tells you where the project left off (stage 0..9 derived f
 disk), whether everything before that stage is intact (pre-flight checks), and the next launch
 step — see `docs/stages/resume.md`.
 
+## Host adaptability
+
+The protocol (roster, waves, gates, KB, KG, cost, events, harness) is host-neutral; only three
+primitives differ per agent host (spawn-with-model, list_models, usage). `hosts/*.json` declare
+each host's adapter (the gstack defineHost() pattern — see HOST-ADAPTER.md), and
+`python tools/hostgen.py --all` renders `host-bundles/<host>/`: the protocol docs, spawn prompt,
+and per-role agents with every jcode-ism rewritten to that host's tools. Shipped bundles:
+jcode (reference), Claude Code, Hermes. Adding a host = one JSON file + rewrite entries;
+`hostgen.py --check` fails CI on stale bundles, dead rewrites, or surviving jcode-isms.
+
 ## Artifact traceability
 
 Waves hand work to each other as markdown, so anything another role must point at carries a
@@ -353,7 +368,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (147 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (150 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

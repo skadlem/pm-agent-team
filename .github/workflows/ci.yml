@@ -36,6 +36,8 @@ jobs:
         run: python tools/cost.py selftest
       - name: Wave-event trace selftest
         run: python tools/events.py selftest
+      - name: Host bundles check
+        run: python tools/hostgen.py --check
       - name: Knowledge graph selftest
         run: python tools/kg.py selftest
       - name: Protocol harness (fixture projects)

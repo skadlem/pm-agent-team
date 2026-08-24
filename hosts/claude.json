@@ -1,0 +1,29 @@
+{
+  "name": "claude",
+  "display_name": "Claude Code",
+  "template_root_file": "~/.claude/pmos-template-root",
+  "skills_dir": "~/.claude/skills",
+  "agents_dir": ".claude/agents",
+  "defaults_file": "~/.claude/pmos-team-defaults.json",
+  "spawn": {
+    "doc": "headless Claude Code: spawn a worker session with an explicit model",
+    "command": "claude -p --model <model> --permission-mode acceptEdits --allowedTools 'Bash,Read,Write,Edit,Grep,Glob'",
+    "model_flag": "--model <model>",
+    "effort_flag": "(not supported; omit)"
+  },
+  "list_models": "claude models list",
+  "usage": {
+    "doc": "run with --output-format json and read usage.input_tokens / usage.output_tokens from the result",
+    "flag": "--output-format json"
+  },
+  "tool_rewrites": [
+    {"from": "`swarm` tool", "to": "`claude -p` headless session"},
+    {"from": "`swarm list_models`", "to": "`claude models list`"},
+    {"from": "`model` in the swarm", "to": "`--model` on the claude CLI"},
+    {"from": "the swarm result", "to": "the claude result"},
+    {"from": "~/.jcode/pmos-template-root", "to": "~/.claude/pmos-template-root"},
+    {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.claude/pmos-team-defaults.json"},
+    {"from": "swarm default", "to": "claude default"}
+  ],
+  "suppressed": ["gstack"]
+}

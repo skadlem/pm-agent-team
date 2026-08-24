@@ -1,0 +1,19 @@
+{
+  "name": "jcode",
+  "display_name": "jcode (reference host)",
+  "template_root_file": "~/.jcode/pmos-template-root",
+  "skills_dir": "~/.jcode/skills",
+  "defaults_file": "~/.jcode/pmos-team-defaults.json",
+  "spawn": {
+    "doc": "swarm tool: spawn a worker with an explicit model and effort",
+    "command": "swarm spawn --model <model> --effort <effort> --prompt <prompt>",
+    "model_flag": "--model <model>",
+    "effort_flag": "--effort <effort>"
+  },
+  "list_models": "swarm list_models",
+  "usage": {
+    "doc": "tokens_in/tokens_out come from the swarm spawn result"
+  },
+  "tool_rewrites": [],
+  "suppressed": []
+}

@@ -260,6 +260,18 @@ check("context bill prices every stage file",
       len(bill.get("stage_files", [])) == len(stage_files),
       "%d priced vs %d on disk" % (len(bill.get("stage_files", [])), len(stage_files)))
 
+print("== 9c. Host bundles (HOST-ADAPTER.md) ==")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "hostgen.py"), "--check"],
+                   capture_output=True, text=True)
+check("hostgen check passes for every host", r.returncode == 0,
+      r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
+hosts = sorted(p.stem for p in (TPL / "hosts").glob("*.json"))
+check("reference host jcode present", "jcode" in hosts and len(hosts) >= 2,
+      ", ".join(hosts))
+bundles = sorted(p.name for p in (TPL / "host-bundles").glob("*") if p.is_dir())
+check("every host has a rendered bundle", set(hosts) <= set(bundles),
+      "missing: " + ", ".join(sorted(set(hosts) - set(bundles))) or "")
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"
