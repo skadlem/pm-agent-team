@@ -45,8 +45,26 @@ MIN_SAMPLES = 2
 
 
 def load_prices(path=None):
+    return prices_meta(path)[0]
+
+
+def prices_meta(path=None):
+    """(models, as_of): as_of is when the benchmark/pricing data was refreshed."""
     data = json.loads(Path(path or TPL / "benchmarks.json").read_text(encoding="utf-8"))
-    return data.get("models", data)
+    return data.get("models", data), data.get("as_of")
+
+
+def price_staleness(as_of, max_age_days, today=None):
+    """Days since the price data was refreshed, or None when undatable.
+    A ledger priced from stale unit prices drifts from reality silently, so
+    report/estimate flag it the way they flag unpriced models."""
+    if not as_of or not max_age_days:
+        return None
+    try:
+        then = datetime.strptime(as_of[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return ((today or datetime.now(timezone.utc)) - then).days
 
 
 def price_of(model, prices):
@@ -158,6 +176,10 @@ def cmd_report(args):
     cfg = json.loads((Path(args.config).read_text(encoding="utf-8"))) if args.config else \
         json.loads((TPL / "config.json").read_text(encoding="utf-8"))
     flat = cfg.get("cost", {}).get("est_tokens_per_worker", 400000)
+    max_age = cfg.get("cost", {}).get("max_price_age_days")
+    _, as_of = prices_meta(getattr(args, "benchmarks", None))
+    age = price_staleness(as_of, max_age)
+    stale = age is not None and max_age is not None and age > max_age
     measured = [r for r in rows if r.get("source") == "measured"]
     accuracy = None
     if measured:
@@ -168,7 +190,9 @@ def cmd_report(args):
     out = {"total": total, "budget_usd": budget,
            "remaining_usd": round(budget - total["usd"], 4) if budget else None,
            "by_role": group(rows, "role"), "by_wave": group(rows, "wave"),
-           "by_model": group(rows, "model"), "estimate_accuracy": accuracy}
+           "by_model": group(rows, "model"), "estimate_accuracy": accuracy,
+           "prices": {"as_of": as_of, "age_days": age, "max_age_days": max_age,
+                      "stale": bool(stale)}}
     if args.json:
         print(json.dumps(out, indent=1))
     else:
@@ -186,6 +210,10 @@ def cmd_report(args):
                   % (total["measured_usd"], total["estimated_usd"]))
         if total["unpriced"]:
             print("  %d run(s) on models with no price in benchmarks.json" % total["unpriced"])
+        if stale:
+            print("  price data is %d day(s) old (benchmarks.json as_of %s, max %d) -"
+                  " totals priced from stale rates; refresh with build_benchmarks.py"
+                  % (age, as_of, max_age))
         if total["failed"]:
             print("  %d failed run(s) - they cost money too" % total["failed"])
         if budget:
@@ -249,11 +277,14 @@ def cmd_calibrate(args):
 
 
 def cmd_estimate(args):
-    prices = load_prices(args.benchmarks)
+    prices, as_of = prices_meta(args.benchmarks)
     budget, roles_map = budget_of(args.project)
     cfg = json.loads((Path(args.config).read_text(encoding="utf-8"))) if args.config else \
         json.loads((TPL / "config.json").read_text(encoding="utf-8"))
     flat = cfg.get("cost", {}).get("est_tokens_per_worker", 400000)
+    max_age = cfg.get("cost", {}).get("max_price_age_days")
+    age = price_staleness(as_of, max_age)
+    stale = age is not None and max_age is not None and age > max_age
     cal = calibration(args.project).get("roles", {})
     spent = summarize(read_ledger(args.project))["usd"]
 
@@ -276,7 +307,9 @@ def cmd_estimate(args):
     remaining = round(budget - spent, 4) if budget else None
     out = {"wave": args.wave, "workers": rows, "estimate_usd": round(total, 4),
            "already_spent_usd": spent, "budget_usd": budget, "remaining_usd": remaining,
-           "over_budget": bool(budget and spent + total > budget)}
+           "over_budget": bool(budget and spent + total > budget),
+           "prices": {"as_of": as_of, "age_days": age, "max_age_days": max_age,
+                      "stale": bool(stale)}}
     if args.json:
         print(json.dumps(out, indent=1))
     else:
@@ -288,6 +321,10 @@ def cmd_estimate(args):
                   % (r["role"], r["model"], r["tokens_in"], r["tokens_out"],
                      "$%.2f" % r["usd"] if r["usd"] is not None else "unpriced", r["basis"]))
         print("wave estimate $%.2f; spent so far $%.2f" % (total, spent))
+        if stale:
+            print("price data is %d day(s) old (as_of %s, max %d) - this estimate is priced"
+                  "\nfrom stale rates; refresh with build_benchmarks.py before trusting it"
+                  % (age, as_of, max_age))
         if budget:
             print("budget $%.2f, remaining after this wave $%.2f"
                   % (budget, budget - spent - total))
@@ -399,6 +436,28 @@ def selftest():
     cases.append(("unpriced models are flagged, not counted as free",
                   json.loads(out)["total"]["unpriced"] == 1))
 
+    # the ledger is priced from benchmarks.json, so its unit prices age with it:
+    # surface the age and flag staleness instead of drifting from reality silently
+    _, out = quiet(cmd_report, argparse.Namespace(project=str(root), json=True, config=None))
+    rep = json.loads(out)
+    cases.append(("report surfaces the age of its price data",
+                  bool(rep["prices"]["as_of"]) and isinstance(rep["prices"]["age_days"], int)
+                  and rep["prices"]["stale"] is False))
+    old_bench = root / "old-benchmarks.json"
+    old_bench.write_text(json.dumps(
+        {"as_of": "2020-01-01",
+         "models": {"claude-opus-5": {"cost_in": 5, "cost_out": 25}}}), encoding="utf-8")
+    _, out = quiet(cmd_report, argparse.Namespace(project=str(root), json=True, config=None,
+                                                  benchmarks=str(old_bench)))
+    rep = json.loads(out)
+    cases += [
+        ("report flags stale price data instead of silently pricing from it",
+         rep["prices"]["stale"]
+         and rep["prices"]["age_days"] > rep["prices"]["max_age_days"]),
+        ("staleness is undatable (None), not an error, when as_of is missing or malformed",
+         price_staleness(None, 60) is None and price_staleness("garbage", 60) is None),
+    ]
+
     for label, cond in cases:
         print("   %s %s" % ("[OK]  " if cond else "[FAIL]", label))
         ok = ok and cond
@@ -432,6 +491,7 @@ def main():
     p = sub.add_parser("report", help="spend so far against the GATE 1 budget")
     common(p)
     p.add_argument("--config", default=None)
+    p.add_argument("--benchmarks", default=None)
 
     p = sub.add_parser("estimate", help="what the next wave will cost")
     common(p)

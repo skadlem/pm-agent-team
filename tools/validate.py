@@ -48,6 +48,7 @@ check("total cap positive", total > 0)
 cost_cfg = cfg.get("cost") or {}
 check("cost cap positive", (cost_cfg.get("max_project_cost_usd") or 0) > 0)
 check("est_tokens_per_worker positive", (cost_cfg.get("est_tokens_per_worker") or 0) > 0)
+check("max_price_age_days positive", (cost_cfg.get("max_price_age_days") or 0) > 0)
 mfb = (cfg.get("context_rules") or {}).get("max_fallbacks_per_task")
 check("max_fallbacks_per_task is a positive int", isinstance(mfb, int) and mfb > 0, str(mfb))
 
@@ -540,6 +541,9 @@ r = subprocess.run([sys.executable, str(COST), "report", "--project", str(cost_p
 empty = json.loads(r.stdout)
 check("empty ledger reports zero runs, not zero cost",
       empty["total"]["runs"] == 0 and empty["budget_usd"] == 10 and r.returncode == 0)
+check("report surfaces the age of its price data",
+      bool(empty.get("prices", {}).get("as_of"))
+      and isinstance(empty["prices"].get("age_days"), int))
 r = subprocess.run([sys.executable, str(COST), "estimate", "--project", str(cost_proj),
                     "--roles", "backend", "--json"], capture_output=True, text=True)
 est = json.loads(r.stdout)

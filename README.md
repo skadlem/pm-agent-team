@@ -123,6 +123,9 @@ of what workers actually burned (`.pmos/costs.jsonl`, one JSON object per run), 
   far the flat config estimate is from reality so it can be corrected with evidence
 - `estimate` and `report` exit 2 when the cap would be or has been breached, so a wave can be
   gated on them; `state.py` reports the same on resume
+- prices age too: `report` and `estimate` carry a `prices` block (benchmarks.json `as_of`,
+  age in days) and warn when it exceeds `cost.max_price_age_days` (default 60) — a ledger
+  priced from stale unit prices silently drifts from reality, so the staleness is visible
 
 Nothing is invented: if the agent host does not report usage, `record --source estimated` keeps
 the guess visibly a guess. Advisory roles default to `low`
@@ -335,7 +338,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (128 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (130 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `kg.py`.
