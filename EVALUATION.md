@@ -8,11 +8,16 @@ protocol behaves correctly end to end ([protocol harness](#protocol-harness-tool
 Recorded 2026-08-08 on the shipped corpus (10 role namespaces + shared, 30 chunks total,
 ~2.4K tokens). Re-measured 2026-08-10 after the legal role's fundamentals joined the corpus
 (11 role namespaces + shared, 44 chunks total, ~4.1K tokens) and the golden set grew to 30
-standard + 20 paraphrase queries (3 legal queries in each set). Benchmark:
+standard + 20 paraphrase queries (3 legal queries in each set). Re-measured 2026-08-24 after
+the golden set grew again to 45 standard + 33 paraphrase queries so that EVERY corpus section
+has at least one standard query (a coverage guard in eval_kb.py enforces this; before 2026-08-24,
+15 of 44 sections — the whole 2026-08 legal template corpus plus 3 older sections — had none,
+and the "100% standard" result only covered the sections that happened to be queried). Benchmark:
 `tools/eval_kb.py` with two golden query sets:
 
-- **standard** (30 queries): phrased like the fundamentals' vocabulary.
-- **paraphrase** (20 queries): reworded with minimal keyword overlap, e.g.
+- **standard** (45 queries): phrased like the fundamentals' vocabulary; every corpus section
+  has at least one (coverage guard).
+- **paraphrase** (33 queries): reworded with minimal keyword overlap, e.g.
   "the deploy broke production, how do we undo it" -> DevOps fundamentals.
   This set exists because a perfect score on the standard set proves nothing about
   real agent behavior.
@@ -20,6 +25,25 @@ standard + 20 paraphrase queries (3 legal queries in each set). Benchmark:
 Metric: hits@5 (correct chunk in top 5) and MRR (mean reciprocal rank, 1.0 = always rank 1).
 
 ## Results
+
+Current corpus (44 chunks), golden set 45 standard + 33 paraphrase, measured 2026-08-24:
+
+| set | mode | hits@5 | MRR |
+|-----|------|-------:|----:|
+| standard | hybrid, offline vectors | 100% | 1.000 |
+| standard | BM25 only | 100% | 1.000 |
+| standard | offline vectors only | 100% | 0.948 |
+| paraphrase | hybrid, offline vectors | 93.9% | 0.725 |
+| paraphrase | BM25 only | 90.9% | 0.843 |
+| paraphrase | offline vectors only | 81.8% | 0.519 |
+
+Note the honest shift vs the pre-2026-08-24 rows (paraphrase hybrid 100%/0.792): the new
+paraphrase queries deliberately include vocabulary-gap cases ("make a table of every
+dependency", "the model provider's terms forbid what we planned to build") where no lexical
+signal matches the corpus wording. Those are exactly the queries real embeddings should win;
+the offline engine's misses are now visible instead of unmeasured.
+
+Earlier corpus measurements (30-44 chunks, 30+20 queries):
 
 | set | mode | hits@5 | MRR |
 |-----|------|-------:|----:|
@@ -64,6 +88,34 @@ The gain is understated here because the corpus is tiny (44 chunks). As role nam
 with `pm-kb-enrich` project facts and scraped top-ups toward their budgets, BM25 lexical
 collisions increase and offline hashing degrades; real embeddings' advantage compounds.
 Re-run this benchmark after a few real projects to confirm.
+
+## Engine tuning tried and rejected (2026-08-24, current corpus)
+
+Measured on both golden sets before changing anything; every variant either lost on
+paraphrase or only moved tie noise:
+
+- **Stopword removal in the FTS5 query** — paraphrase MRR 0.792 -> 0.771 (one recovery,
+  two regressions). The porter tokenizer already absorbs most of the value.
+- **FTS5 prefix queries** (`"token"*`) — fixes morphological misses ("experiment" matching
+  "experimental") but loses elsewhere: 0.792 -> 0.733. Porter stemming on both sides makes
+  prefix expansion net-negative at this corpus size.
+- **bm25() column weights** (title 2.0x) — 0.733. Titles are already chunk identity; the
+  collision is body vocabulary, not title weight.
+- **Score-level fusion** (normalized BM25 + cosine, weights 0.35-0.65) vs RRF — 0.775 at
+  best. RRF's rank-only fusion is at least as good here.
+- **Deterministic RRF tie-break** (higher vector similarity) — 0.667: WORSE. At 44 chunks the
+  top-of-list RRF scores differ in the 4th decimal; any tie-break is a coin flip and the
+  current insertion-order one happens to be the better coin.
+- **Offline vector dimension 64 -> 128 -> 256** — vector-only paraphrase MRR 0.604 -> 0.633
+  -> 0.667, hybrid 0.792 -> 0.775 -> 0.800. Not worth the storage and re-index cost at this
+  corpus size; revisit with real corpora.
+- **IDF-weighted hashed vectors** — hybrid 0.792 -> ~0.80, vector 0.604 -> 0.729. Modest, but
+  it needs corpus-global IDF at index time (a schema/flow change) for a gain that real
+  embeddings dwarf.
+
+Conclusion: at this corpus size the offline engine is at its ceiling; the remaining paraphrase
+gap is vocabulary mismatch, which is what semantic embeddings are for. The productive lever was
+measurement (full section coverage + honest vocabulary-gap queries), not the fusion knobs.
 
 ## Reproducing
 

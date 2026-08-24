@@ -343,17 +343,18 @@ Five levels, cheapest first:
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `kg.py`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
-   (30 standard + 20 paraphrased queries) against a freshly built KB and reports hits@5 and MRR,
+   (45 standard + 33 paraphrased queries; the standard set covers every corpus section,
+   enforced by a coverage guard) against a freshly built KB and reports hits@5 and MRR,
    comparing the default hybrid search against its single-signal baselines (ablation):
 
    | set | mode | hits@5 | MRR |
    |-----|------|-------:|----:|
    | standard | hybrid (shipped default) | 100% | 1.000 |
    | standard | BM25 only | 100% | 1.000 |
-   | standard | offline vectors only | 100% | 0.922 |
-   | paraphrase | hybrid | 100% | 0.792 |
-   | paraphrase | BM25 only | 85.0% | 0.800 |
-   | paraphrase | offline vectors only | 100% | 0.604 |
+   | standard | offline vectors only | 100% | 0.948 |
+   | paraphrase | hybrid | 93.9% | 0.725 |
+   | paraphrase | BM25 only | 90.9% | 0.843 |
+   | paraphrase | offline vectors only | 81.8% | 0.519 |
    | standard | **hybrid, Gemini embedding-2** (measured 2026-08-08, pre-legal corpus) | **100%** | **1.000** |
    | standard | Gemini vectors only (measured 2026-08-08, pre-legal corpus) | 100% | **1.000** |
    | paraphrase | **hybrid, Gemini embedding-2** (measured 2026-08-08, pre-legal corpus) | **100%** | **0.833** |

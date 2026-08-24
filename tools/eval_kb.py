@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """PMOS retrieval-quality benchmark.
 
-Boots a temporary KB from the shipped kb-sources, runs a golden query set
-(2 queries per role + shared), and scores how well hybrid search retrieves
-the intended chunk: hits@k and Mean Reciprocal Rank.
+Boots a temporary KB from the shipped kb-sources, runs the golden query sets
+(standard: vocabulary-style, covering EVERY corpus section; paraphrase:
+rewritten with minimal keyword overlap), and scores how well hybrid search
+retrieves the intended chunk: hits@k and Mean Reciprocal Rank.
 
     python tools/eval_kb.py            # human report
     python tools/eval_kb.py --json     # machine-readable
 
-Pass criteria (exit 0): hits@5 >= 0.90 and MRR >= 0.65. Deterministic and
-offline; safe for CI. If you edit kb-sources, keep the golden set aligned:
-each query targets one section title from kb-sources.
+Pass criteria (exit 0): hits@5 >= 0.90 and MRR >= 0.65 on the STANDARD set.
+Deterministic and offline; safe for CI. If you edit kb-sources, the coverage
+guard lists every section the standard set does not reach — add a query for
+each one listed.
 """
 import json
 import subprocess
@@ -52,6 +54,23 @@ GOLDEN = [
     ("legal", "cross border transfer adequacy standard contractual clauses", "Data residency and transfers"),
     ("shared", "never dump full repository partial context", "Agent operating rules"),
     ("shared", "retrieval order KB graphify targeted read", "Agent operating rules"),
+    # Coverage queries: every corpus section must have at least one standard
+    # query, or the metric saturates on half the corpus (checked in main()).
+    ("architect", "performance budgets latency security observability", "Quality attributes"),
+    ("backend", "domain structure thin handlers boundary validation typed errors", "Backend engineering fundamentals"),
+    ("marketing", "channel success metric weekly review kill keep", "Measurement"),
+    ("legal", "classify AI feature prohibited high risk tier", "AI risk tiers"),
+    ("legal", "disclose AI generated content inference logs human oversight", "Transparency and logging"),
+    ("legal", "obligations phase in over time as of date", "Phased application"),
+    ("legal", "general purpose model training data copyright obligations", "General-purpose AI model obligations"),
+    ("legal", "permissive copyleft GPL AGPL derivative works", "License compatibility"),
+    ("legal", "dependency manifest scan package.json license verdict", "Audit the manifest"),
+    ("legal", "API terms of service restriction competing products", "API and ToS constraints"),
+    ("legal", "project license choice charter dependency compatibility", "Project license choice"),
+    ("legal", "compliance calendar due date obligation overdue escalation", "Calendar rules"),
+    ("legal", "risk entry schema id law severity mitigation status", "Entry schema"),
+    ("legal", "risk citation source URL blocks gate requires counsel", "Citation and gating rules"),
+    ("legal", "breach notification 72 hours regulator incident plan", "Breach notification"),
 ]
 
 K = 5
@@ -83,6 +102,21 @@ HARD = [
     ("legal", "is consent the lawful basis when we process user data", "Lawful basis analysis"),
     ("legal", "user asked for erasure of their data, how do we honour that right", "Data subject rights"),
     ("shared", "do not paste the whole codebase into your context", "Agent operating rules"),
+    # Paraphrase twins for the coverage sections. The misses among these are
+    # the honest vocabulary-gap list for the offline engine.
+    ("backend", "why do we keep framework code out of the business logic", "Backend engineering fundamentals"),
+    ("legal", "is our AI feature something the regulator would call high risk", "AI risk tiers"),
+    ("legal", "do we have to tell users a machine wrote this content", "Transparency and logging"),
+    ("legal", "can we ship GPL code inside our closed source app", "License compatibility"),
+    ("legal", "when is each regulatory chore due and who owns it", "Calendar rules"),
+    ("legal", "the lawyer can't cite the law, may we still list the risk", "Citation and gating rules"),
+    ("legal", "user data leaked, how soon must the regulator hear about it", "Breach notification"),
+    ("legal", "which rules already apply to us at launch and which come later", "Phased application"),
+    ("legal", "we use someone else's foundation model, what do we owe", "General-purpose AI model obligations"),
+    ("legal", "what fields must every row of the risk register have", "Entry schema"),
+    ("legal", "make a table of every dependency and whether we may use it", "Audit the manifest"),
+    ("legal", "the model provider's terms forbid what we planned to build", "API and ToS constraints"),
+    ("legal", "what license do we release our own code under", "Project license choice"),
 ]
 SETS = [("standard", GOLDEN), ("paraphrase", HARD)]
 
@@ -131,6 +165,29 @@ def run_mode(db_path, mode, queries):
 
 def main():
     import argparse
+    sys.path.insert(0, str(TPL / "tools"))
+    import kb as kbmod
+
+    # Coverage guard: every corpus section needs at least one standard query,
+    # or the metric saturates on the covered half and silently flatters the
+    # engine. Failing here means: write a query for the section you added.
+    sections = set()
+    for f in sorted((TPL / "kb-sources").glob("*/*.md")):
+        for title, _ in kbmod.split_markdown_sections(f.read_text(encoding="utf-8")):
+            sections.add((f.parent.name, title.lower()))
+    covered = set()
+    for ns, _q, exp in GOLDEN:
+        for sns, stitle in sections:
+            if sns == ns and (exp.lower() in stitle or stitle in exp.lower()):
+                covered.add((sns, stitle))
+    uncovered = sorted(sections - covered)
+    if uncovered:
+        print("golden set does not cover every corpus section; add queries for:",
+              file=sys.stderr)
+        for ns, title in uncovered:
+            print("  [%s] %s" % (ns, title), file=sys.stderr)
+        sys.exit(2)
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--sets", default="standard,paraphrase",
