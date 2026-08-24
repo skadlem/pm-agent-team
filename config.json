@@ -13,7 +13,9 @@
       "qa": 0.04,
       "devops": 0.03,
       "legal": 0.04
-    }
+    },
+    "recency_half_life_days": 180,
+    "note": "recency_half_life_days: search multiplies each fused score by 0.5^(age_days / half_life), floored at 1/3, so months-old facts rank below fresh ones as the KB ages. A freshly built KB shares one index date, so the factor is 1.0 there; 'kb.py search --no-decay' turns it off."
   },
   "context_rules": {
     "search_k_default": 5,

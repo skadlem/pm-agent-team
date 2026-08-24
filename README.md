@@ -190,6 +190,10 @@ from the log. The KB and graphify index persist.
   prunes the ones deleted from the file (`--no-prune` opts out). So `/pm-kb-enrich` can be re-run
   after every scope change without a superseded ADR lingering in the index next to the current
   one. Stores written before this (schema v1) are deduped automatically on first open.
+- Recency: a fused score is multiplied by `0.5^(age/half-life)` (config.json
+  `kb.recency_half_life_days`, default 180, floored at 1/3), so facts added months ago rank
+  below fresh ones once the KB ages. On a freshly built KB every chunk shares one date and the
+  factor is 1.0 (a no-op); `search --no-decay` turns it off for ablations.
 - Token caps: 150K total, shared budget 15K + role-weighted pools. Overflow drops
   lowest-priority chunks first (scraped top-ups before curated fundamentals; project facts rank
   highest below shared rules). Check with `kb.py budget`.

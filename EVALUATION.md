@@ -117,6 +117,17 @@ Conclusion: at this corpus size the offline engine is at its ceiling; the remain
 gap is vocabulary mismatch, which is what semantic embeddings are for. The productive lever was
 measurement (full section coverage + honest vocabulary-gap queries), not the fusion knobs.
 
+## Recency decay (2026-08-24)
+
+Search now multiplies each fused score by `0.5^(age_days / half_life)` (half-life from
+`config.json` `kb.recency_half_life_days`, default 180), floored at 1/3 so age alone can never
+demote a chunk more than 3x. Motivation: once a project KB accumulates facts over months, a
+superseding ADR should outrank the one it replaced without waiting for a prune. On a FRESHLY
+BUILT KB every chunk shares one index date, so the factor is 1.0 and the decay is a no-op —
+measured here: all hybrid/BM25/vector numbers above are identical with the decay on.
+`kb.py search --no-decay` switches it off for ablations; `kb.py selftest` pins the ordering
+property (a 400-day-old twin loses its near-tie to the fresh copy).
+
 ## Reproducing
 
 ```

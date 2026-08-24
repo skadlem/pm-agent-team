@@ -26,13 +26,19 @@ Commands:
   selftest
 """
 import argparse, hashlib, json, math, os, sqlite3, struct, sys, time, urllib.request, urllib.error
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 DIM = 64
 RRF_K = 60
 FTS_LANG = "english"
 SCHEMA_VERSION = 2
+# Recency decay: a chunk's fused score is multiplied by 0.5^(age/half_life),
+# floored so age alone can never demote a chunk more than 3x. On a freshly
+# built KB every chunk shares one date and the factor is 1.0 — the decay only
+# starts ordering once facts accumulate over months (a superseding ADR should
+# outrank the one it replaced). config.json kb.recency_half_life_days, default 180.
+RECENCY_FLOOR = 1.0 / 3.0
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS chunks(
@@ -368,6 +374,24 @@ def cmd_search(con, args, config):
         if cid in vec_rank:
             score += w_vec / (RRF_K + vec_rank[cid] + 1)
         scored.append((cid, score))
+    half_life = config.get("kb", {}).get("recency_half_life_days", 180)
+    if half_life and half_life > 0 and not getattr(args, "no_decay", False) and scored:
+        now = datetime.now(timezone.utc)
+        rows = con.execute(
+            "SELECT id, COALESCE(NULLIF(updated, ''), added) FROM chunks WHERE id IN (%s)"
+            % ",".join("?" * len(scored)), [cid for cid, _ in scored]).fetchall()
+        ages = {}
+        for cid, ts in rows:
+            try:
+                then = datetime.fromisoformat(ts)
+            except (TypeError, ValueError):
+                continue  # undatable: no decay for this chunk
+            if then.tzinfo is None:
+                then = then.replace(tzinfo=timezone.utc)
+            ages[cid] = max(0.0, (now - then).total_seconds() / 86400.0)
+        if ages:
+            scored = [(cid, s * max(RECENCY_FLOOR, 0.5 ** (ages.get(cid, 0.0) / half_life)))
+                      for cid, s in scored]
     scored.sort(key=lambda x: -x[1])
     if not scored:
         print("no results")
@@ -610,6 +634,36 @@ def cmd_selftest(args):
     after = con.execute("SELECT COUNT(*) FROM chunks WHERE ns='pm'").fetchone()[0]
     assert after == 0, "clear failed: %d chunks remain" % after
     print("-- clear: removed %d pm chunk(s), %d remaining" % (before, after))
+
+    # -- recency decay: same title+body from two sources is a perfect RRF tie
+    # (same FTS rank, same vector); only the `updated` date can order them.
+    # Freshly built stores share one date, so this only orders old KBs.
+    body = "zebra quorum maintenance protocol"
+    c_old, _, _ = upsert_doc(con, "qa", "Identical fact", "doc", "selftest-old", 5, body)
+    c_new, _, _ = upsert_doc(con, "qa", "Identical fact", "doc", "selftest-new", 5, body)
+    old_date = (datetime.now(timezone.utc) - timedelta(days=400)).isoformat(timespec="seconds")
+    con.execute("UPDATE chunks SET updated=? WHERE id=?", (old_date, c_old))
+    con.commit()
+    decay_cfg = dict(config, kb=dict(config["kb"], recency_half_life_days=180))
+    import io, contextlib
+    def titles_of(a, c, raw):
+        a.no_decay = raw  # raw = the undecayed baseline (decay switched off)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            cmd_search(con, a, c)
+        return buf.getvalue() or "[]"
+    qa = argparse.Namespace(query=[body], role="qa", k=2, json=True, min_score=0.0, mode="hybrid")
+    rows_raw = json.loads(titles_of(qa, decay_cfg, raw=True))
+    assert {r["source"] for r in rows_raw} == {"selftest-old", "selftest-new"}, rows_raw
+    rows_decay = json.loads(titles_of(qa, decay_cfg, raw=False))
+    assert [r["source"] for r in rows_decay][0] == "selftest-new", \
+        "recency decay did not lift the fresher chunk to rank 1: %s" % rows_decay
+    old_decay = next(r["score"] for r in rows_decay if r["source"] == "selftest-old")
+    old_raw = next(r["score"] for r in rows_raw if r["source"] == "selftest-old")
+    assert old_decay < old_raw, "decay must lower the 400-day-old chunk's score (%.4f !< %.4f)" \
+        % (old_decay, old_raw)
+    print("-- recency: decay lifts the fresh chunk over its near-tie twin (180-day half-life)")
+    cmd_clear(con, argparse.Namespace(ns="qa"))
     con.close()
 
     # -- migration: a v1 store carrying duplicates is repaired when opened
@@ -695,6 +749,8 @@ def main():
     p.add_argument("query", nargs="+"); p.add_argument("--role", default=None)
     p.add_argument("-k", type=int, default=None); p.add_argument("--json", action="store_true")
     p.add_argument("--min-score", type=float, default=0.0)
+    p.add_argument("--no-decay", action="store_true",
+                   help="skip the recency decay (for ablations and benchmarks)")
     p.add_argument("--mode", choices=["hybrid", "bm25", "vector"], default="hybrid",
                    help="hybrid = BM25+vector fusion (default); bm25/vector alone for ablations")
     p = sub.add_parser("budget"); add_db(p)
