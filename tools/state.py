@@ -81,6 +81,19 @@ NEXT_STEP = {
     9: "all 11 steps complete; project finished",
 }
 
+# Which stage file the coordinator reads to continue from a given step.
+STAGE_FILE = {
+    "step 3": "docs/stages/gate1.md",
+    "step 4": "docs/stages/gate1.md",
+    "step 5": "docs/stages/wave2.md",
+    "step 6": "docs/stages/wave2.md",
+    "step 7": "docs/stages/wave2.md",
+    "step 8": "docs/stages/wave2.md",
+    "step 9": "docs/stages/wave3.md",
+    "step 10": "docs/stages/wave3.md",
+    "step 11": "docs/stages/checkpoint.md",
+}
+
 
 def load_json(path):
     try:
@@ -204,6 +217,10 @@ def main():
     out["stage"] = chain_stage
     out["stage_name"] = stage_names[chain_stage]
     out["next_step"] = next_map[chain_stage]
+    # The protocol is split into stage files; name the one to read next.
+    m = re.search(r"step (\d+)", out["next_step"])
+    if m and "step %s" % m.group(1) in STAGE_FILE:
+        out["read_next"] = STAGE_FILE["step %s" % m.group(1)]
 
     # pre-flight thresholds below use `stage`, which stays in chain (strict)
     # numbering even when the reported stage was shifted for light legal.
@@ -379,6 +396,8 @@ def main():
     else:
         print("Project state: stage %d (%s)" % (out["stage"], out["stage_name"]))
         print("Next step:     %s" % out["next_step"])
+        if out.get("read_next"):
+            print("Read next:     TPL/%s  (plus TPL/ORCHESTRATOR.md core rules)" % out["read_next"])
         print("Checks:        %d OK, %d WARN, %d FAIL"
               % (sum(1 for c in out["checks"] if c["status"] == "OK"),
                  out["warnings"], out["problems"]))

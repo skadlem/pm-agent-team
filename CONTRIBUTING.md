@@ -18,7 +18,7 @@ conformance and SPARQL-agreement checks in validate.py; CI runs both.)
 ## Before you open a PR
 
 ```
-python tools/validate.py         # 133-check self-check: budgets, costs, tiers, skills, paths, recommender
+python tools/validate.py         # 138-check self-check: budgets, costs, tiers, skills, paths, recommender
 python tools/kb.py selftest      # KB engine smoke test
 python tools/artifacts.py selftest  # artifact id/reference linter
 python tools/trace.py selftest   # traceability join
@@ -51,7 +51,8 @@ Both must pass. CI runs them on Ubuntu and Windows.
   block (the indexer chunks per heading). Keep chunks self-contained and small (<~1KB).
 - **Change caps/weights**: `config.json`. Role weights must sum to 1; validate.py checks the
   budget math against the total cap.
-- **Change protocol**: `ORCHESTRATOR.md` and the skills under `skills/`. Keep frontmatter
+- **Change protocol**: `ORCHESTRATOR.md` (core rules), `docs/stages/*.md` (wave steps), and the
+  skills under `skills/`. Keep frontmatter
   `name`/`description` intact (jcode parses them).
 - **Refresh model benchmarks**: `python tools/recommend.py refresh` prints the search queries to
   update `benchmarks.json`, or regenerate from Epoch AI hub CSVs with

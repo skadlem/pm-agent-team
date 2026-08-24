@@ -32,7 +32,8 @@ directory. Available trigger phrases:
 
 ```
 pm-agent-team/
-  ORCHESTRATOR.md          # operating manual for the main session (waves, gates, rules)
+  ORCHESTRATOR.md          # core rules + stage map for the main session (coordinator)
+  docs/stages/*.md         # the wave-by-wave protocol, one file per stage (load only what you need)
   ARTIFACT-SCHEMA.md       # stable ids (R/T/A/ADR/L) and the references between artifacts
   roster.json              # roles, per-role skills, model suggestions, wave order
   config.json              # KB caps (150K tokens total), context rules
@@ -83,7 +84,7 @@ and `recommend.py` also writes each role's best-first fallback ladder. If a work
 of tokens, crashes, or hits an unrecoverable error), the coordinator retries the same task on the
 next model in that role's ladder (up to `context_rules.max_fallbacks_per_task` = 4 fallbacks,
 then escalates to you) instead of abandoning
-it. See ORCHESTRATOR.md "Worker model fallback".
+it. See `docs/stages/spawn-fallback.md`.
 
 When the same model is served by several providers on this system (e.g. `glm-5.2` via the Aliyun
 MaaS gateway and `z-ai/glm-5.2` via NVIDIA NIM), `recommend.py` merges them into ONE ladder entry
@@ -234,7 +235,7 @@ python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-l
 
 On resume, `state.py` tells you where the project left off (stage 0..9 derived from artifacts on
 disk), whether everything before that stage is intact (pre-flight checks), and the next launch
-step — see ORCHESTRATOR.md "Resume in a future session".
+step — see `docs/stages/resume.md`.
 
 ## Artifact traceability
 
@@ -336,7 +337,8 @@ suite passes.
 
 - Caps/weights: `config.json`. Roles/skills/waves/models: `roster.json`.
 - Fundamentals: edit `kb-sources/<role>/*.md` (markdown, one `## ` heading per fact block).
-- Protocol behavior: `ORCHESTRATOR.md`. Skills are plain markdown; tweak freely.
+- Protocol behavior: `ORCHESTRATOR.md` (core rules) + `docs/stages/*.md` (wave steps).
+  Skills are plain markdown; tweak freely.
 - After any edit, run `python tools/validate.py` to verify budget math, skill references,
   model suggestions, documented CLI commands, skill frontmatter, bootstrap, and edge cases.
 
@@ -345,7 +347,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (133 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (138 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

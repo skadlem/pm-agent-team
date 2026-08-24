@@ -17,7 +17,8 @@ auto-detection would be ambiguous.
 
 ## Step 1: load the protocol
 
-Read `TPL/ORCHESTRATOR.md` in full, plus `TPL/roster.json` and `TPL/config.json`.
+Read `TPL/ORCHESTRATOR.md` (core rules + the stage map; NOT the whole protocol), plus
+`TPL/roster.json` and `TPL/config.json`. Stage files live in `TPL/docs/stages/`.
 
 ## Step 2: existing state or fresh brownfield launch
 
@@ -45,13 +46,13 @@ Otherwise:
 7. Build/update the graphify index on the repo (load /graphify; `--update` if `graphify-out/` exists).
    If `graphify-out/graph.json` is MISSING, run `/graphify <path>` NOW and do not proceed until
    the graph exists (Wave 0 and every worker repo query depend on it).
-8. Wave 0 (discovery): spawn ONE architect-labeled worker per ORCHESTRATOR.md to produce
+8. Wave 0 (discovery): spawn ONE architect-labeled worker per `docs/stages/launch.md` to produce
    `.pmos/out/architect/current-state.md` via graphify queries only.
 9. Wave 1: spawn the PM worker with `TPL/templates/charter-brownfield.md` + the user's change
    description + current-state.md. Wait for charter, plan, roster proposal (justified by impact surface).
    IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
    EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
-   per ORCHESTRATOR.md "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
+   per `docs/stages/launch.md` "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
    swarm default, e.g. Fable 5). GATE 1 still decides the real team models.
 10. GATE 1: present roster + model selection. If `~/.jcode/pmos-team-defaults.json` exists, propose
     that role -> model table as-is (user's saved preference; verify its models still appear in
@@ -59,7 +60,7 @@ Otherwise:
     `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... 
     --ladder-out .pmos/team-model-ladder.json` (the ladder file is the per-role fallback order); user
     approves/edits/removes; approved map goes to `.pmos/team-model.json`.
-11. Continue waves 2-4 per ORCHESTRATOR.md, including the brownfield rules (conventions into KB
+11. Continue waves 2-4 per the stage files (wave2.md, wave3.md, checkpoint.md), including the brownfield rules (conventions into KB
     via /pm-kb-enrich, QA baseline from the existing test suite). Checkpoint to `.pmos/log.md`
     after each gate and commit per the agreement in step 3.
 
@@ -73,4 +74,4 @@ Otherwise:
 - Model fallback: if a spawned worker fails (out of tokens, crash, unrecoverable error), retry the
   same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to
   `max_fallbacks_per_task` (config.json `context_rules`, default 4) fallbacks per task, then
-  escalate to the user. See ORCHESTRATOR.md "Worker model fallback".
+  escalate to the user. See `docs/stages/spawn-fallback.md`.

@@ -106,7 +106,9 @@ print("== 4. Documented kb.py commands exist in the CLI ==")
 kb_src = (TPL / "tools" / "kb.py").read_text(encoding="utf-8")
 verbs = set(re.findall(r'sub\.add_parser\("([\w-]+)"\)', kb_src))
 docs = []
-for p in list((TPL / "skills").rglob("*.md")) + [TPL / "ORCHESTRATOR.md", TPL / "README.md"]:
+for p in (list((TPL / "skills").rglob("*.md"))
+          + list((TPL / "docs" / "stages").glob("*.md"))
+          + [TPL / "ORCHESTRATOR.md", TPL / "README.md"]):
     docs.append(p.read_text(encoding="utf-8"))
 cmds = set(re.findall(r"kb\.py\s+(?:[\w-]+)", "\n".join(docs)))
 used = {c.split("kb.py ")[1] for c in cmds}
@@ -200,12 +202,33 @@ check("selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout)
 
 print("== 9. Referenced TPL paths exist ==")
 docs = []
-for p in list((TPL / "skills").rglob("*.md")) + [TPL / "ORCHESTRATOR.md", TPL / "README.md"]:
+for p in (list((TPL / "skills").rglob("*.md"))
+          + list((TPL / "docs" / "stages").glob("*.md"))
+          + [TPL / "ORCHESTRATOR.md", TPL / "README.md"]):
     docs.append(p.read_text(encoding="utf-8"))
 for ref in sorted({m.group(1) for m in re.finditer(r"TPL/([\w./<>-]+)", "\n".join(docs))}):
     if "<" in ref or ">" in ref or "..." in ref:
         continue
     check(f"TPL/{ref}", (TPL / ref).exists())
+
+# The protocol is split: ORCHESTRATOR.md core + docs/stages/*.md. The split must
+# stay coherent: every stage file exists, every step maps to one, and the core
+# file's map names every stage file (a step with no file means a silent gap).
+print("== 9b. Protocol split coherence ==")
+sys.path.insert(0, str(TPL / "tools"))
+import state as _state  # noqa: E402  (sibling tool)
+stage_files = sorted(p.name for p in (TPL / "docs" / "stages").glob("*.md"))
+mapped = set(_state.STAGE_FILE.values())
+check("every mapped stage file exists",
+      all((TPL / rel).is_file() for rel in mapped), ", ".join(sorted(mapped)))
+check("every step 3..11 maps to a stage file",
+      all("step %d" % s in _state.STAGE_FILE for s in range(3, 12)),
+      ", ".join("step %d" % s for s in range(3, 12) if "step %d" % s not in _state.STAGE_FILE))
+core_map = set(re.findall(r"docs/stages/([\w-]+\.md)", (TPL / "ORCHESTRATOR.md").read_text(encoding="utf-8")))
+check("ORCHESTRATOR.md stage map names every stage file",
+      core_map == set(stage_files),
+      "unnamed: %s" % ", ".join(sorted(set(stage_files) - core_map)) if set(stage_files) - core_map
+      else "%d files mapped" % len(stage_files))
 
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
@@ -526,7 +549,9 @@ check("cost.py selftest", r.returncode == 0 and "SELFTEST PASS" in r.stdout,
       r.stdout.strip().splitlines()[-1] if r.stdout.strip() else r.stderr.strip()[:80])
 cost_src = COST.read_text(encoding="utf-8")
 verbs = set(re.findall(r'sub\.add_parser\("([\w-]+)"', cost_src))
-docs = "\n".join((TPL / d).read_text(encoding="utf-8") for d in ["README.md", "ORCHESTRATOR.md"])
+docs = "\n".join((TPL / d).read_text(encoding="utf-8")
+                 for d in ["README.md", "ORCHESTRATOR.md"]) + "\n" + "\n".join(
+                     p.read_text(encoding="utf-8") for p in (TPL / "docs" / "stages").glob("*.md"))
 used = {m.group(1) for m in re.finditer(r"cost\.py\s+([\w-]+)", docs)}
 unknown = sorted(v for v in used if v not in verbs)
 check("all documented cost.py subcommands exist", not unknown and len(used) >= 3,
@@ -632,7 +657,8 @@ check("stored queries agree with the linter on every fixture",
 usage = subprocess.run([sys.executable, str(KG), "--help"], capture_output=True, text=True).stdout
 verbs = set(re.search(r"\{([\w,-]+)\}", usage).group(1).split(","))
 docs = "\n".join((TPL / d).read_text(encoding="utf-8")
-                 for d in ["README.md", "ORCHESTRATOR.md", "ARTIFACT-SCHEMA.md"])
+                 for d in ["README.md", "ORCHESTRATOR.md", "ARTIFACT-SCHEMA.md"]) + "\n" + "\n".join(
+                     p.read_text(encoding="utf-8") for p in (TPL / "docs" / "stages").glob("*.md"))
 used = {m.group(1) for m in re.finditer(r"kg\.py\s+([a-z][\w-]*)", docs)}  # subcommands, not flags
 unknown = sorted(v for v in used if v not in verbs)
 check("all documented kg.py subcommands exist", not unknown and len(used) >= 3,

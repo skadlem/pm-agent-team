@@ -16,29 +16,32 @@ You are about to run the PMOS project-management system. Follow it exactly.
 
 ## Step 1: load the protocol
 
-Read `TPL/ORCHESTRATOR.md` in full. It is your operating manual for this launch. Also read
-`TPL/roster.json` (role definitions, skills per role, wave order, gates) and `TPL/config.json`
-(KB caps and context rules).
+Read `TPL/ORCHESTRATOR.md` (core rules + the stage map) — NOT the whole protocol. Then load ONLY
+the stage file you need from `TPL/docs/stages/` (the map names them): a fresh launch starts with
+`docs/stages/launch.md` and follows each file's "Next:" pointer. Also read `TPL/roster.json`
+(role definitions, skills per role, wave order, gates) and `TPL/config.json` (KB caps and context
+rules).
 
 ## Step 2: check for an existing project
 
 If the current working directory already contains `.pmos/`:
 - This is a RESUME, not a fresh start. Run the state detector FIRST (do not guess from memory):
   `python TPL/tools/state.py --project . --config TPL/config.json`.
-  It reports the stage the project is at (0..9), the next launch step, and a pre-flight check
-  list for everything completed so far (artifacts non-empty, team-model JSON valid, KB budget
-  runs, gates logged, jurisdiction `as_of` fresh).
-- All OK: report "project is at stage N (<name>); next: <step>", confirm with the user, and
-  continue the wave protocol from that step. WARNs: note them, continue. FAILs: fix the broken
-  artifact from log/git, re-run state.py until clean; never redo a completed stage.
+  It reports the stage the project is at (0..9), the next launch step, the stage file to read next
+  (`read next:`), and a pre-flight check list for everything completed so far (artifacts non-empty,
+  team-model JSON valid, KB budget runs, gates logged, jurisdiction `as_of` fresh, wave-event trace).
+- All OK: report "project is at stage N (<name>); next: <step>", confirm with the user, read the
+  named stage file, and continue the wave protocol from that step. WARNs: note them, continue.
+  FAILs: fix the broken artifact from log/git, re-run state.py until clean; never redo a completed
+  stage. See `TPL/docs/stages/resume.md` for the full resume procedure.
 - Ask the user what they want to continue with, then continue the wave protocol from the log.
 
-Otherwise detect the MODE, then proceed with a fresh launch per ORCHESTRATOR.md:
+Otherwise detect the MODE, then proceed with a fresh launch per `docs/stages/launch.md`:
 - **brownfield**: the repo already contains source code (any code/config files besides .pmos).
 - **greenfield**: empty repo or docs only.
 State the detected mode to the user and note it applies automatically, e.g. "Starting in
 brownfield mode: I'll map the existing codebase first, then plan the change." The flow differs
-only where ORCHESTRATOR.md says "Brownfield:" (discovery wave, impact-based roster, delta
+only where the stage files say "Brownfield:" (discovery wave, impact-based roster, delta
 charter, baseline QA). No extra command or flag is needed.
 
 ## Step 3: fresh launch
@@ -51,11 +54,11 @@ charter, baseline QA). No extra command or flag is needed.
    use `--update` if `graphify-out/` already exists). If `graphify-out/graph.json` is MISSING,
    run `/graphify <path>` NOW and do not proceed to Wave 0 until the graph exists (Wave 0 and
    every worker repo query depend on it). Greenfield empty repo: skip and note it.
-4. Wave 1: spawn the PM worker using the spawn prompt template in ORCHESTRATOR.md, passing the
+4. Wave 1: spawn the PM worker using the spawn prompt template in `docs/stages/spawn-fallback.md`, passing the
    user's project description. Wait for charter + plan + roster proposal.
    IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
    EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
-   per ORCHESTRATOR.md "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
+   per `docs/stages/launch.md` "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
    swarm default, e.g. Fable 5). GATE 1 still decides the real team models.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
    selection. If `~/.jcode/pmos-team-defaults.json` exists, propose it as the role -> model table
@@ -68,7 +71,7 @@ charter, baseline QA). No extra command or flag is needed.
       `TPL/roster.json`, NOT a flat threshold), and pick the cheapest of that tier. Show the
       resulting role -> model table with each role's default effort (`role_effort`) and blended
       $/1M cost. The ladder file is the per-role fallback order for the model-fallback rule
-      (see ORCHESTRATOR.md "Worker model fallback").
+      (see `docs/stages/spawn-fallback.md`).
    c. The user can OK all, change a model/effort, or remove a role. Record the approved map in
       `.pmos/team-model.json`. Use exactly those models and efforts when spawning workers via the
       `swarm` tool. Adjust roster on request.
@@ -83,7 +86,7 @@ charter, baseline QA). No extra command or flag is needed.
       evidence, or let the user pick manually for that role.
  Also confirm the charter's Deployment jurisdictions with the user (edit
  `.pmos/charter.md` if needed); the legal advisor's jurisdiction pack depends on it.
-6. Continue waves 2-4 exactly as ORCHESTRATOR.md prescribes, stopping at GATE 2 before
+6. Continue waves 2-4 exactly as the stage files prescribe (wave2.md, wave3.md, checkpoint.md), stopping at GATE 2 before
    implementation, and checkpointing to `.pmos/log.md` after each gate. Commit at each gate.
 
 ## Hard rules
@@ -95,4 +98,4 @@ charter, baseline QA). No extra command or flag is needed.
 - Model fallback: if a spawned worker fails (out of tokens, crash, unrecoverable error), retry the
   same task on the next model in that role's ladder (`.pmos/team-model-ladder.json`), up to 2
   fallbacks per task (config.json `context_rules.max_fallbacks_per_task`, default 4), then
-  escalate to the user. See ORCHESTRATOR.md "Worker model fallback".
+  escalate to the user. See `docs/stages/spawn-fallback.md`.
