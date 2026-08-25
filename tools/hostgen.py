@@ -85,6 +85,16 @@ def render_host(cfg):
     for rel, body in agent_files(cfg).items():
         (out / rel).write_text(body, encoding="utf-8")
 
+    # the entry-point skills, rewritten for this host (template root path,
+    # swarm/tool references) so the bundle is self-contained
+    for sp in sorted((TPL / "skills").glob("*/SKILL.md")):
+        rel = sp.relative_to(TPL)
+        text = sp.read_text(encoding="utf-8")
+        text = rewrite(text, cfg)
+        dst = out / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(text, encoding="utf-8")
+
     # do-not-touch as prevention (gstack G6) + verified-done enforcement
     # (L-12): hosts with file-scope hooks get a PreToolUse hook template that
     # denies edits outside the worker's touches set, and a Stop hook template
@@ -161,8 +171,10 @@ def check_host(cfg):
         disk = out / rel
         if not disk.is_file() or disk.read_bytes() != p.read_bytes():
             problems.append("stale: %s" % rel)
-    # rewrite coverage: every 'from' must appear in the SOURCE docs (not dead)
+    # rewrite coverage: every 'from' must appear in the SOURCE docs/skills (not dead)
     src_text = "\n".join(p.read_text(encoding="utf-8") for p in PROTOCOL_DOCS)
+    src_text += "\n" + "\n".join(
+        p.read_text(encoding="utf-8") for p in (TPL / "skills").glob("*/SKILL.md"))
     for entry in cfg.get("tool_rewrites") or []:
         if entry["from"] not in src_text:
             problems.append("dead rewrite: %r" % entry["from"])

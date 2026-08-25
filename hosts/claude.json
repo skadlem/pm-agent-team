@@ -23,6 +23,7 @@
     {"from": "`model` in the swarm", "to": "`--model` on the claude CLI"},
     {"from": "the swarm result", "to": "the claude result"},
     {"from": "~/.jcode/pmos-template-root", "to": "~/.claude/pmos-template-root"},
+    {"from": "%USERPROFILE%\\.jcode\\pmos-template-root", "to": "%USERPROFILE%\\.claude\\pmos-template-root"},
     {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.claude/pmos-team-defaults.json"},
     {"from": "swarm default", "to": "claude default"}
   ],

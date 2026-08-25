@@ -6,10 +6,10 @@
   "agents_dir": "~/.hermes/agents",
   "defaults_file": "~/.hermes/pmos-team-defaults.json",
   "spawn": {
-    "doc": "delegate_task: spawn a subagent with an explicit model and effort",
-    "command": "delegate_task(goal=..., model=<model>, effort=<effort>)",
-    "model_flag": "model=<model>",
-    "effort_flag": "effort=<effort>"
+    "doc": "delegate_task: spawn a subagent. NOTE: Hermes delegate_task has NO per-spawn model/effort args (verified in tools/delegate_tool.py) — children inherit the parent model. To give workers a different model, pin delegation.provider / delegation.model globally in config.yaml before the run, or start the coordinator session with that model.",
+    "command": "delegate_task(goal=<spawn prompt>, context=<artifacts>, role=<role>)",
+    "model_flag": "(not per-spawn: children inherit parent model, or set delegation.model in config.yaml)",
+    "effort_flag": "(not supported; omit)"
   },
   "list_models": "hermes models (configured providers)",
   "usage": {
@@ -21,6 +21,7 @@
     {"from": "`model` in the swarm", "to": "`model=` in delegate_task"},
     {"from": "the swarm result", "to": "the subagent result"},
     {"from": "~/.jcode/pmos-template-root", "to": "~/.hermes/pmos-template-root"},
+    {"from": "%USERPROFILE%\\.jcode\\pmos-template-root", "to": "%USERPROFILE%\\.hermes\\pmos-template-root"},
     {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.hermes/pmos-team-defaults.json"},
     {"from": "swarm default", "to": "hermes default"}
   ],
