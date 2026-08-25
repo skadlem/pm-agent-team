@@ -19,7 +19,7 @@
   },
   "tool_rewrites": [
     {"from": "`swarm` tool", "to": "`claude -p` headless session"},
-    {"from": "`swarm list_models`", "to": "`claude models list`"},
+    {"from": "`swarm list_models`", "to": "the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand)"},
     {"from": "`model` in the swarm", "to": "`--model` on the claude CLI"},
     {"from": "the swarm result", "to": "the claude result"},
     {"from": "~/.jcode/pmos-template-root", "to": "~/.claude/pmos-template-root"},

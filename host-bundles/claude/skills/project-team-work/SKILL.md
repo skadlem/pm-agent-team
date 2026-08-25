@@ -56,7 +56,7 @@ Otherwise:
    claude default, e.g. Fable 5). GATE 1 still decides the real team models.
 10. GATE 1: present roster + model selection. If `~/.claude/pmos-team-defaults.json` exists, propose
     that role -> model table as-is (user's saved preference; verify its models still appear in
-    `claude models list`). Otherwise compute via `claude models list` ->
+    the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand)). Otherwise compute via the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand) ->
     `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... 
     --ladder-out .pmos/team-model-ladder.json` (the ladder file is the per-role fallback order); user
     approves/edits/removes; approved map goes to `.pmos/team-model.json`.

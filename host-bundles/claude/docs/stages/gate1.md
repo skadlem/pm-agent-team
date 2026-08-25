@@ -20,9 +20,9 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
 4. GATE 1 (STOP and ask the user): present the roster proposal AND the model selection.
    FIRST check for the user's saved defaults in `~/.claude/pmos-team-defaults.json`. If it
    exists, propose that role -> model table as-is (it is the user's explicit preference); only
-   verify each listed model still appears in `claude models list`, and flag any that do not.
+   verify each listed model still appears in the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand), and flag any that do not.
    Otherwise compute the model selection LIVE:
-   a. Run `claude models list` and save its output to `.pmos/available-models.txt`.
+   a. Run the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand) and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
       (benchmarks.json), keep each role's best tier (per-role `role_tiers` in roster.json, NOT a

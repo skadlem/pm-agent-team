@@ -86,6 +86,9 @@ def main():
             result_text = "(agent finished without a final text message)"
     except Exception as err:  # noqa: BLE001 - report, don't crash the shim
         status, result_text = "failed", str(err)
+    if len(result_text) > 4000:
+        print("openhands_run: final report truncated %d -> 4000 chars"
+              % len(result_text), file=sys.stderr)
 
     metrics = llm.metrics
     usage_obj = getattr(metrics, "accumulated_token_usage", None) if metrics else None

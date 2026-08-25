@@ -62,9 +62,9 @@ charter, baseline QA). No extra command or flag is needed.
    claude default, e.g. Fable 5). GATE 1 still decides the real team models.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
    selection. If `~/.claude/pmos-team-defaults.json` exists, propose it as the role -> model table
-   (user's saved preference; verify its models are still in `claude models list`). Otherwise compute
+   (user's saved preference; verify its models are still in the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand)). Otherwise compute
    it LIVE:
-   a. Run `claude models list` and save its output to `.pmos/available-models.txt`.
+   a. Run the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand) and save its output to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
       from `TPL/benchmarks.json`, keep each role's best tier (per-role `role_tiers` in

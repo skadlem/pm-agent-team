@@ -96,6 +96,9 @@ def real_command(cfg, verb, args):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(args.prompt or "")
             cmd = cmd.replace("<prompt-file>", shlex.quote(pfile))
+            # runner deletes the file after reading; if spawn dies before that,
+            # the OS clears /tmp anyway — not worth a cleanup process
+            cmd += "; rm -f " + shlex.quote(pfile)
         return cmd, {}
     if verb == "usage":
         flag = (cfg.get("usage") or {}).get("flag", "")
