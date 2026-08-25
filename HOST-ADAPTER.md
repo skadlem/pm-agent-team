@@ -75,8 +75,28 @@ bundle. `hostgen.py --check` verifies bundles are in sync (freshness + rewrite c
 2. Add tool rewrites for every jcode-ism that appears in `docs/stages/*.md`
    (`grep -n 'swarm\|jcode' docs/stages/` is the checklist).
 3. Run `python tools/hostgen.py --check` until clean.
-4. Optional: a mock backend (Stage M of the roadmap) lets the eval harness run the protocol
-   against the new host without spending tokens.
+4. Optional: a mock backend (Stage M of the roadmap) lets the eval harness run the
+   protocol against the new host without spending tokens.
+
+### Script-based hosts (no one-shot CLI)
+
+A host whose spawn is a program rather than a CLI command (OpenHands SDK: an
+LLM -> Agent -> Conversation Python program) declares its spawn command with two
+extra placeholders and an `env` block:
+
+```json
+"spawn": {"command": "OH_PROMPT_FILE=<prompt-file> OH_MODEL=<model> OH_WORKSPACE=$PWD OH_API_KEY=$OH_API_KEY <python> <runner>"},
+"env": {"python": "~/.venvs/openhands/bin/python", "runner": "<tpl>/tools/openhands_run.py"}
+```
+
+- `<prompt-file>` — host.py writes the prompt to a temp file and substitutes its
+  path (SDK prompts are long and arbitrary; argv is not a channel for them).
+- `<name>` placeholders resolve from `env`, expanding `<tpl>` to the template
+  root and `~` to home, shell-quoted.
+- `$PWD` means the project the worker acts on (`--project`, else cwd).
+- The runner must print ONE JSON object shaped like claude's
+  `--output-format json` result (`usage.input_tokens/output_tokens`), so the
+  usage primitive parses every host identically.
 
 ## The three primitives in practice
 

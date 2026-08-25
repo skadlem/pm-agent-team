@@ -1,0 +1,38 @@
+{
+  "name": "openhands",
+  "display_name": "OpenHands SDK",
+  "template_root_file": "~/.openhands/pmos-template-root",
+  "skills_dir": "~/.openhands/skills",
+  "agents_dir": ".openhands/agents",
+  "defaults_file": "~/.openhands/pmos-team-defaults.json",
+  "spawn": {
+    "doc": "One-shot OpenHands SDK worker (tools/openhands_run.py). <model> is a LiteLLM id; the runner python must have openhands-sdk + openhands-tools installed (OH_PYTHON, default: ~/.venvs/openhands/bin/python). The prompt arrives via OH_PROMPT_FILE. For non-Anthropic providers pass OH_BASE_URL in the environment (e.g. an OpenAI-compatible gateway) and use the openai/<model> id shape.",
+    "command": "OH_PROMPT_FILE=<prompt-file> OH_MODEL=<model> OH_WORKSPACE=$PWD OH_API_KEY=$OH_API_KEY <python> <runner>",
+    "model_flag": "<model> is the LiteLLM id passed to OH_MODEL",
+    "effort_flag": "(not supported; omit)"
+  },
+  "list_models": "",
+  "list_models_note": "OpenHands uses any LiteLLM-supported provider: write the ids your provider keys can serve to .pmos/available-models.txt in the '- <id>' shape (e.g. 'openrouter/deepseek/deepseek-v4-flash-0731', 'anthropic/claude-sonnet-4-5-20250929').",
+  "usage": {
+    "doc": "the runner emits usage.input_tokens / usage.output_tokens in its JSON result; host.py parses it like the claude result"
+  },
+  "env": {
+    "python": "~/.venvs/openhands/bin/python",
+    "runner": "<tpl>/tools/openhands_run.py"
+  },
+  "tool_rewrites": [
+    {"from": "`swarm` tool", "to": "an OpenHands one-shot spawn (tools/openhands_run.py)"},
+    {"from": "`swarm list_models`", "to": "your LiteLLM provider's model list"},
+    {"from": "`model` in the swarm", "to": "OH_MODEL on the openhands runner"},
+    {"from": "the swarm result", "to": "the runner's JSON result"},
+    {"from": "~/.jcode/pmos-template-root", "to": "~/.openhands/pmos-template-root"},
+    {"from": "%USERPROFILE%\\.jcode\\pmos-template-root", "to": "%USERPROFILE%\\.openhands\\pmos-template-root"},
+    {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.openhands/pmos-team-defaults.json"},
+    {"from": "swarm default", "to": "openhands default"}
+  ],
+  "suppressed": ["gstack"],
+  "file_scope_hooks": {
+    "available": false,
+    "doc": "The SDK supports hooks (docs.openhands.dev/sdk/guides/hooks) but per-worker PreToolUse-style file-scope denial is not wired yet; rely on trace.py unplanned at checkpoints."
+  }
+}

@@ -429,6 +429,49 @@ else:
               rep.get("total", {}).get("runs") == 1,
               json.dumps(rep.get("total"))[:120])
 
+# Stage L, third host: the openhands backend runs the same pipeline through
+# tools/openhands_run.py (SDK Conversation). Skipped when no OH_API_KEY is set —
+# it needs a live LiteLLM-compatible key; set OH_BASE_URL for non-Anthropic
+# gateways and use the openai/<model> id shape.
+print("== 9g. Real host pipeline: openhands backend (Stage L) ==")
+if not os.environ.get("OH_API_KEY"):
+    _skips += 1
+    print("  [SKIP] OH_API_KEY not set")
+else:
+    oproj = pathlib.Path(tempfile.mkdtemp()) / "proj"
+    (oproj / ".pmos").mkdir(parents=True)
+    env = dict(os.environ)
+    env.setdefault("OH_BASE_URL", os.environ.get("OH_TEST_BASE_URL", ""))
+    if not env.get("OH_BASE_URL"):
+        env.pop("OH_BASE_URL", None)
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                        "--host", "openhands",
+                        "--model", os.environ.get("OH_TEST_MODEL", "openai/Qwen3.8-27B"),
+                        "--label", "stage-l-oh",
+                        "--prompt", "Reply with exactly one word: OK",
+                        "--project", str(oproj),
+                        "--out", str(oproj / ".pmos" / "host-run.json")],
+                       capture_output=True, text=True, timeout=600, env=env)
+    raw = (oproj / ".pmos" / "host-run.json").read_text(encoding="utf-8") \
+        if (oproj / ".pmos" / "host-run.json").is_file() else r.stdout or ""
+    j = raw.find('{"type": "result"')
+    if j < 0:
+        _skips += 1
+        print("  [SKIP] runner produced no result JSON (%s)" % (r.stderr or "")[:80])
+    else:
+        run = json.loads(raw[j:raw.find("\n", j)] if "\n" in raw[j:] else raw[j:])
+        check("openhands spawn returns result JSON with usage",
+              isinstance((run.get("usage") or {}).get("input_tokens"), int),
+              "err=%s in=%s" % (run.get("is_error"), run["usage"]["input_tokens"]))
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "usage",
+                            "--host", "openhands", "--result",
+                            str(oproj / ".pmos" / "host-run.json")],
+                           capture_output=True, text=True)
+        usage = json.loads(r.stdout)
+        check("openhands usage parsed from runner JSON",
+              r.returncode == 0 and usage["status"] == ("ok" if not run.get("is_error") else "failed"),
+              str(usage))
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"
