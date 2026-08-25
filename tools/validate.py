@@ -531,7 +531,9 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refres
                    capture_output=True, text=True)
 check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
 # second-opinion: a reviewer from a DIFFERENT family than the pm's model
-so_fixture = pathlib.Path(tempfile.mkstemp(suffix=".json")[1])
+fd, _so_name = tempfile.mkstemp(suffix=".json")
+os.close(fd)  # Windows: an open handle blocks unlink
+so_fixture = pathlib.Path(_so_name)
 so_fixture.write_text(json.dumps(avail), encoding="utf-8")
 r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "second-opinion",
                     "--pm-model", "claude-opus-5",
