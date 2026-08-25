@@ -24,5 +24,9 @@
     {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.hermes/pmos-team-defaults.json"},
     {"from": "swarm default", "to": "hermes default"}
   ],
-  "suppressed": ["gstack"]
+  "suppressed": ["gstack"],
+  "file_scope_hooks": {
+    "available": false,
+    "doc": "no file-scope edit hooks today; do-not-touch is enforced at the checkpoint (trace.py unplanned), not at edit time"
+  }
 }

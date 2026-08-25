@@ -48,6 +48,7 @@ pm-agent-team/
   tools/kg.py                # RDF triple store over the artifacts + a SPARQL subset
   tools/trace.py             # joins that graph to the graphify code graph; coverage/impact queries
   tools/hostgen.py           # renders per-host protocol bundles (jcode / Claude Code / Hermes)
+  tools/host.py              # host shim: the three primitives per host; mock backend for the harness
   tools/context_bill.py      # token bill of the protocol files (guards the split's size)
   queries/*.rq             # the protocol's own checks, as stored SPARQL
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
@@ -238,6 +239,8 @@ python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
+python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim (Stage M)
+python tools/host.py spawn --host mock --model <m> --label backend-1 --prompt "$(cat prompt.md)"
 python tools/context_bill.py [--budget N]   # token bill of the protocol files; exit 2 over budget
 ```
 
@@ -368,7 +371,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (150 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (159 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

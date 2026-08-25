@@ -82,17 +82,39 @@ bundle. `hostgen.py --check` verifies bundles are in sync (freshness + rewrite c
 
 spawn-with-model: the coordinator passes label + model + effort + prompt. jcode: `swarm`
 tool. Claude Code: `claude -p --model <m> --permission-mode acceptEdits ...`. Hermes:
-`delegate_task(goal=..., model=<m>, effort=<e>)`.
+`delegate_task(goal=..., model=<m>, effort=<e>)`. All three go through `tools/host.py`:
+
+```
+python tools/host.py list-models --host claude --out .pmos/available-models.txt
+python tools/host.py spawn --host claude --model <m> --label backend-1 --prompt "$(cat prompt.md)"
+python tools/host.py usage --host claude --result .pmos/host-run.json
+```
+
+For real hosts, spawn/list-models require the host CLI (missing CLI -> exit 1 with a hint;
+`--dry-run` prints the exact command). The **mock backend** (`--host mock`) is deterministic
+and spends no tokens: list-models returns a fixture set, spawn returns ok/failed with usage
+derived from the prompt length, and every run is appended to `.pmos/host-runs.jsonl`. The
+harness exercises the whole pipeline against the mock (validate.py section 9d: list-models ->
+spawn -> usage -> cost record -> events record -> report), so the adapter contract is tested
+without ever paying a model.
 
 list_models: the coordinator saves the output to `.pmos/available-models.txt` and feeds it to
 `recommend.py --available`. jcode: `swarm list_models`. Claude Code: `claude models list`.
 
 usage: every spawn result must yield tokens_in/tokens_out for `cost.py record`. jcode: in the
 spawn result. Claude Code: `--output-format json` usage block. Hermes: the subagent result.
+The mock backend reports usage derived from the prompt length.
 
 ## Host limitations are feature flags, not forks
 
-A host that cannot do something (no subagents, no gstack, no browser) declares it in
-`suppressed` — the protocol degrades to what the host can do, exactly like gstack's
-"suppressed resolvers". The gates, budget, and harness never change shape; only the tool names
-in the instructions do.
+A host that cannot do something (no subagents, no gstack, no browser, no file-scope hooks)
+declares it in `suppressed` / `file_scope_hooks` — the protocol degrades to what the host can
+do, exactly like gstack's "suppressed resolvers". The gates, budget, and harness never change
+shape; only the tool names in the instructions do.
+
+`file_scope_hooks.available: true` means the host can DENY edits outside a worker's `touches`
+set at edit time (Claude Code PreToolUse hooks — the gstack /freeze mechanism). For such
+hosts the generator ships `host-bundles/<host>/hooks-pretool-edit.json`; the coordinator
+installs it per worker with the task's touches paths filled in, turning do-not-touch from a
+checkpoint detection into a prevention. Hosts without hooks (jcode, Hermes today) rely on
+`trace.py unplanned` at the checkpoint instead.

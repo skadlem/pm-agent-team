@@ -271,6 +271,68 @@ check("reference host jcode present", "jcode" in hosts and len(hosts) >= 2,
 bundles = sorted(p.name for p in (TPL / "host-bundles").glob("*") if p.is_dir())
 check("every host has a rendered bundle", set(hosts) <= set(bundles),
       "missing: " + ", ".join(sorted(set(hosts) - set(bundles))) or "")
+hook_hosts = sorted(c["name"] for c in
+                    (json.loads(p.read_text(encoding="utf-8")) for p in (TPL / "hosts").glob("*.json"))
+                    if (c.get("file_scope_hooks") or {}).get("available"))
+check("hosts with file-scope hooks ship the hook template",
+      all((TPL / "host-bundles" / h / "hooks-pretool-edit.json").is_file() for h in hook_hosts),
+      ", ".join(hook_hosts) or "none")
+
+# Stage M: the mock host backend must run the full host pipeline — list-models
+# -> spawn -> usage -> cost record -> events record -> cost report — so the
+# adapter contract is exercised without spending tokens.
+print("== 9d. Mock host pipeline (Stage M) ==")
+mproj = pathlib.Path(tempfile.mkdtemp())
+(pmos := mproj / ".pmos").mkdir()
+(pmos / "team-model.json").write_text(
+    json.dumps({"architect": {"model": "claude-opus-5"}, "budget_usd": 20}), encoding="utf-8")
+(pmos / "team-model-ladder.json").write_text(
+    json.dumps({"architect": ["claude-opus-5", "qwen3.8-max"]}), encoding="utf-8")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "list-models",
+                    "--host", "mock", "--out", str(pmos / "available-models.txt")],
+                   capture_output=True, text=True)
+check("mock list-models writes the available list",
+      r.returncode == 0 and (pmos / "available-models.txt").is_file(), r.stderr.strip()[:80])
+prompt = (TPL / "docs" / "stages" / "spawn-fallback.md").read_text(encoding="utf-8")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                    "--host", "mock", "--model", "claude-opus-5", "--label", "architect",
+                    "--effort", "medium", "--prompt", prompt,
+                    "--project", str(mproj), "--out", str(pmos / "host-run.json")],
+                   capture_output=True, text=True)
+run = json.loads((pmos / "host-run.json").read_text(encoding="utf-8"))
+check("mock spawn returns ok with usage", r.returncode == 0 and run["status"] == "ok"
+      and run["tokens_in"] > 0 and run["tokens_out"] > 0, str(run))
+check("mock spawn appends to host-runs.jsonl",
+      (pmos / "host-runs.jsonl").is_file()
+      and len((pmos / "host-runs.jsonl").read_text(encoding="utf-8").splitlines()) == 1, "")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "usage",
+                    "--host", "mock", "--result", str(pmos / "host-run.json")],
+                   capture_output=True, text=True)
+usage = json.loads(r.stdout)
+check("mock usage returns the token counts",
+      r.returncode == 0 and usage["tokens_in"] == run["tokens_in"], str(usage))
+r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "record",
+                    "--project", str(mproj), "--role", "architect", "--model", "claude-opus-5",
+                    "--wave", "2", "--label", "architect",
+                    "--in", str(usage["tokens_in"]), "--out", str(usage["tokens_out"])],
+                   capture_output=True, text=True)
+check("cost record from mock usage", r.returncode == 0, r.stderr.strip()[:80])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "events.py"), "record",
+                    "--project", str(mproj), "--ladder", "0"],
+                   capture_output=True, text=True)
+check("events record after mock run", r.returncode == 0, r.stderr.strip()[:80])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "report",
+                    "--project", str(mproj), "--json"], capture_output=True, text=True)
+rep = json.loads(r.stdout)
+check("cost report sees the mock run",
+      rep.get("total", {}).get("runs") == 1
+      and rep.get("by_role", {}).get("architect", {}).get("runs") == 1,
+      json.dumps({k: rep.get(k) for k in ("total", "by_role")})[:160])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "events.py"), "report",
+                    "--project", str(mproj), "--json"], capture_output=True, text=True)
+ev = json.loads(r.stdout)
+check("events report sees the mock run",
+      ev.get("runs") == 1 and ev.get("ok") == 1, json.dumps(ev))
 
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)

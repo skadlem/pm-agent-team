@@ -15,5 +15,9 @@
     "doc": "tokens_in/tokens_out come from the swarm spawn result"
   },
   "tool_rewrites": [],
-  "suppressed": []
+  "suppressed": [],
+  "file_scope_hooks": {
+    "available": false,
+    "doc": "no file-scope edit hooks today; do-not-touch is enforced at the checkpoint (trace.py unplanned), not at edit time"
+  }
 }

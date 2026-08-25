@@ -25,5 +25,9 @@
     {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.claude/pmos-team-defaults.json"},
     {"from": "swarm default", "to": "claude default"}
   ],
-  "suppressed": ["gstack"]
+  "suppressed": ["gstack"],
+  "file_scope_hooks": {
+    "available": true,
+    "doc": "PreToolUse hooks can deny Edit/Write outside the worker's touches set (the gstack /freeze mechanism). hostgen renders host-bundles/claude/hooks-pretool-edit.json; the coordinator installs it per worker with the touches paths filled in."
+  }
 }
