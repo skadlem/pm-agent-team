@@ -378,6 +378,57 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "experience.py"), "searc
                    capture_output=True, text=True)
 check("experience search with no dir exits 0", r.returncode == 0, "")
 
+# Stage L: the REAL second host must run the same pipeline as the mock —
+# spawn -> usage parse -> cost record -> cost report. Skipped when the host CLI
+# is not installed or not authenticated, so offline CI stays green.
+print("== 9f. Real host pipeline: claude backend (Stage L) ==")
+if shutil.which("claude") is None:
+    _skips += 1
+    print("  [SKIP] claude CLI not installed")
+else:
+    lproj = pathlib.Path(tempfile.mkdtemp()) / "proj"
+    (lproj / ".pmos").mkdir(parents=True)
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                        "--host", "claude", "--model", "claude-sonnet-4-5",
+                        "--label", "stage-l-check",
+                        "--prompt", "Reply with exactly one word: OK",
+                        "--out", str(lproj / ".pmos" / "host-run.json")],
+                       capture_output=True, text=True, timeout=300)
+    if r.returncode != 0 and not r.stdout:
+        # auth/network failure -> skip rather than fail; a broken adapter is a
+        # FAIL below only when the CLI answers at all
+        _skips += 1
+        print("  [SKIP] claude CLI did not answer (%s)" % ((r.stderr or "").strip()[:60],))
+    else:
+        run = json.loads((lproj / ".pmos" / "host-run.json").read_text(encoding="utf-8"))
+        check("real spawn returns JSON with usage + result",
+              run.get("type") == "result" and not run.get("is_error")
+              and isinstance((run.get("usage") or {}).get("input_tokens"), int),
+              str(run.get("subtype")))
+        check("real spawn honors --model",
+              run.get("modelUsage") and any("sonnet" in k for k in run["modelUsage"]),
+              ",".join((run.get("modelUsage") or {}).keys()))
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "usage",
+                            "--host", "claude", "--result", str(lproj / ".pmos" / "host-run.json")],
+                           capture_output=True, text=True)
+        usage = json.loads(r.stdout)
+        check("real usage parsed from result JSON",
+              r.returncode == 0 and usage["tokens_in"] > 0 and usage["status"] == "ok",
+              str(usage))
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "record",
+                            "--project", str(lproj), "--role", "architect",
+                            "--model", "claude-sonnet-4-5", "--wave", "1",
+                            "--label", "stage-l-check",
+                            "--in", str(usage["tokens_in"]), "--out", str(usage["tokens_out"])],
+                           capture_output=True, text=True)
+        check("cost record from real usage", r.returncode == 0, r.stderr.strip()[:80])
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "report",
+                            "--project", str(lproj), "--json"], capture_output=True, text=True)
+        rep = json.loads(r.stdout)
+        check("cost report sees the real run",
+              rep.get("total", {}).get("runs") == 1,
+              json.dumps(rep.get("total"))[:120])
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"

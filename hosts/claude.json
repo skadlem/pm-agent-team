@@ -6,8 +6,8 @@
   "agents_dir": ".claude/agents",
   "defaults_file": "~/.claude/pmos-team-defaults.json",
   "spawn": {
-    "doc": "headless Claude Code: spawn a worker session with an explicit model",
-    "command": "claude -p --model <model> --permission-mode acceptEdits --allowedTools 'Bash,Read,Write,Edit,Grep,Glob'",
+    "doc": "headless Claude Code: spawn a worker session with an explicit model; <prompt> is required (claude -p exits 2 without input)",
+    "command": "claude -p <prompt> --output-format json --model <model> --permission-mode acceptEdits --allowedTools 'Bash,Read,Write,Edit,Grep,Glob'",
     "model_flag": "--model <model>",
     "effort_flag": "(not supported; omit)"
   },

@@ -24,6 +24,7 @@ Exit codes: 0 ok, 1 host/CLI error, 2 usage error.
 """
 import argparse
 import json
+import shlex
 import shutil
 import subprocess
 import sys
@@ -76,7 +77,8 @@ def real_command(cfg, verb, args):
     if verb == "spawn":
         cmd = cfg.get("spawn", {}).get("command", "")
         cmd = cmd.replace("<model>", args.model).replace("<effort>", args.effort or "")
-        cmd = cmd.replace("<prompt>", args.prompt or "")
+        # shell-quote the prompt: it is arbitrary protocol text, not shell source
+        cmd = cmd.replace("<prompt>", shlex.quote(args.prompt or ""))
         return cmd, {}
     if verb == "usage":
         flag = (cfg.get("usage") or {}).get("flag", "")

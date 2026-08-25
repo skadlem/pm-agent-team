@@ -86,7 +86,8 @@ tool. Claude Code: `claude -p --model <m> --permission-mode acceptEdits ...`. He
 
 ```
 python tools/host.py list-models --host claude --out .pmos/available-models.txt
-python tools/host.py spawn --host claude --model <m> --label backend-1 --prompt "$(cat prompt.md)"
+# (claude has no CLI list-models in 2.1.x: write .pmos/available-models.txt by hand)
+python tools/host.py spawn --host claude --model <m> --label backend-1 --prompt "$(cat prompt.md)" --out .pmos/host-run.json
 python tools/host.py usage --host claude --result .pmos/host-run.json
 ```
 
