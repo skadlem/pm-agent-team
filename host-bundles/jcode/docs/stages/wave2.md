@@ -60,5 +60,12 @@ wave, KB enrichment, and the second user gate.
    whether any accepted mitigation actually holds. Record the run in the cost ledger like any
    worker. Two families disagreeing is normal — the unique findings are what the user must
    see at the gate, not the agreement.
+   ADVERSARIAL REQUIREMENTS REVIEW (pre-GATE-2, L-3): before presenting the plan, run ONE
+   reviewer worker on the cheapest available model with `TPL/templates/adversarial-review.md`.
+   The reviewer attacks every R-NNN against six checklist items (testable, unambiguous,
+   measured, dependent, missing, risk-blind) and writes `.pmos/out/pm/adversarial-review.md`.
+   A CONCERNS verdict sends the plan back to the PM (fix + `artifacts.py` re-lint + re-review)
+   BEFORE the user sees it — a requirement that dies at the gate is cheap; one that dies in
+   wave 3 costs a rework loop.
 
 Next: `docs/stages/wave3.md` (steps 9-10).

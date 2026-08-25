@@ -27,13 +27,16 @@ grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.
 
 1. Partial context only. NEVER read or dump the full KB, the full repo, or large files top-to-bottom.
 2. Information retrieval order, stop as soon as you have enough:
-   a. KB: `python TPL/tools/kb.py search --db PROJ/.pmos/kb.sqlite3 "query" --role <ns> -k 5`
-   b. Repo questions: use the /graphify skill's query tools (never re-read the whole codebase).
+   a. Experience: if `~/.pmos-experience/` exists (read-only cross-project notes, L-11),
+      search it FIRST with `python TPL/tools/experience.py search "<query>"` — a past
+      project's hard-won pitfall outranks anything the fresh KB might guess.
+   b. KB: `python TPL/tools/kb.py search --db PROJ/.pmos/kb.sqlite3 "query" --role <ns> -k 5`
+   c. Repo questions: use the /graphify skill's query tools (never re-read the whole codebase).
       After material changes to the repo, the coordinator refreshes with `/graphify <path> --update`.
       Code-touching workers (architect, backend, frontend, devops, qa) MUST run at least one
       graphify query before editing anything and record each query in their notes
       (.pmos/out/<role>/notes.md). The coordinator checks this at every checkpoint.
-   c. Targeted file read (read tool) ONLY for a specific file you already know you need.
+   d. Targeted file read (read tool) ONLY for a specific file you already know you need.
 3. Artifacts are small files (markdown) under `.pmos/out/<role>/`. Keep each under ~300 lines.
 3b. Anything another role must point at carries a STABLE ID: charter requirements `R-NNN`, plan
    tasks `T-NNN` and acceptance criteria `A-NNN`, decisions `ADR-NNN`, risks `L-NNN`. References

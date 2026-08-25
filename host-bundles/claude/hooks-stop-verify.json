@@ -1,0 +1,14 @@
+{
+ "hooks": {
+  "Stop": [
+   {
+    "hooks": [
+     {
+      "type": "command",
+      "command": "python3 /home/madiyar/pm-agent-team/tools/artifacts.py --project {{PROJ}} --strict"
+     }
+    ]
+   }
+  ]
+ }
+}

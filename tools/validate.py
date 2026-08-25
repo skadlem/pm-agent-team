@@ -334,6 +334,50 @@ ev = json.loads(r.stdout)
 check("events report sees the mock run",
       ev.get("runs") == 1 and ev.get("ok") == 1, json.dumps(ev))
 
+print("== 9e. Extras: converge audit, issues export, experience search ==")
+sys.path.insert(0, str(TPL / "tools"))
+import eval_project as harness  # noqa: E402  (sibling tool: fixture materialization)
+# L-7: converge audit must produce verdicts that match the fixture stories
+for fx, want in (("greenfield-planning", "CONVERGED"), ("scope-creep", "CONCERNS"),
+                 ("over-budget", "FAIL"), ("stale-evidence", "CONCERNS"),
+                 ("rework-loop", "FAIL")):
+    dest = harness.materialize(TPL / "tests" / "fixtures" / fx, pathlib.Path(tempfile.mkdtemp()) / "proj", False)
+    exp = json.loads((TPL / "tests" / "fixtures" / fx / "expect.json").read_text(encoding="utf-8"))
+    for rel in exp.get("dirty") or []:
+        p = dest / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a", encoding="utf-8") as f:
+            f.write("\n# changed after the baseline\n")
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "converge.py"),
+                        "--project", str(dest), "--json"], capture_output=True, text=True)
+    try:
+        vd = json.loads(r.stdout).get("verdict")
+    except ValueError:
+        vd = None
+    check("converge audit: %s -> %s" % (fx, want), vd == want, "%r" % vd)
+# L-8: issues export dry-run prints every T-NNN task and never touches the network
+dest = harness.materialize(TPL / "tests" / "fixtures" / "qa-failed-mitigation",
+                           pathlib.Path(tempfile.mkdtemp()) / "proj", False)
+r = subprocess.run([sys.executable, str(TPL / "tools" / "issues.py"), "export",
+                    "--project", str(dest), "--repo", "x/y", "--dry-run"],
+                   capture_output=True, text=True)
+check("issues export dry-run prints the task issue",
+      r.returncode == 0 and "T-001" in r.stdout, r.stderr.strip()[:80])
+# L-11: experience search hits a curated note and exits 0 on an empty dir
+expdir = pathlib.Path(tempfile.mkdtemp())
+(expdir / "sqlite.md").write_text("# sqlite\n\nUse WAL + busy_timeout under concurrency.\n",
+                                  encoding="utf-8")
+r = subprocess.run([sys.executable, str(TPL / "tools" / "experience.py"), "search",
+                    "sqlite busy timeout", "--dir", str(expdir), "--json"],
+                   capture_output=True, text=True)
+hits = json.loads(r.stdout).get("hits", [])
+check("experience search finds the curated note",
+      r.returncode == 0 and hits and "WAL" in hits[0]["text"], str(hits[:1]))
+r = subprocess.run([sys.executable, str(TPL / "tools" / "experience.py"), "search",
+                    "anything", "--dir", str(pathlib.Path(tempfile.mkdtemp()))],
+                   capture_output=True, text=True)
+check("experience search with no dir exits 0", r.returncode == 0, "")
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"

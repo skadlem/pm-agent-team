@@ -113,8 +113,16 @@ do, exactly like gstack's "suppressed resolvers". The gates, budget, and harness
 shape; only the tool names in the instructions do.
 
 `file_scope_hooks.available: true` means the host can DENY edits outside a worker's `touches`
-set at edit time (Claude Code PreToolUse hooks — the gstack /freeze mechanism). For such
-hosts the generator ships `host-bundles/<host>/hooks-pretool-edit.json`; the coordinator
-installs it per worker with the task's touches paths filled in, turning do-not-touch from a
-checkpoint detection into a prevention. Hosts without hooks (jcode, Hermes today) rely on
-`trace.py unplanned` at the checkpoint instead.
+set at edit time (Claude Code PreToolUse hooks — the gstack /freeze mechanism) AND run a
+command when a worker's turn ends (Claude Code Stop hooks). For such hosts the generator ships
+two templates the coordinator installs per worker:
+
+- `host-bundles/<host>/hooks-pretool-edit.json` — denies Edit/Write outside the task's touches
+  paths, turning do-not-touch from a checkpoint detection into a prevention (gstack G6).
+- `host-bundles/<host>/hooks-stop-verify.json` — runs `artifacts.py --strict` before the
+  worker's "done" report lands, so a worker cannot report done with unresolved artifact errors
+  (L-12, the gstack-verify-gate pattern). A worker whose turn cannot end until the linter
+  passes is a worker that never hands off broken references.
+
+Hosts without hooks (jcode, Hermes today) rely on `trace.py unplanned` at the checkpoint and
+the coordinator's `artifacts.py` check instead.

@@ -85,13 +85,17 @@ def render_host(cfg):
     for rel, body in agent_files(cfg).items():
         (out / rel).write_text(body, encoding="utf-8")
 
-    # do-not-touch as prevention (gstack G6): hosts with file-scope hooks get
-    # a PreToolUse hook template that denies edits outside the worker's
-    # touches set. The coordinator fills the paths per worker at spawn.
+    # do-not-touch as prevention (gstack G6) + verified-done enforcement
+    # (L-12): hosts with file-scope hooks get a PreToolUse hook template that
+    # denies edits outside the worker's touches set, and a Stop hook template
+    # that runs artifacts.py --strict before the worker's "done" report lands.
+    # The coordinator fills the paths per worker at spawn.
     hooks = cfg.get("file_scope_hooks") or {}
     if hooks.get("available"):
         (out / "hooks-pretool-edit.json").write_text(
             _pretool_hook_template(cfg), encoding="utf-8")
+        (out / "hooks-stop-verify.json").write_text(
+            _stop_verify_hook_template(cfg), encoding="utf-8")
 
     for src in PROTOCOL_DOCS:
         rel = src.relative_to(TPL)
@@ -121,6 +125,23 @@ def _pretool_hook_template(cfg):
                 "hooks": [{
                     "type": "command",
                     "command": "python3 - <<'EOF'\nimport json, sys\ninp = json.load(sys.stdin)\np = inp[\"tool_input\"].get(\"file_path\", \"\")\ntouches = \"{{TOUCHES}}\".split(\",\")\nif touches and not any(p.startswith(t) for t in touches):\n    print(json.dumps({\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"permissionDecision\": \"deny\", \"permissionDecisionReason\": \"outside touches set: %s\" % p}}))\nEOF"
+                }]
+            }]
+        }
+    }, indent=1) + "\n"
+
+
+def _stop_verify_hook_template(cfg):
+    """Claude Code Stop hook (L-12): run artifacts.py --strict before the
+    worker's "done" report ends the turn, so a worker cannot report done with
+    unresolved artifact errors — the gstack-verify-gate pattern. {{PROJ}} is
+    filled by the coordinator at spawn."""
+    return json.dumps({
+        "hooks": {
+            "Stop": [{
+                "hooks": [{
+                    "type": "command",
+                    "command": "python3 %s --project {{PROJ}} --strict" % (TPL / "tools" / "artifacts.py")
                 }]
             }]
         }

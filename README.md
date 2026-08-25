@@ -49,6 +49,9 @@ pm-agent-team/
   tools/trace.py             # joins that graph to the graphify code graph; coverage/impact queries
   tools/hostgen.py           # renders per-host protocol bundles (jcode / Claude Code / Hermes)
   tools/host.py              # host shim: the three primitives per host; mock backend for the harness
+  tools/converge.py          # level-5.5 audit: replay every check, one verdict (L-7)
+  tools/issues.py            # export T-NNN plan tasks as GitHub issues (L-8)
+  tools/experience.py        # read-only cross-project experience search (L-11)
   tools/context_bill.py      # token bill of the protocol files (guards the split's size)
   queries/*.rq             # the protocol's own checks, as stored SPARQL
   kb-sources/<role>/*.md   # curated fundamentals shipped per role (the "bare agent" KB)
@@ -243,6 +246,9 @@ python tools/recommend.py suggest --available models.txt --history .pmos/events-
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
 python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim (Stage M)
 python tools/host.py spawn --host mock --model <m> --label backend-1 --prompt "$(cat prompt.md)"
+python tools/converge.py --project .              # level-5.5 audit: one verdict (L-7)
+python tools/issues.py export --project . --repo owner/repo --dry-run   # T-NNN -> issues (L-8)
+python tools/experience.py search "sqlite locking"   # cross-project notes, read-only (L-11)
 python tools/context_bill.py [--budget N]   # token bill of the protocol files; exit 2 over budget
 ```
 
@@ -373,7 +379,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (162 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (172 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.
