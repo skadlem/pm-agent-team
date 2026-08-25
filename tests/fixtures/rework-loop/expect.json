@@ -1,0 +1,9 @@
+{
+ "description": "QA sent the same task back twice: the taxonomy must say replan, not another ladder retry",
+ "legal_strict": false,
+ "state": {"stage": 6, "fail_checks": [], "exact_fail_checks": true,
+           "warn_checks": ["replan recommended (L-4)"]},
+ "events": {"runs": 6, "ok": 3, "failed": 3, "ladder_retries": 2, "rework_loops": 2,
+            "decision": "replan"},
+ "gate2": "clear"
+}

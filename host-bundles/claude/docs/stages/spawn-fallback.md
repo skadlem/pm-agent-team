@@ -62,3 +62,24 @@ untried model in that role's ladder:
 The coordinator may also apply the ladder proactively: if a cheap pick repeatedly errors mid-run,
 promote that role's model to the next best entry from the start (log it). This keeps the team
 moving without surfacing every transient failure to the user.
+
+## Failure taxonomy: retry vs replan (L-4)
+
+The ladder answers ONE question: "was this failure the model's fault?" When the same task keeps
+coming back, retrying it on another model is the wrong fix. Decide mechanically — the decision
+comes from the event trace, not from how the coordinator feels:
+
+1. Run `python TPL/tools/events.py report --project .` at every checkpoint. Its `decision` field
+   is the taxonomy:
+   - `continue` (fewer than 2 rework loops) — keep going; single failures are ladder business.
+   - `replan` (2 or more rework loops, i.e. QA sent work back twice) — STOP retrying. The task
+     as defined is not being understood; a new model on the same prompt will fail the same way.
+2. On `replan`, do NOT burn more ladder fallbacks on the failing task. Instead:
+   a. PM re-splits the task into smaller tasks (decompose) OR rewrites the acceptance criteria
+      and spawn instructions (replan), then re-enters it at the wave it belongs to.
+   b. Log the decision and the reason in `.pmos/log.md` (the events trace records the runs; the
+      log records the reasoning).
+   c. The next checkpoint re-runs `events.py report`; only a fresh failure of the NEW task
+      increments the loop counter again (the trace is append-only and wave-ordered).
+3. `state.py` prints the same decision on resume (`decision: replan` with a WARN), so a session
+   that comes back after the rework does not quietly restart the ladder loop.

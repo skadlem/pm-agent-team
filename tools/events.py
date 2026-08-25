@@ -87,7 +87,7 @@ def cmd_record(args):
 
 def summarize(events):
     out = {"runs": len(events), "ok": 0, "failed": 0, "usd": 0.0,
-           "ladder_retries": 0, "rework_loops": 0, "by_role": {}}
+           "ladder_retries": 0, "rework_loops": 0, "by_role": {}, "by_model": {}}
     prev_wave = None
     for e in events:
         if e.get("outcome") == "ok":
@@ -102,20 +102,30 @@ def summarize(events):
             out["rework_loops"] += 1
         if wave is not None:
             prev_wave = wave
-        r = out["by_role"].setdefault(e.get("role"), {"runs": 0, "ok": 0, "failed": 0,
-                                                      "tokens": [], "ladder_retries": 0})
-        r["runs"] += 1
-        if e.get("outcome") == "ok":
-            r["ok"] += 1
-        elif e.get("outcome") not in (None, "unknown"):
-            r["failed"] += 1
-        r["tokens"].append(e.get("tokens_in", 0) + e.get("tokens_out", 0))
-        if (e.get("ladder") or 0) > 0:
-            r["ladder_retries"] += 1
-    for r in out["by_role"].values():
-        r["median_tokens"] = int(statistics.median(r["tokens"])) if r["tokens"] else 0
-        del r["tokens"]
+        for bucket, key in (("by_role", e.get("role")), ("by_model", e.get("model"))):
+            if key is None:
+                continue
+            r = out[bucket].setdefault(key, {"runs": 0, "ok": 0, "failed": 0,
+                                             "tokens": [], "ladder_retries": 0})
+            r["runs"] += 1
+            if e.get("outcome") == "ok":
+                r["ok"] += 1
+            elif e.get("outcome") not in (None, "unknown"):
+                r["failed"] += 1
+            r["tokens"].append(e.get("tokens_in", 0) + e.get("tokens_out", 0))
+            if (e.get("ladder") or 0) > 0:
+                r["ladder_retries"] += 1
+    for bucket in ("by_role", "by_model"):
+        for r in out[bucket].values():
+            r["median_tokens"] = int(statistics.median(r["tokens"])) if r["tokens"] else 0
+            r["ok_rate"] = round(r["ok"] / r["runs"], 3) if r["runs"] else 0.0
+            del r["tokens"]
     out["usd"] = round(out["usd"], 4)
+    # L-4 failure taxonomy: the coordinator follows this decision instead of
+    # improvising. QA sent work back (wave numbers went backwards) twice ->
+    # stop retrying the ladder and replan; otherwise keep going (the ladder
+    # handles single failures).
+    out["decision"] = "replan" if out["rework_loops"] >= 2 else "continue"
     return out
 
 
@@ -138,6 +148,14 @@ def cmd_report(args):
     if out["rework_loops"]:
         print("  wave numbers went backwards %d time(s) - QA sent work back for rework"
               % out["rework_loops"])
+    for model, r in sorted(out["by_model"].items()):
+        if r["runs"] >= 3 and r["ok_rate"] < 0.5:
+            print("  ! %s: %d/%d runs ok (%.0f%%) - historically fails here; "
+                  "prefer another ladder entry" % (model, r["ok"], r["runs"], 100 * r["ok_rate"]))
+    print("DECISION: %s" % out["decision"])
+    if out["decision"] == "replan":
+        print("  two rework loops: stop retrying the ladder, replan the task (see "
+              "docs/stages/spawn-fallback.md)")
     return 0
 
 
@@ -212,7 +230,27 @@ def selftest():
          rep["by_role"]["backend"]["runs"] == 3
          and rep["by_role"]["backend"]["ladder_retries"] == 1
          and rep["by_role"]["backend"]["median_tokens"] == 128000),
+        ("by_model slice carries ok_rate per model (L-13)",
+         rep["by_model"]["claude-opus-5"]["runs"] == 5
+         and rep["by_model"]["claude-opus-5"]["ok_rate"] == 0.6),
+        ("single rework loop keeps the decision on continue",
+         rep["decision"] == "continue"),
         ("report always exits 0 (informational, not a gate)", rc == 0),
+    ]
+
+    # a SECOND wave-4 -> wave-3 return: the ladder has done its job twice and
+    # failed twice; the decision must flip to replan (L-4)
+    add_ledger_row(4, "qa", "failed", 40000, 5000, 0.3)
+    quiet(lambda a: cmd_record(a), argparse.Namespace(project=str(root), ladder=0,
+                                                      gate=None, role=None, wave=None, model=None))
+    add_ledger_row(3, "backend", "ok", 90000, 9000, 0.6, task="T-001")
+    quiet(lambda a: cmd_record(a), argparse.Namespace(project=str(root), ladder=0,
+                                                      gate=None, role=None, wave=None, model=None))
+    rc, out = quiet(lambda a: cmd_report(a), argparse.Namespace(project=str(root), json=True))
+    rep2 = json.loads(out)
+    cases += [
+        ("two rework loops flips the decision to replan (L-4)",
+         rep2["rework_loops"] == 2 and rep2["decision"] == "replan"),
     ]
 
     for label, cond in cases:

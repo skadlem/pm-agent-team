@@ -385,11 +385,16 @@ def main():
         ev = summarize(events)
         out["events"] = {"runs": ev["runs"], "ok": ev["ok"], "failed": ev["failed"],
                          "ladder_retries": ev["ladder_retries"],
-                         "rework_loops": ev["rework_loops"]}
+                         "rework_loops": ev["rework_loops"], "decision": ev["decision"]}
         add("OK" if not ev["rework_loops"] else "WARN",
             "wave-event trace healthy (.pmos/waves.jsonl)",
-            "%d run(s), %d failed, %d ladder retry(ies), %d rework loop(s)"
-            % (ev["runs"], ev["failed"], ev["ladder_retries"], ev["rework_loops"]))
+            "%d run(s), %d failed, %d ladder retry(ies), %d rework loop(s), decision: %s"
+            % (ev["runs"], ev["failed"], ev["ladder_retries"], ev["rework_loops"],
+               ev["decision"]))
+        if ev["decision"] == "replan":
+            add("WARN", "replan recommended (L-4)",
+                "QA sent work back twice: stop retrying the ladder, re-split or re-plan "
+                "the failing task before another run (docs/stages/spawn-fallback.md)")
 
     if a.json:
         print(json.dumps(out, indent=1, ensure_ascii=False))

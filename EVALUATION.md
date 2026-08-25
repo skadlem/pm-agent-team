@@ -172,6 +172,7 @@ and `trace.py` must report.
 | `scope-creep` | a do-not-touch file changed that no task claims |
 | `over-budget` | a retried worker pushed measured spend past the GATE 1 cap |
 | `stale-evidence` | QA passed, but its evidence is bound to a tree hash the tree no longer matches |
+| `rework-loop` | QA sent the same task back twice: the taxonomy must say replan, not another ladder retry |
 
 The GATE 2 verdict is derived from tool output (`errors > 0`, or an open high-severity risk),
 not from a judgement call, so the harness also checks that the tools surface enough to make the

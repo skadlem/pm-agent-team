@@ -407,6 +407,23 @@ check("second-opinion is a different family than the pm's",
 check("second-opinion never suggests a forbidden model",
       pick not in (roster.get("forbidden_models") or []), pick)
 
+# L-13: quality-aware selection — a model that historically fails here is
+# skipped when a same-tier alternative exists (recommend stays benchmark-driven;
+# history only breaks the tie). claude-sonnet-5 and qwen3.8-max share backend's
+# best tier (verified above).
+hist = {"claude-sonnet-5": {"runs": 5, "ok": 2, "failed": 3}}
+hres = rmod.recommend([{"id": "claude-sonnet-5", "available": True},
+                       {"id": "qwen3.8-max", "available": True}],
+                      bench, roster, 0.92, history=hist)
+hr = next(r for r in hres if r["role"] == "backend")
+check("L-13: historically failing model skipped when a same-tier alternative exists",
+      hr["suggested"] != "claude-sonnet-5",
+      "suggested %s" % hr["suggested"])
+check("L-13: no same-tier alternative -> fall back to the historical pick",
+      rmod.recommend([{"id": "claude-sonnet-5", "available": True}],
+                     bench, roster, 0.92, history=hist)[0]["suggested"] == "claude-sonnet-5",
+      "")
+
 print("== 11. Benchmarks: bundled file integrity + generator ==")
 # The shipped benchmarks.json must be complete even without the raw CSVs.
 bundled = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))

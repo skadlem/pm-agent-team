@@ -238,6 +238,8 @@ python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
 python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
 python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
+python tools/events.py report --project . --json > .pmos/events-report.json   # for --history
+python tools/recommend.py suggest --available models.txt --history .pmos/events-report.json  # L-13
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
 python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim (Stage M)
 python tools/host.py spawn --host mock --model <m> --label backend-1 --prompt "$(cat prompt.md)"
@@ -371,7 +373,7 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (159 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (162 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
    idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.

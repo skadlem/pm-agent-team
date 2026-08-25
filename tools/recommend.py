@@ -201,9 +201,14 @@ def group_models(available):
     return out
 
 
-def recommend(available, benchmarks, roster, tier=0.92, role_filter=None):
+def recommend(available, benchmarks, roster, tier=0.92, role_filter=None, history=None):
     """Suggest one model per role. `tier` is the FALLBACK acceptance threshold;
-    per-role tiers from roster.json role_tiers win when present."""
+    per-role tiers from roster.json role_tiers win when present. `history` is an
+    optional {model: {"runs": n, "ok": n}} map from events.py report --json
+    (by_model); a model that historically fails here (>= 3 runs, < 50% ok) is
+    flagged in `reason` and skipped as the pick when a same-tier alternative
+    exists — the recommendation stays benchmark-driven, history only breaks ties
+    and warns (L-13, docs/research/2026-08-24-gstack.md: quality-aware selection)."""
     role_tiers = ((roster or {}).get("role_tiers") or {})
     role_efforts = ((roster or {}).get("role_effort") or {})
     eligible = eligible_models({m["id"] for m in available if m.get("available", True)}, roster)
@@ -245,7 +250,14 @@ def recommend(available, benchmarks, roster, tier=0.92, role_filter=None):
         def cost_key(item):
             c = blended_cost(item[1]["entry"])
             return (c is None, c if c is not None else 0.0, -item[1]["score"])
-        pick, picked = min(in_tier.items(), key=cost_key)
+
+        def failing(mid):
+            h = (history or {}).get(mid)
+            return bool(h and h.get("runs", 0) >= 3 and h.get("ok", 0) / h["runs"] < 0.5)
+
+        # L-13: skip historically-failing models when a same-tier alternative exists
+        ok_tier = {m: d for m, d in in_tier.items() if not failing(m)}
+        pick, picked = min((ok_tier or in_tier).items(), key=cost_key)
         alt = [display(m) for m in sorted(in_tier, key=lambda m: (-scores[m]["score"],
                blended_cost(scores[m]["entry"]) or 1e12))][:3]
         ladder = [display(m) for m in sorted(scores, key=lambda m: (-scores[m]["score"],
@@ -291,7 +303,6 @@ def fmt_table(results, benchmarks):
         if r["missing_data"]:
             lines.append("  ! no data for purposes: %s (refresh benchmarks)" % ", ".join(r["missing_data"]))
     return "\n".join(lines)
-
 
 def model_family(model_id, roster):
     """Longest newest_only prefix that matches the id, e.g. claude-opus-5 ->
@@ -348,6 +359,9 @@ def main():
     p.add_argument("--tier", type=float, default=0.92,
                    help="fallback best-tier threshold as fraction of best score (per-role tiers in roster.json win)")
     p.add_argument("--roles", default=None, help="comma-separated role filter")
+    p.add_argument("--history", default=None,
+                   help="events.py report --json (by_model) for this project; models that "
+                        "historically fail here are skipped when a same-tier alternative exists (L-13)")
     p.add_argument("--ladder-out", default=None,
                    help="write per-role fallback ladders to this JSON file (e.g. .pmos/team-model-ladder.json)")
     p.add_argument("--json", action="store_true")
@@ -395,7 +409,11 @@ def main():
     benchmarks = load_benchmarks(benchmarks_path)
     roster = load_roster(roster_path)
     role_filter = a.roles.split(",") if a.roles else None
-    results = recommend(available, benchmarks, roster, a.tier, role_filter)
+    history = None
+    if getattr(a, "history", None):
+        with open(a.history, encoding="utf-8") as f:
+            history = json.load(f).get("by_model")
+    results = recommend(available, benchmarks, roster, a.tier, role_filter, history)
     if a.json:
         print(json.dumps(results, indent=1, ensure_ascii=False))
     else:

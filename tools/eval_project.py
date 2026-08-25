@@ -183,7 +183,7 @@ def check_fixture(name, verbose=False):
 
     ev = expect.get("events", {})
     if ev:
-        for key in ("runs", "ok", "failed", "ladder_retries", "rework_loops"):
+        for key in ("runs", "ok", "failed", "ladder_retries", "rework_loops", "decision"):
             if key in ev:
                 want("events", key, got["events"].get(key), ev[key])
 
