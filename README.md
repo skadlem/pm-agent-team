@@ -3,11 +3,14 @@
 [![CI](https://github.com/skadlem/pm-agent-team/actions/workflows/ci.yml/badge.svg)](https://github.com/skadlem/pm-agent-team/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A portable [jcode](https://github.com/1jehuang/jcode) template that turns "Start the project <idea>" into a managed multi-agent build:
+A host-portable agent-team template that turns "Start the project <idea>" into a managed multi-agent build:
 role agents, per-role hybrid knowledge bases, repo understanding via graphify, wave-based execution
 with human approval gates, and hard caps so no agent ever carries more context than it needs.
+Runs on jcode (reference host), Claude Code, Hermes, or the OpenHands SDK — one declarative
+adapter per host (`hosts/*.json`), no protocol forks.
 
-**Requirements:** [jcode](https://github.com/1jehuang/jcode) (agent host with skills + swarm) and Python 3.9+ with SQLite FTS5 (bundled in CPython). No pip dependencies.
+**Requirements:** an agent host (see **Hosts** below) and Python 3.9+ with SQLite FTS5 (bundled
+in CPython). No pip dependencies.
 
 ## Quick install
 
@@ -18,10 +21,18 @@ install.cmd          # Windows
 sh install.sh        # macOS/Linux
 ```
 
-The installer copies the 4 skills into `~/.jcode/skills` and remembers the template location in
-`~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the installer if
-needed). Global install means the skills are available in EVERY future jcode session, in any
-directory. Available trigger phrases:
+**jcode:** the installer copies the 4 skills into `~/.jcode/skills` and remembers the template
+location in `~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the
+installer if needed). Global install = skills available in EVERY future jcode session, in any
+directory.
+
+**Claude Code / OpenHands:** every rendered bundle is self-contained — copy
+`host-bundles/<host>/skills/*` into the host's global skills dir, write this repo's path to the
+host's `pmos-template-root` file, and drop `host-bundles/<host>/agents/*.md` into a project's
+`.claude/agents/` or `.openhands/agents/` when running there. Per-host steps: each bundle's
+`README.md`.
+
+Trigger phrases are the same on every host:
 
 | you say | mode |
 |---------|------|
@@ -33,7 +44,7 @@ directory. Available trigger phrases:
 ```
 pm-agent-team/
   ORCHESTRATOR.md          # core rules + stage map for the main session (coordinator)
-  HOST-ADAPTER.md          # contract for running PMOS on any agent host (jcode, Claude Code, Hermes)
+  HOST-ADAPTER.md          # contract for running PMOS on any agent host (jcode, Claude Code, Hermes, OpenHands)
   hosts/*.json             # declarative per-host adapter configs (defineHost() pattern)
   host-bundles/<host>/     # generated protocol + spawn prompts rewritten per host
   docs/stages/*.md         # the wave-by-wave protocol, one file per stage (load only what you need)
@@ -47,7 +58,7 @@ pm-agent-team/
   tools/events.py            # wave-event trace: per-run ok/fail, ladder retries, rework loops
   tools/kg.py                # RDF triple store over the artifacts + a SPARQL subset
   tools/trace.py             # joins that graph to the graphify code graph; coverage/impact queries
-  tools/hostgen.py           # renders per-host protocol bundles (jcode / Claude Code / Hermes)
+  tools/hostgen.py           # renders per-host protocol bundles (jcode / claude / openhands / hermes)
   tools/host.py              # host shim: the three primitives per host; mock backend for the harness
   tools/converge.py          # level-5.5 audit: replay every check, one verdict (L-7)
   tools/issues.py            # export T-NNN plan tasks as GitHub issues (L-8)
@@ -67,12 +78,14 @@ pm-agent-team/
 project manager/planner, architect, designer, backend, frontend, business advisor, marketing,
 QA engineer, devops (security folded in), legal advisor (risk & policy): regulatory risk
 assessment per deployment jurisdiction, risk register, compliance calendar (strict/light via
-config.json). Each role has assigned jcode skills, a KB namespace,
+config.json). Each role has assigned skills, a KB namespace,
 expected artifacts, and a model chosen at launch (user-approved).
 
 ## Model selection (computed at launch, not hardcoded)
 
-At GATE 1 the coordinator runs `swarm list_models`, saves its output, and runs
+At GATE 1 the coordinator enumerates the host's available models (`swarm list_models` on jcode;
+on Claude Code / OpenHands the list is written to `.pmos/available-models.txt` by hand or from
+the provider's model API) and runs
 `python TPL/tools/recommend.py --available <file>` which:
 
 1. Keeps only AVAILABLE models from the live list.
@@ -162,8 +175,8 @@ can be picked manually by the user.
 
 ## Install
 
-See **Quick install** above. After installing, restart jcode or reload skills; verify with
-`/project-team-start` showing up in your skill list.
+See **Quick install** above. After installing, restart the host or reload skills; verify the
+skills show up (`/project-team-start` on jcode/Claude Code).
 
 ## Usage
 
@@ -244,8 +257,9 @@ python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-l
 python tools/events.py report --project . --json > .pmos/events-report.json   # for --history
 python tools/recommend.py suggest --available models.txt --history .pmos/events-report.json  # L-13
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
-python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim (Stage M)
-python tools/host.py spawn --host mock --model <m> --label backend-1 --prompt "$(cat prompt.md)"
+python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim; mock = zero-token backend
+python tools/host.py spawn --host claude --model claude-sonnet-4-5 --label backend-1 --prompt "$(cat prompt.md)" --out .pmos/host-run.json
+python tools/host.py usage --host openhands --result .pmos/host-run.json        # tokens for cost.py record
 python tools/converge.py --project .              # level-5.5 audit: one verdict (L-7)
 python tools/issues.py export --project . --repo owner/repo --dry-run   # T-NNN -> issues (L-8)
 python tools/experience.py search "sqlite locking"   # cross-project notes, read-only (L-11)
@@ -262,9 +276,11 @@ The protocol (roster, waves, gates, KB, KG, cost, events, harness) is host-neutr
 primitives differ per agent host (spawn-with-model, list_models, usage). `hosts/*.json` declare
 each host's adapter (the gstack defineHost() pattern — see HOST-ADAPTER.md), and
 `python tools/hostgen.py --all` renders `host-bundles/<host>/`: the protocol docs, spawn prompt,
-and per-role agents with every jcode-ism rewritten to that host's tools. Shipped bundles:
-jcode (reference), Claude Code, Hermes. Adding a host = one JSON file + rewrite entries;
-`hostgen.py --check` fails CI on stale bundles, dead rewrites, or surviving jcode-isms.
+and per-role agents with every jcode-ism rewritten to that host's tools. Shipped hosts:
+jcode (reference), Claude Code (live-validated: `validate.py` section 9f), OpenHands SDK
+(script-based spawn via `tools/openhands_run.py`, section 9g), Hermes. Adding a host = one JSON
+file + rewrite entries; `hostgen.py --check` fails CI on stale bundles, dead rewrites, or
+surviving jcode-isms.
 
 ## Artifact traceability
 
@@ -379,9 +395,9 @@ suite passes.
 Five levels, cheapest first:
 
 1. **Component correctness (CI, automatic):** `python tools/kb.py selftest` and
-   `python tools/validate.py` (172 checks: budget math, frontmatter, bootstrap, edge cases,
+   `python tools/validate.py` (~175 checks: budget math, frontmatter, bootstrap, edge cases,
    recommender semantics, re-index idempotency and pruning, artifact id schema, installer
-   idempotency), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
+   idempotency, live host adapters when the CLIs are present), plus the `selftest` of every tool that has one: `artifacts.py`, `trace.py`,
    `cost.py`, `events.py`, `kg.py`.
 2. **Retrieval quality (CI, automatic):** `python tools/eval_kb.py` runs two golden query sets
    (45 standard + 33 paraphrased queries; the standard set covers every corpus section,
