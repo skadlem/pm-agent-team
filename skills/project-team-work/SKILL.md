@@ -18,7 +18,8 @@ auto-detection would be ambiguous.
 ## Step 1: load the protocol
 
 Read `TPL/ORCHESTRATOR.md` (core rules + the stage map; NOT the whole protocol), plus
-`TPL/roster.json` and `TPL/config.json`. Stage files live in `TPL/docs/stages/`.
+read the team roster — `.pmos/team.json` names it (`{"team": "expensive"|"lean"}`); if that file is missing, ask the user which team once and write it — then use
+`TPL/rosters/<team>.json` and `TPL/config.json`. Stage files live in `TPL/docs/stages/`.
 
 ## Step 2: existing state or fresh brownfield launch
 

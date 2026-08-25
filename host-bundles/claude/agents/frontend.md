@@ -1,7 +1,7 @@
 # Frontend Developer
 
 Role: frontend
-KB namespace: frontend
+KB namespace (--role value): frontend
 Skills: test-driven-development, hallmark
 Artifacts: source code per plan; .pmos/out/frontend/notes.md
 

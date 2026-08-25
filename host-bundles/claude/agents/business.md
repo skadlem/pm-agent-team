@@ -1,7 +1,7 @@
 # Business Advisor
 
 Role: business
-KB namespace: business
+KB namespace (--role value): business
 Skills: brainstorming, brand
 Artifacts: .pmos/out/business/model.md
 

@@ -62,16 +62,20 @@ def spawn_prompt(cfg):
 def agent_files(cfg):
     """Per-role agent definitions from roster.json (subagent format)."""
     roster = json.loads((TPL / "roster.json").read_text(encoding="utf-8"))
+    ns_map = roster.get("kb_namespaces") or {}
     files = {}
     for role, rdef in roster["roles"].items():
         skills = ", ".join(rdef.get("skills") or [])
+        # a lean role maps to several curated namespaces; the worker's --role
+        # value is the comma-joined list kb.py accepts
+        ns = ",".join(ns_map.get(role) or [rdef.get("kb_namespace", role)])
         files["agents/%s.md" % role] = (
             "# %s\n\n"
             "Role: %s\n"
-            "KB namespace: %s\n"
+            "KB namespace (--role value): %s\n"
             "Skills: %s\n"
             "Artifacts: %s\n\n"
-            "%s\n" % (rdef["name"], role, rdef.get("kb_namespace", role),
+            "%s\n" % (rdef["name"], role, ns,
                       skills, "; ".join(rdef.get("artifacts") or []), rdef.get("when", "")))
     return files
 

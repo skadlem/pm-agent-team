@@ -18,9 +18,17 @@ You are about to run the PMOS project-management system. Follow it exactly.
 
 Read `TPL/ORCHESTRATOR.md` (core rules + the stage map) — NOT the whole protocol. Then load ONLY
 the stage file you need from `TPL/docs/stages/` (the map names them): a fresh launch starts with
-`docs/stages/launch.md` and follows each file's "Next:" pointer. Also read `TPL/roster.json`
-(role definitions, skills per role, wave order, gates) and `TPL/config.json` (KB caps and context
-rules).
+`docs/stages/launch.md` and follows each file's "Next:" pointer. Also read `TPL/config.json`
+(KB caps and context rules).
+
+### Team selection (before the roster proposal)
+
+Ask the user ONCE: "Which team? **expensive** (9 specialist roles) or **lean**
+(planner / implementer / reviewer — frontier planner+reviewer, solid coder, fewer spawns)?"
+Save the answer to `.pmos/team.json` as `{"team": "expensive"|"lean"}` — resume reads it too.
+Then use `TPL/rosters/<team>.json` everywhere this skill says `TPL/roster.json`. For lean roles,
+the KB `--role` value is the COMMA-JOINED list from the roster's `kb_namespaces` (e.g. planner ->
+`pm,architect`) — kb.py `--role` takes a comma-separated namespace list.
 
 ## Step 2: check for an existing project
 

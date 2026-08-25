@@ -1,0 +1,146 @@
+{
+  "note": "Lean team: 3 roles (planner, implementer, reviewer), frontier-quality planner and reviewer, solid-coder implementer. NO model ids here \u2014 models are computed at GATE 1 from the live available list via recommend.py. Quality bars are role_tiers: planner/reviewer at 0.95 admit only near-best (frontier-class) models; implementer at 0.80 admits a good coder that wins on cost.",
+  "common_skills": [
+    "verification-before-completion"
+  ],
+  "forbidden_models": [],
+  "newest_only": {
+    "note": "Same newest-generation-per-family rule as the expensive roster; families without eligible routes simply drop out at init.",
+    "claude-opus": "claude-opus-5",
+    "claude-sonnet": "claude-sonnet-5",
+    "deepseek-v4-flash": "deepseek-v4-flash-0731",
+    "qwen": "qwen3.8-max",
+    "glm": "glm-5.2",
+    "kimi": "kimi-k2.7-code"
+  },
+  "spawn_defaults": {
+    "model": null
+  },
+  "role_tiers": {
+    "planner": 0.95,
+    "implementer": 0.8,
+    "reviewer": 0.95
+  },
+  "role_effort": {
+    "planner": "high",
+    "implementer": "high",
+    "reviewer": "high"
+  },
+  "model_suggestions": {
+    "planner": {
+      "purpose": {
+        "reasoning": 0.6,
+        "coding": 0.2,
+        "business": 0.2
+      }
+    },
+    "implementer": {
+      "purpose": {
+        "coding": 1.0
+      }
+    },
+    "reviewer": {
+      "purpose": {
+        "verification": 0.8,
+        "reasoning": 0.2
+      }
+    }
+  },
+  "kb_namespaces": {
+    "note": "Lean roles reuse the expensive roster's curated corpora: each lean namespace searches multiple existing kb-sources dirs. No new content authored.",
+    "planner": [
+      "pm",
+      "architect"
+    ],
+    "implementer": [
+      "backend",
+      "frontend"
+    ],
+    "reviewer": [
+      "qa"
+    ]
+  },
+  "waves": [
+    {
+      "wave": 0,
+      "roles": [
+        "planner"
+      ],
+      "mode": "brownfield only",
+      "gate": "none",
+      "note": "Discovery: map existing codebase via graphify into out/planner/current-state.md"
+    },
+    {
+      "wave": 1,
+      "roles": [
+        "planner"
+      ],
+      "gate": "User approves plan + model selections"
+    },
+    {
+      "wave": 2,
+      "roles": [
+        "implementer"
+      ],
+      "gate": "Implementation checkpoint"
+    },
+    {
+      "wave": 3,
+      "roles": [
+        "reviewer"
+      ],
+      "gate": "Verification gate: tests + acceptance criteria pass"
+    }
+  ],
+  "roster_rules": {
+    "greenfield": "3 roles always; no trimming needed",
+    "brownfield": "same 3 roles; wave 0 discovery precedes planning"
+  },
+  "roles": {
+    "planner": {
+      "name": "Planner (PM + Architect)",
+      "kb_namespace": "planner",
+      "skills": [
+        "brainstorming",
+        "writing-plans",
+        "karpathy-guidelines",
+        "ponytail"
+      ],
+      "when": "Always first. Drafts charter, phased plan with task graph, module boundaries and ADRs (the architect's job in the expensive team).",
+      "artifacts": [
+        ".pmos/charter.md",
+        ".pmos/plans/plan.md",
+        ".pmos/decisions/ADR-*.md",
+        ".pmos/out/planner/architecture.md"
+      ]
+    },
+    "implementer": {
+      "name": "Implementer (backend + frontend)",
+      "kb_namespace": "implementer",
+      "skills": [
+        "test-driven-development",
+        "karpathy-guidelines",
+        "ponytail"
+      ],
+      "when": "All code: server-side, client-side, CI config per plan.",
+      "artifacts": [
+        "source code per plan",
+        ".pmos/out/implementer/notes.md"
+      ]
+    },
+    "reviewer": {
+      "name": "Reviewer (QA gate)",
+      "kb_namespace": "reviewer",
+      "skills": [
+        "test-driven-development",
+        "verification-before-completion",
+        "caveman-review"
+      ],
+      "when": "Runs the verification gate against acceptance criteria; reviews the implementer's diff.",
+      "artifacts": [
+        ".pmos/out/reviewer/test-report.md",
+        "test code per plan"
+      ]
+    }
+  }
+}

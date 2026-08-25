@@ -1,7 +1,7 @@
 # DevOps Engineer
 
 Role: devops
-KB namespace: devops
+KB namespace (--role value): devops
 Skills: verification-before-completion, karpathy-guidelines
 Artifacts: .pmos/out/devops/infra.md; CI/deploy config per plan
 

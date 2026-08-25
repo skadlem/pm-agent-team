@@ -1,7 +1,7 @@
 # Project Architect
 
 Role: architect
-KB namespace: architect
+KB namespace (--role value): architect
 Skills: writing-plans, karpathy-guidelines, ponytail
 Artifacts: .pmos/decisions/ADR-*.md; .pmos/out/architect/architecture.md; .pmos/out/architect/interfaces.md
 

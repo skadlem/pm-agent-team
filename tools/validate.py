@@ -53,7 +53,9 @@ mfb = (cfg.get("context_rules") or {}).get("max_fallbacks_per_task")
 check("max_fallbacks_per_task is a positive int", isinstance(mfb, int) and mfb > 0, str(mfb))
 
 print("== 2. Referenced skills are loadable ==")
-roster = json.loads((TPL / "roster.json").read_text(encoding="utf-8"))
+ROSTERS = {n: json.loads((TPL / "rosters" / ("%s.json" % n)).read_text(encoding="utf-8"))
+           for n in ("expensive", "lean")}
+roster = ROSTERS["expensive"]
 referenced = set(roster["common_skills"])
 for r in roster["roles"].values():
     referenced.update(r["skills"])
@@ -113,6 +115,33 @@ check("gstack commands are /slash commands",
 allowed_efforts = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 bad_eff = [k for k, v in efforts.items() if k != "note" and v not in allowed_efforts]
 check("role_effort values valid", not bad_eff, ", ".join(bad_eff))
+
+
+print("== 3b. Lean roster (rosters/lean.json) ==")
+lean = ROSTERS["lean"]
+lms = {k: v for k, v in lean["model_suggestions"].items() if isinstance(v, dict) and "purpose" in v}
+check("lean: model purposes == roles", set(lms) == set(lean["roles"]))
+bad = [r for r, v in lms.items()
+       if not v.get("purpose") or not set(v["purpose"]) <= valid_purposes
+       or abs(sum(v["purpose"].values()) - 1.0) > 1e-9]
+check("lean: purpose maps well-formed", not bad, ", ".join(bad))
+ltiers = {k: v for k, v in (lean.get("role_tiers") or {}).items() if k != "note"}
+check("lean: role_tiers cover every role", set(ltiers) == set(lean["roles"]))
+check("lean: planner+reviewer are frontier-selective (tier >= 0.95)",
+      ltiers.get("planner", 0) >= 0.95 and ltiers.get("reviewer", 0) >= 0.95)
+leff = {k for k in (lean.get("role_effort") or {}) if k != "note"}
+check("lean: role_effort covers every role", leff == set(lean["roles"]))
+nsmap = lean.get("kb_namespaces") or {}
+exp_roles = {k for k in ROSTERS["expensive"]["roles"] if k != "note"}
+check("lean: kb_namespaces map to expensive corpora",
+      set(nsmap) - {"note"} == set(lean["roles"])
+      and all(ns in exp_roles for v in nsmap.values() if isinstance(v, list) for ns in v),
+      json.dumps(nsmap)[:120])
+for w in lean["waves"]:
+    unknown = [r for r in w["roles"] if r not in lean["roles"]]
+    if unknown:
+        check("lean wave %s roles exist" % w.get("wave"), False, ", ".join(unknown))
+check("lean waves reference only real roles", True)
 
 print("== 4. Documented kb.py commands exist in the CLI ==")
 kb_src = (TPL / "tools" / "kb.py").read_text(encoding="utf-8")

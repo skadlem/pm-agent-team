@@ -1,7 +1,7 @@
 # Marketing Manager
 
 Role: marketing
-KB namespace: marketing
+KB namespace (--role value): marketing
 Skills: brand, hallmark
 Artifacts: .pmos/out/marketing/positioning.md; .pmos/out/marketing/launch-plan.md
 

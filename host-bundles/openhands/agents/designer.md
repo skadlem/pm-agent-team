@@ -1,7 +1,7 @@
 # Designer
 
 Role: designer
-KB namespace: designer
+KB namespace (--role value): designer
 Skills: ui-ux-pro-max, hallmark, brand
 Artifacts: .pmos/out/designer/ui-spec.md; .pmos/out/designer/design-tokens.md
 

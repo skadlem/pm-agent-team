@@ -1,0 +1,329 @@
+{
+  "common_skills": [
+    "verification-before-completion"
+  ],
+  "forbidden_models": [
+    "claude-fable-5",
+    "gpt-*",
+    "claude-sonnet-4-5-20250929",
+    "claude-haiku-4-5-20251001",
+    "deepseek-v4-pro"
+  ],
+  "newest_only": {
+    "note": "Only the newest generation per model family is eligible: older versions (claude-opus-4-7/4-8, claude-sonnet-4-6, qwen3.7-max, deepseek-v4-flash) are dropped from suggestions and ladders even if available. Keys are id prefixes; the value is the one id to keep for that family.",
+    "claude-opus": "claude-opus-5",
+    "claude-sonnet": "claude-sonnet-5",
+    "deepseek-v4-flash": "deepseek-v4-flash-0731",
+    "qwen": "qwen3.8-max",
+    "glm": "glm-5.2",
+    "kimi": "kimi-k2.7-code"
+  },
+  "spawn_defaults": {
+    "model": null,
+    "note": "Omit model to inherit the coordinator's model. Per-role suggestions below are checked against available routes at launch; the user approves, changes, or removes them before any worker spawns."
+  },
+  "gstack_commands": {
+    "note": "OPTIONAL per-role methodology upgrade (docs/research/2026-08-24-gstack.md): when the worker's host has gstack installed (~/.claude/skills/gstack or equivalent), the spawn prompt tells the worker to use these slash commands as its methodology INSTEAD of the generic built-in procedure; without gstack, the built-in procedure applies unchanged. Never a hard dependency: a role without gstack_commands, or a host without gstack, runs the standard flow. Commands listed here are checked for shape (must start with '/') by validate.py.",
+    "pm": [
+      "/office-hours",
+      "/retro"
+    ],
+    "architect": [
+      "/plan-eng-review"
+    ],
+    "designer": [
+      "/design-review"
+    ],
+    "backend": [
+      "/review",
+      "/investigate"
+    ],
+    "frontend": [
+      "/review",
+      "/design-review"
+    ],
+    "qa": [
+      "/qa",
+      "/qa-only"
+    ],
+    "devops": [
+      "/cso",
+      "/review"
+    ]
+  },
+  "role_tiers": {
+    "note": "Per-role score-acceptance threshold (fraction of best available score). Higher = more selective (only near-best models qualify), lower = more cost-aggressive. Critical roles (pm/architect/qa) stay at 0.95; implementation roles at 0.92; non-critical advisory roles at 0.80. This replaces the old flat --tier 0.92 flag.",
+    "pm": 0.95,
+    "architect": 0.95,
+    "backend": 0.92,
+    "frontend": 0.88,
+    "designer": 0.82,
+    "business": 0.8,
+    "marketing": 0.8,
+    "qa": 0.95,
+    "devops": 0.88,
+    "legal": 0.92
+  },
+  "role_effort": {
+    "note": "Default reasoning effort per role when the model supports it. Advisory roles get 'low' (cheaper, faster); implementation roles get 'medium'. The user can override at GATE 1.",
+    "pm": "medium",
+    "architect": "medium",
+    "backend": "medium",
+    "frontend": "medium",
+    "designer": "low",
+    "business": "low",
+    "marketing": "low",
+    "qa": "medium",
+    "devops": "low",
+    "legal": "low"
+  },
+  "model_suggestions": {
+    "note": "Model choices are COMPUTED at launch, not hardcoded. The launch flow runs `swarm list_models`, saves the output, then `python TPL/tools/recommend.py --available <file>` which scores each available model per role's purpose (benchmarks.json), keeps the best tier, and picks the cheapest of that tier. The table is then presented for user OK/edit/remove. `purpose` below is the role -> benchmark-purpose weight map used by the recommender.",
+    "pm": {
+      "purpose": {
+        "reasoning": 0.5,
+        "writing": 0.3,
+        "business": 0.2
+      }
+    },
+    "architect": {
+      "purpose": {
+        "reasoning": 0.6,
+        "coding": 0.4
+      }
+    },
+    "designer": {
+      "purpose": {
+        "design": 1.0
+      }
+    },
+    "backend": {
+      "purpose": {
+        "coding": 1.0
+      }
+    },
+    "frontend": {
+      "purpose": {
+        "coding": 0.6,
+        "design": 0.4
+      }
+    },
+    "legal": {
+      "purpose": {
+        "reasoning": 0.4,
+        "business": 0.4,
+        "writing": 0.2
+      }
+    },
+    "business": {
+      "purpose": {
+        "business": 1.0
+      }
+    },
+    "marketing": {
+      "purpose": {
+        "marketing": 0.7,
+        "writing": 0.3
+      }
+    },
+    "qa": {
+      "purpose": {
+        "verification": 1.0
+      }
+    },
+    "devops": {
+      "purpose": {
+        "ops": 1.0
+      }
+    }
+  },
+  "waves": [
+    {
+      "wave": 0,
+      "roles": [
+        "architect"
+      ],
+      "mode": "brownfield only",
+      "gate": "none",
+      "note": "Discovery: map existing codebase via graphify into out/architect/current-state.md"
+    },
+    {
+      "wave": 1,
+      "roles": [
+        "pm"
+      ],
+      "gate": "User approves roster proposal + model selections"
+    },
+    {
+      "wave": 2,
+      "roles": [
+        "architect",
+        "designer",
+        "business",
+        "legal"
+      ],
+      "gate": "User reviews plan/architecture summary; then run pm-kb-enrich"
+    },
+    {
+      "wave": 3,
+      "roles": [
+        "backend",
+        "frontend",
+        "devops",
+        "marketing"
+      ],
+      "gate": "Implementation checkpoint"
+    },
+    {
+      "wave": 4,
+      "roles": [
+        "qa"
+      ],
+      "gate": "Verification gate: tests + acceptance criteria pass"
+    }
+  ],
+  "roster_rules": {
+    "greenfield": "justify roles by the type of product being built",
+    "brownfield": "justify roles by the IMPACT SURFACE in out/architect/current-state.md: which modules the change touches. A change touching no UI gets no designer/frontend."
+  },
+  "roles": {
+    "pm": {
+      "name": "Project Manager / Planner",
+      "kb_namespace": "pm",
+      "skills": [
+        "brainstorming",
+        "writing-plans",
+        "karpathy-guidelines"
+      ],
+      "when": "Always first. Drafts charter, phased plan with task graph, and the minimal team proposal.",
+      "artifacts": [
+        ".pmos/charter.md",
+        ".pmos/plans/plan.md",
+        ".pmos/out/pm/roster-proposal.md"
+      ]
+    },
+    "architect": {
+      "name": "Project Architect",
+      "kb_namespace": "architect",
+      "skills": [
+        "writing-plans",
+        "karpathy-guidelines",
+        "ponytail"
+      ],
+      "when": "Any project with code or infrastructure. Owns ADRs, module boundaries, API contracts, data model.",
+      "artifacts": [
+        ".pmos/decisions/ADR-*.md",
+        ".pmos/out/architect/architecture.md",
+        ".pmos/out/architect/interfaces.md"
+      ]
+    },
+    "designer": {
+      "name": "Designer",
+      "kb_namespace": "designer",
+      "skills": [
+        "ui-ux-pro-max",
+        "hallmark",
+        "brand"
+      ],
+      "when": "Projects with a user-facing surface. Owns UI spec, design tokens, states, accessibility requirements.",
+      "artifacts": [
+        ".pmos/out/designer/ui-spec.md",
+        ".pmos/out/designer/design-tokens.md"
+      ]
+    },
+    "backend": {
+      "name": "Backend Developer",
+      "kb_namespace": "backend",
+      "skills": [
+        "test-driven-development",
+        "karpathy-guidelines",
+        "ponytail"
+      ],
+      "when": "Server-side logic, APIs, data persistence, integrations.",
+      "artifacts": [
+        "source code per plan",
+        ".pmos/out/backend/notes.md"
+      ]
+    },
+    "frontend": {
+      "name": "Frontend Developer",
+      "kb_namespace": "frontend",
+      "skills": [
+        "test-driven-development",
+        "hallmark"
+      ],
+      "when": "Client-side UI implementation against the designer's spec.",
+      "artifacts": [
+        "source code per plan",
+        ".pmos/out/frontend/notes.md"
+      ]
+    },
+    "business": {
+      "name": "Business Advisor",
+      "kb_namespace": "business",
+      "skills": [
+        "brainstorming",
+        "brand"
+      ],
+      "when": "Products with a monetization, market, or viability question.",
+      "artifacts": [
+        ".pmos/out/business/model.md"
+      ]
+    },
+    "marketing": {
+      "name": "Marketing Manager",
+      "kb_namespace": "marketing",
+      "skills": [
+        "brand",
+        "hallmark"
+      ],
+      "when": "Projects needing positioning, launch assets, landing page copy, or channel plan.",
+      "artifacts": [
+        ".pmos/out/marketing/positioning.md",
+        ".pmos/out/marketing/launch-plan.md"
+      ]
+    },
+    "qa": {
+      "name": "QA / Test Engineer",
+      "kb_namespace": "qa",
+      "skills": [
+        "test-driven-development",
+        "verification-before-completion",
+        "caveman-review"
+      ],
+      "when": "Always for projects with code. Runs the verification gate against acceptance criteria.",
+      "artifacts": [
+        ".pmos/out/qa/test-report.md",
+        "test code per plan"
+      ]
+    },
+    "devops": {
+      "name": "DevOps Engineer",
+      "kb_namespace": "devops",
+      "skills": [
+        "verification-before-completion",
+        "karpathy-guidelines"
+      ],
+      "when": "Projects needing CI, deployment, environments, secrets, backups, or observability. Also carries security hardening.",
+      "artifacts": [
+        ".pmos/out/devops/infra.md",
+        "CI/deploy config per plan"
+      ]
+    },
+    "legal": {
+      "name": "Legal Advisor (Risk & Policy)",
+      "kb_namespace": "legal",
+      "skills": [
+        "verification-before-completion",
+        "karpathy-guidelines"
+      ],
+      "when": "Every project: regulatory risk assessment for the charter's deployment jurisdictions. Strict mode (config.json legal_strict) does a jurisdiction pack + gate blocking; light mode is advisory only.",
+      "artifacts": [
+        ".pmos/out/legal/data-inventory.md",
+        ".pmos/out/legal/licenses.md",
+        ".pmos/out/legal/risk-register.md",
+        ".pmos/out/legal/compliance-calendar.md"
+      ]
+    }
+  }
+}

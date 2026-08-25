@@ -319,19 +319,25 @@ def cmd_search(con, args, config):
     fq = fts_query(q)
     k = args.k or config.get("context_rules", {}).get("search_k_default", 5)
     max_chars = config.get("context_rules", {}).get("excerpt_max_chars", 1200)
-    scope = "AND c.ns=?" if args.role else ""
-    params = [args.role] if args.role else []
+    # --role accepts a comma-separated namespace list (lean roster roles map to
+    # several curated corpora, e.g. planner -> pm,architect)
+    ns_list = [n.strip() for n in args.role.split(",")] if args.role else None
+    if ns_list:
+        scope = "AND c.ns IN (%s)" % ",".join("?" * len(ns_list))
+        params = ns_list
+    else:
+        scope, params = "", []
     mode = getattr(args, "mode", "hybrid")
 
     fts_rank = {}
     if mode != "vector" and fq:
         try:
-            if args.role:
+            if ns_list:
                 rows = con.execute(
                     "SELECT kb_fts.rowid, bm25(kb_fts) AS s FROM kb_fts "
                     "JOIN chunks c ON c.rowid = kb_fts.rowid "
-                    "WHERE kb_fts MATCH ? AND c.ns = ? ORDER BY s LIMIT ?",
-                    (fq, args.role, k * 6),
+                    "WHERE kb_fts MATCH ? AND c.ns IN (%s) ORDER BY s LIMIT ?" % ",".join("?" * len(ns_list)),
+                    (fq, *ns_list, k * 6),
                 ).fetchall()
             else:
                 rows = con.execute(
@@ -405,7 +411,7 @@ def cmd_search(con, args, config):
         if not row:
             continue
         ns, title, kind, source, body = row
-        if args.role and ns != args.role:
+        if ns_list and ns not in ns_list:
             continue
         if score < args.min_score:
             continue
@@ -746,7 +752,7 @@ def main():
     p.add_argument("--no-prune", action="store_true",
                    help="keep chunks whose section vanished from the source file")
     p = sub.add_parser("search"); add_db(p); add_cfg(p)
-    p.add_argument("query", nargs="+"); p.add_argument("--role", default=None)
+    p.add_argument("query", nargs="+"); p.add_argument("--role", default=None, help="namespace, or comma-separated list")
     p.add_argument("-k", type=int, default=None); p.add_argument("--json", action="store_true")
     p.add_argument("--min-score", type=float, default=0.0)
     p.add_argument("--no-decay", action="store_true",

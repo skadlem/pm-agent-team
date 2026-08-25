@@ -77,6 +77,16 @@ pm-agent-team/
   install.cmd / install.sh # copy skills to ~/.jcode/skills, record template root
 ```
 
+## Teams
+
+Two rosters ship in `rosters/`: **expensive** (9 specialist roles — the default, `roster.json`)
+and **lean** (planner / implementer / reviewer). Teams differ only in roles, waves and quality
+bars (`role_tiers`): lean's planner and reviewer sit at 0.95 so GATE 1 can only pick frontier-class
+models for them, while the implementer at 0.80 admits a good coder that wins on price. Model ids
+live in neither roster — selection happens at launch from your live available list. Lean maps its
+roles onto the same curated KB corpora (`planner -> pm+architect`, etc.), so no separate content.
+The team is chosen once at launch ("expensive or lean?") and recorded in `.pmos/team.json`.
+
 ## Roles
 
 project manager/planner, architect, designer, backend, frontend, business advisor, marketing,

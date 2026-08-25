@@ -148,11 +148,16 @@ def main():
         text = log.read_text(encoding="utf-8", errors="replace").lower()
         return any(n.lower() in text for n in needles)
 
+    team_info = load_json(pmos / "team.json")
+    qa_artifact = ("out/reviewer/test-report.md"
+                   if isinstance(team_info, dict) and team_info.get("team") == "lean"
+                   else QA_ARTIFACT)
+
     def qa_failures():
         """Criteria the QA report marks fail/blocked. A report that exists is not
         a gate that passed: ORCHESTRATOR step 10 sends a failed gate back to
         wave 3, so those ids are what decides whether stage 8 was reached."""
-        p = pmos / QA_ARTIFACT
+        p = pmos / qa_artifact
         if not p.is_file():
             return []
         text = p.read_text(encoding="utf-8", errors="replace")
@@ -160,7 +165,7 @@ def main():
                                      text, re.I | re.M)))
 
     failing_criteria = qa_failures()
-    qa_passed = exists(QA_ARTIFACT) and not failing_criteria
+    qa_passed = exists(qa_artifact) and not failing_criteria
 
     markers = {
         0: exists("kb.sqlite3"),
@@ -181,8 +186,15 @@ def main():
     if isinstance(team_model, dict):
         approved_roles = sorted(k for k in team_model if k != "budget_usd")
 
-    wave2_approved = [r for r in approved_roles if r in WAVE2_ARTIFACTS]
-    markers[4] = bool(wave2_approved) and all(exists(WAVE2_ARTIFACTS[r]) for r in wave2_approved)
+    # lean team: different role names + artifact paths (rosters/lean.json waves)
+    is_lean = isinstance(team_info, dict) and team_info.get("team") == "lean"
+    wave2_map = {"implementer": "out/implementer/notes.md"} if is_lean else WAVE2_ARTIFACTS
+    wave3_map = {} if is_lean else WAVE3_ARTIFACTS
+
+    wave2_approved = [r for r in approved_roles if r in wave2_map]
+    markers[4] = bool(wave2_approved) and all(exists(wave2_map[r]) for r in wave2_approved)
+    wave3_approved = [r for r in approved_roles if r in wave3_map]
+    markers[7] = bool(wave3_approved) and any(exists(wave3_map[r]) for r in wave3_approved)
     wave3_approved = [r for r in approved_roles if r in WAVE3_ARTIFACTS]
     markers[7] = bool(wave3_approved) and any(exists(WAVE3_ARTIFACTS[r]) for r in wave3_approved)
 
@@ -327,7 +339,7 @@ def main():
 
     if stage >= 4:
         for r in wave2_approved:
-            rel = WAVE2_ARTIFACTS[r]
+            rel = wave2_map[r]
             p = pmos / rel
             add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
                 "%s (%s) present and non-empty" % (rel, r))
@@ -344,14 +356,14 @@ def main():
 
     if stage >= 7:
         for r in wave3_approved:
-            rel = WAVE3_ARTIFACTS[r]
+            rel = wave3_map[r]
             p = pmos / rel
             add("OK" if p.is_file() and p.stat().st_size >= 100 else "WARN",
                 "%s (%s) present" % (rel, r),
                 "implementation role; WARN not FAIL (may be mid-wave)")
 
     if stage >= 8:
-        p = pmos / QA_ARTIFACT
+        p = pmos / qa_artifact
         add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
             "qa/test-report.md present and non-empty")
 
