@@ -17,9 +17,13 @@ in CPython). No pip dependencies.
 ```bash
 git clone https://github.com/skadlem/pm-agent-team.git
 cd pm-agent-team
-install.cmd          # Windows
-sh install.sh        # macOS/Linux
+sh install.sh claude    # or: jcode (default) | openhands | hermes
+install.cmd claude      # Windows
 ```
+
+The installer reads the host's adapter config and installs the host's rendered
+bundle skills globally, then records the template root. Per-host extras (e.g.
+per-project `agents/` dirs): the bundle's README.
 
 **jcode:** the installer copies the 4 skills into `~/.jcode/skills` and remembers the template
 location in `~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the
