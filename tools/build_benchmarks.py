@@ -71,6 +71,12 @@ BENCHMARKS = {
 PRICING = {
     "claude-fable-5": (3.0, 15.0),
     "claude-sonnet-5": (3.0, 15.0),
+    # claude-sonnet-4-5 generation (context-length variants from LiveBench):
+    # $3/$15 per MTok standard input/output (Anthropic pricing page, checked 2026-08-26)
+    "claude-sonnet-4-5-20250929_2K": (3.0, 15.0),
+    "claude-sonnet-4-5-20250929_8K": (3.0, 15.0),
+    "claude-sonnet-4-5-20250929_48K": (3.0, 15.0),
+    "claude-sonnet-4-5-20250929_59K": (3.0, 15.0),
     "claude-opus-5": (5.0, 25.0),
     "gpt-5.6-pro": (10.0, 40.0),
     "gpt-5.5-pro": (8.0, 32.0),
@@ -385,9 +391,14 @@ def main():
     for m in sorted(model_scores):
         base = baseline_entries.get(m)
         # Baseline model untouched by Epoch CSVs and LiveBench (or already carrying a
-        # prior LiveBench merge, so a re-run is idempotent) -> keep as-is.
+        # prior LiveBench merge, so a re-run is idempotent) -> keep as-is, except a
+        # newer curated price: the overlay may gain an entry after the last re-score.
         if base and not [b for b in model_benchmarks[m] if b != "already_livebenched"]:
-            models_out[m] = base
+            entry = dict(base)
+            cin, cout = PRICING.get(m, (None, None))
+            if cin is not None:
+                entry["cost_in"], entry["cost_out"] = cin, cout
+            models_out[m] = entry
             continue
         lb_files = sorted(b for b in model_benchmarks[m] if b.startswith("livebench_"))
         scores = {p: round(sum(vals) / len(vals), 1)

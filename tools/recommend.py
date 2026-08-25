@@ -64,6 +64,9 @@ ALIASES = {
     "anthropic/claude-sonnet-4": "claude-sonnet-4-20250514",
     "gpt-5.6-pro": "gpt-5.6-sol",  # [web]/oauth route for the 5.6 pro class; sol is the closest scored entry
     "deepseek-v4-flash-0731": "deepseek-v4-flash",
+    # claude -p route id -> the dated LiveBench entry (59K variant carries the
+    # family's scores; all _20250929 variants share the same $3/$15 pricing)
+    "claude-sonnet-4-5": "claude-sonnet-4-5-20250929_59K",
 }
 
 

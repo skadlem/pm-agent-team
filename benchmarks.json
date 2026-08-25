@@ -3379,8 +3379,8 @@
     "ops": 85.1,
     "design": 85.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 3.0,
+   "cost_out": 15.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: deepresearchbench_external.csv, epoch_capabilities_index.csv",
    "confidence": "sourced",
    "meta": {
@@ -3398,8 +3398,8 @@
     "ops": 85.1,
     "design": 85.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 3.0,
+   "cost_out": 15.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: epoch_capabilities_index.csv",
    "confidence": "sourced",
    "meta": {
@@ -3417,8 +3417,8 @@
     "ops": 85.1,
     "design": 85.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 3.0,
+   "cost_out": 15.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: epoch_capabilities_index.csv, frontiermath.csv, gpqa_diamond.csv",
    "confidence": "sourced",
    "meta": {
@@ -3436,8 +3436,8 @@
     "ops": 85.1,
     "design": 85.1
    },
-   "cost_in": null,
-   "cost_out": null,
+   "cost_in": 3.0,
+   "cost_out": 15.0,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: arc_agi_2_external.csv, arc_agi_external.csv, epoch_capabilities_index.csv",
    "confidence": "sourced",
    "meta": {
@@ -8309,8 +8309,8 @@
     "business": 65.9,
     "writing": 61.2
    },
-   "cost_in": 0.4,
-   "cost_out": 1.2,
+   "cost_in": 2.5,
+   "cost_out": 7.5,
    "source": "Epoch AI Benchmarking Hub (epoch.ai/benchmarks) ; benchmarks: ale_bench_external.csv, epoch_capabilities_index.csv, gpqa_diamond.csv, scicode_external.csv, simplebench_external.csv, swe_bench_verified.csv, webdev_arena_external.csv + LiveBench (livebench_2026_06_25)",
    "confidence": "sourced",
    "meta": {
