@@ -2,7 +2,8 @@
 
 1. Install the skills: copy `skills/*` from the template root to `~/.claude/skills/`, and
    write the template root path to `~/.claude/pmos-template-root`.
-2. Enumerate models: `claude models list` > `.pmos/available-models.txt`, then
+2. Enumerate models: Claude Code 2.1.x has no CLI model-list command — write the ids your
+   account can access to `.pmos/available-models.txt` (`- <id>` per line), then
    `python TPL/tools/recommend.py --available .pmos/available-models.txt` for the roster.
 3. Spawn workers: `claude -p --model <m> --permission-mode acceptEdits \
    --allowedTools 'Bash,Read,Write,Edit,Grep,Glob'` with the spawn prompt from

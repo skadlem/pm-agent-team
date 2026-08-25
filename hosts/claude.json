@@ -11,7 +11,8 @@
     "model_flag": "--model <model>",
     "effort_flag": "(not supported; omit)"
   },
-  "list_models": "claude models list",
+  "list_models": "",
+  "list_models_note": "Claude Code 2.1.x has no CLI model-list command. Obtain the list from the provider (Anthropic API /v1/models or the models your account can access) and write it to .pmos/available-models.txt in the same '- <id>' shape the recommender parses.",
   "usage": {
     "doc": "run with --output-format json and read usage.input_tokens / usage.output_tokens from the result",
     "flag": "--output-format json"

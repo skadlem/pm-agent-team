@@ -97,7 +97,10 @@ def cmd_list_models(args):
     cfg = load_host(args.host)
     cmd, _ = real_command(cfg, "list-models", args)
     if not cmd:
-        print("host %s declares no list_models command" % args.host, file=sys.stderr)
+        note = cfg.get("list_models_note") or "the host declares no list_models command"
+        print("host %s has no CLI list-models command: %s" % (args.host, note), file=sys.stderr)
+        print("write the model list to --out yourself, then re-run without list-models",
+              file=sys.stderr)
         return 2
     if args.dry_run:
         print(cmd)
@@ -146,6 +149,20 @@ def cmd_usage(args):
                           "tokens_out": result.get("tokens_out", 0),
                           "status": result.get("status", "ok")}))
         return 0
+    # real hosts: try to parse the result file's usage block (claude -p
+    # --output-format json emits .usage.input_tokens / .usage.output_tokens)
+    p = Path(args.result)
+    if p.is_file():
+        try:
+            result = json.loads(p.read_text(encoding="utf-8"))
+            u = result.get("usage") or {}
+            if u.get("input_tokens") is not None:
+                print(json.dumps({"tokens_in": u["input_tokens"],
+                                  "tokens_out": u.get("output_tokens", 0),
+                                  "status": "ok" if not result.get("is_error") else "failed"}))
+                return 0
+        except ValueError:
+            pass
     cfg = load_host(args.host)
     flag, _ = real_command(cfg, "usage", args)
     print("# usage: %s" % ((cfg.get("usage") or {}).get("doc", "") or flag or "see host docs"))

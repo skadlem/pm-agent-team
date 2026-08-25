@@ -99,7 +99,9 @@ spawn -> usage -> cost record -> events record -> report), so the adapter contra
 without ever paying a model.
 
 list_models: the coordinator saves the output to `.pmos/available-models.txt` and feeds it to
-`recommend.py --available`. jcode: `swarm list_models`. Claude Code: `claude models list`.
+`recommend.py --available`. jcode: `swarm list_models`. Claude Code: no CLI command in 2.1.x —
+the coordinator writes the provider's model list to the file by hand (hosts/claude.json
+`list_models_note` says how). Hermes: the configured provider/model list.
 
 usage: every spawn result must yield tokens_in/tokens_out for `cost.py record`. jcode: in the
 spawn result. Claude Code: `--output-format json` usage block. Hermes: the subagent result.
