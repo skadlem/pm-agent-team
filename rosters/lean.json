@@ -142,5 +142,20 @@
         "test code per plan"
       ]
     }
+  },
+  "gstack_commands": {
+    "note": "OPTIONAL per-role methodology upgrade (same contract as the expensive roster): when the worker's host has gstack installed, the spawn prompt tells the worker to use these slash commands as its methodology INSTEAD of the generic built-in procedure. Without gstack, built-in procedure applies unchanged.",
+    "planner": [
+      "/office-hours",
+      "/plan-eng-review"
+    ],
+    "implementer": [
+      "/review",
+      "/investigate"
+    ],
+    "reviewer": [
+      "/qa",
+      "/qa-only"
+    ]
   }
 }
