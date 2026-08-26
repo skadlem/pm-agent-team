@@ -593,6 +593,19 @@ check("L-13: no same-tier alternative -> fall back to the historical pick",
                      bench, roster, 0.92, history=hist)[0]["suggested"] == "claude-sonnet-5",
       "")
 
+# pass-rate tiebreaker: two same-tier models, equal cost ranking aside - the one with a
+# known gate pass-rate beats an unknown; higher pass-rate wins over lower at similar cost.
+hist_pr = {"claude-sonnet-5": {"runs": 4, "ok": 4, "pass_rate": 1.0},
+           "qwen3.8-max": {"runs": 4, "ok": 4, "pass_rate": 0.25}}
+hpr = rmod.recommend([{"id": "claude-sonnet-5", "available": True},
+                      {"id": "qwen3.8-max", "available": True}],
+                     bench, roster, 0.92, history=hist_pr)
+hpr_backend = next(r for r in hpr if r["role"] == "backend")
+check("gate pass-rate outranks cost within tier (higher pass_rate wins even if pricier)",
+      hpr_backend["suggested"] == "claude-sonnet-5" or
+      rmod.blended_cost(bench["claude-sonnet-5"]) <= rmod.blended_cost(bench["qwen3.8-max"]),
+      "suggested %s" % hpr_backend["suggested"])
+
 print("== 11. Benchmarks: bundled file integrity + generator ==")
 # The shipped benchmarks.json must be complete even without the raw CSVs.
 bundled = json.loads((TPL / "benchmarks.json").read_text(encoding="utf-8"))

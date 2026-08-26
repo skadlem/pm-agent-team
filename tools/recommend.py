@@ -254,13 +254,32 @@ def recommend(available, benchmarks, roster, tier=0.92, role_filter=None, histor
             c = blended_cost(item[1]["entry"])
             return (c is None, c if c is not None else 0.0, -item[1]["score"])
 
+        def hist(mid):
+            return (history or {}).get(mid) or {}
+
         def failing(mid):
-            h = (history or {}).get(mid)
+            h = hist(mid)
             return bool(h and h.get("runs", 0) >= 3 and h.get("ok", 0) / h["runs"] < 0.5)
 
-        # L-13: skip historically-failing models when a same-tier alternative exists
+        def pass_rate(mid):
+            # fraction of this model's runs whose output PASSED its gate (Anthropic:
+            # spend predicts quality - a model that "succeeds" but fails QA half the
+            # time is not cheap). None = no gate data yet.
+            h = hist(mid)
+            if not h or h.get("runs", 0) < 2 or "pass_rate" not in h:
+                return None
+            return h.get("pass_rate")
+
+        # L-13: skip historically-failing models when a same-tier alternative exists.
+        # Gate pass-rate (when known) outranks cost; cost breaks remaining ties.
+        def quality_cost_key(item):
+            c = blended_cost(item[1]["entry"])
+            pr = pass_rate(item[0])
+            quality_rank = -pr if pr is not None else 0  # unknown == neutral middle
+            return (quality_rank, c is None, c if c is not None else 0.0, -item[1]["score"])
+
         ok_tier = {m: d for m, d in in_tier.items() if not failing(m)}
-        pick, picked = min((ok_tier or in_tier).items(), key=cost_key)
+        pick, picked = min((ok_tier or in_tier).items(), key=quality_cost_key)
         alt = [display(m) for m in sorted(in_tier, key=lambda m: (-scores[m]["score"],
                blended_cost(scores[m]["entry"]) or 1e12))][:3]
         ladder = [display(m) for m in sorted(scores, key=lambda m: (-scores[m]["score"],

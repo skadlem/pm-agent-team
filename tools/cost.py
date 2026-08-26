@@ -305,9 +305,13 @@ def cmd_estimate(args):
         rows.append({"role": role, "model": model, "tokens_in": tin, "tokens_out": tout,
                      "usd": round(usd, 4) if usd is not None else None, "basis": basis})
     remaining = round(budget - spent, 4) if budget else None
+    cap = getattr(args, "cap", None)
+    over_cap = [r["role"] for r in rows
+                if cap is not None and r.get("usd") is not None and r["usd"] > cap]
     out = {"wave": args.wave, "workers": rows, "estimate_usd": round(total, 4),
            "already_spent_usd": spent, "budget_usd": budget, "remaining_usd": remaining,
            "over_budget": bool(budget and spent + total > budget),
+           "cap_usd": cap, "over_cap_roles": over_cap,
            "prices": {"as_of": as_of, "age_days": age, "max_age_days": max_age,
                       "stale": bool(stale)}}
     if args.json:
@@ -328,10 +332,13 @@ def cmd_estimate(args):
         if budget:
             print("budget $%.2f, remaining after this wave $%.2f"
                   % (budget, budget - spent - total))
+        if over_cap:
+            print("PER-TASK CAP $%.2f exceeded by: %s - use a cheaper model for that task,"
+                  "\nsplit the task, or raise --cap" % (cap, ", ".join(over_cap)))
         if out["over_budget"]:
             print("THIS WAVE WOULD EXCEED THE BUDGET - stop and ask the user to raise the cap,"
                   "\ndrop a role, or move a role to a cheaper model")
-    return 2 if out["over_budget"] else 0
+    return 2 if (out["over_budget"] or over_cap) else 0
 
 
 def selftest():
@@ -498,6 +505,9 @@ def main():
     p.add_argument("--roles", required=True, help="comma-separated roles about to be spawned")
     p.add_argument("--wave", type=int, default=None)
     p.add_argument("--model", default=None, help="override when team-model.json has no entry")
+    p.add_argument("--cap", type=float, default=None,
+                   help="per-task USD ceiling: any single worker estimated above it exits 2 "
+                        "(ladder retries multiply cost; the cap bounds one task's first attempt)")
     p.add_argument("--config", default=None)
     p.add_argument("--benchmarks", default=None)
 

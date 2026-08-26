@@ -161,7 +161,9 @@ of what workers actually burned (`.pmos/costs.jsonl`, one JSON object per run), 
   estimated spend apart, flags unpriced models rather than counting them as free, and prints how
   far the flat config estimate is from reality so it can be corrected with evidence
 - `estimate` and `report` exit 2 when the cap would be or has been breached, so a wave can be
-  gated on them; `state.py` reports the same on resume
+  gated on them; `estimate --cap <usd>` adds a per-task ceiling (a worker estimated above it
+  trips the same exit code — ladder retries multiply cost, so bound the first attempt);
+  `state.py` reports the same on resume
 - prices age too: `report` and `estimate` carry a `prices` block (benchmarks.json `as_of`,
   age in days) and warn when it exceeds `cost.max_price_age_days` (default 60) — a ledger
   priced from stale unit prices silently drifts from reality, so the staleness is visible

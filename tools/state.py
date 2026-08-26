@@ -407,6 +407,11 @@ def main():
             add("WARN", "replan recommended (L-4)",
                 "QA sent work back twice: stop retrying the ladder, re-split or re-plan "
                 "the failing task before another run (docs/stages/spawn-fallback.md)")
+        elif ev["decision"] == "escalate":
+            add("FAIL", "stall: escalate to the user (Magentic-One pattern)",
+                "three or more rework loops - the replan did not break the loop. STOP: present "
+                "the failure story and a re-plan proposal to the user; do not spawn again without "
+                "an explicit user decision (docs/stages/spawn-fallback.md)")
 
     if a.json:
         print(json.dumps(out, indent=1, ensure_ascii=False))

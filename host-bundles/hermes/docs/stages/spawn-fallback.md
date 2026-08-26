@@ -20,6 +20,9 @@ Mandatory procedure:
 3. Knowledge base: search BEFORE answering anything domain-specific:
    python "{{TPL}}/tools/kb.py" search --db "{{PROJ}}/.pmos/kb.sqlite3" "<query>" --role {{ns}} -k 5
    You may add one --role shared search too. Never dump the DB.
+   TASK SCOPING: your assignment names the paths you may touch. When several hits rank
+   similarly, prefer KB chunks whose source file overlaps those paths (or their parent dirs) —
+   guidance grounded in the code you are actually changing beats general guidance.
 4. Repo questions: use the graphify skill (query mode), never full-repo reads.
    BROWNFIELD RULE: before writing or changing any code, graphify-query for existing similar
    patterns and read .pmos/out/architect/current-state.md conventions; conform to them.
@@ -79,7 +82,11 @@ comes from the event trace, not from how the coordinator feels:
 1. Run `python TPL/tools/events.py report --project .` at every checkpoint. Its `decision` field
    is the taxonomy:
    - `continue` (fewer than 2 rework loops) — keep going; single failures are ladder business.
-   - `replan` (2 or more rework loops, i.e. QA sent work back twice) — STOP retrying. The task
+   - `escalate` (3 or more rework loops — the replan did not break the loop) — HARD STOP.
+     Present the failure story and a re-plan proposal to the USER; do not spawn again without
+     an explicit user decision. This is Magentic-One's stall rule: autonomous retries after a
+     failed replan are how death spirals happen.
+   - `replan` (2 rework loops, i.e. QA sent work back twice) — STOP retrying. The task
      as defined is not being understood; a new model on the same prompt will fail the same way.
 2. On `replan`, do NOT burn more ladder fallbacks on the failing task. Instead:
    a. PM re-splits the task into smaller tasks (decompose) OR rewrites the acceptance criteria

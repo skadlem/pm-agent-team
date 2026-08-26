@@ -11,6 +11,9 @@ Mandatory procedure:
 3. Knowledge base: search BEFORE answering anything domain-specific:
    python "{{TPL}}/tools/kb.py" search --db "{{PROJ}}/.pmos/kb.sqlite3" "<query>" --role {{ns}} -k 5
    You may add one --role shared search too. Never dump the DB.
+   TASK SCOPING: your assignment names the paths you may touch. When several hits rank
+   similarly, prefer KB chunks whose source file overlaps those paths (or their parent dirs) —
+   guidance grounded in the code you are actually changing beats general guidance.
 4. Repo questions: use the graphify skill (query mode), never full-repo reads.
    BROWNFIELD RULE: before writing or changing any code, graphify-query for existing similar
    patterns and read .pmos/out/architect/current-state.md conventions; conform to them.

@@ -41,7 +41,9 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
       `cost.max_project_cost_usd`, currently 20). Write it to `.pmos/team-model.json`
       as `budget_usd`. From then on the ledger, not arithmetic in your head, tracks spend:
 
-      - BEFORE each wave: `python TPL/tools/cost.py estimate --project . --roles <roles> --wave N`.
+      - BEFORE each wave: `python TPL/tools/cost.py estimate --project . --roles <roles> --wave N`
+        [--cap <usd>]`. `--cap` bounds a single task's first attempt (ladder retries multiply
+        cost); exit 2 on cap breach means: cheaper model, split the task, or raise the cap.
         It prices each role's approved model and uses THIS project's measured history for roles
         that have any (`--write`n by calibrate), the flat config estimate for the rest. Exit code
         2 means the wave would breach `budget_usd`: STOP and ask the user to raise the cap, drop

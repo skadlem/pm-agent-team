@@ -106,8 +106,12 @@ def summarize(events):
             if key is None:
                 continue
             r = out[bucket].setdefault(key, {"runs": 0, "ok": 0, "failed": 0,
-                                             "tokens": [], "ladder_retries": 0})
+                                             "tokens": [], "ladder_retries": 0,
+                                             "gate_passes": 0})
             r["runs"] += 1
+            if e.get("gate"):
+                # a gate-annotated event means this worker's output PASSED its gate
+                r["gate_passes"] += 1
             if e.get("outcome") == "ok":
                 r["ok"] += 1
             elif e.get("outcome") not in (None, "unknown"):
@@ -119,13 +123,22 @@ def summarize(events):
         for r in out[bucket].values():
             r["median_tokens"] = int(statistics.median(r["tokens"])) if r["tokens"] else 0
             r["ok_rate"] = round(r["ok"] / r["runs"], 3) if r["runs"] else 0.0
+            r["pass_rate"] = round(r["gate_passes"] / r["runs"], 3) if r["runs"] else None
             del r["tokens"]
     out["usd"] = round(out["usd"], 4)
     # L-4 failure taxonomy: the coordinator follows this decision instead of
     # improvising. QA sent work back (wave numbers went backwards) twice ->
     # stop retrying the ladder and replan; otherwise keep going (the ladder
     # handles single failures).
-    out["decision"] = "replan" if out["rework_loops"] >= 2 else "continue"
+    # L-4 ladder: 1 loop -> continue; 2 -> replan; 3+ -> escalate to the user
+    # (Magentic-One's re-plan-on-stall: if a replan already failed to break the
+    # loop, continuing autonomously is how death spirals happen)
+    if out["rework_loops"] >= 3:
+        out["decision"] = "escalate"
+    elif out["rework_loops"] == 2:
+        out["decision"] = "replan"
+    else:
+        out["decision"] = "continue"
     return out
 
 
@@ -251,6 +264,20 @@ def selftest():
     cases += [
         ("two rework loops flips the decision to replan (L-4)",
          rep2["rework_loops"] == 2 and rep2["decision"] == "replan"),
+    ]
+
+    # a THIRD return: the replan failed to break the loop - escalate to the user
+    add_ledger_row(4, "qa", "failed", 40000, 5000, 0.3)
+    quiet(lambda a: cmd_record(a), argparse.Namespace(project=str(root), ladder=0,
+                                                      gate=None, role=None, wave=None, model=None))
+    add_ledger_row(3, "backend", "ok", 90000, 9000, 0.6, task="T-001")
+    quiet(lambda a: cmd_record(a), argparse.Namespace(project=str(root), ladder=0,
+                                                      gate=None, role=None, wave=None, model=None))
+    rc, out = quiet(lambda a: cmd_report(a), argparse.Namespace(project=str(root), json=True))
+    rep3 = json.loads(out)
+    cases += [
+        ("three rework loops escalates to the user",
+         rep3["rework_loops"] == 3 and rep3["decision"] == "escalate"),
     ]
 
     for label, cond in cases:
