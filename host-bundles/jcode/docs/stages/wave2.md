@@ -33,6 +33,12 @@ wave, KB enrichment, and the second user gate.
    chunks in place and prunes facts deleted from their source file, so workers stop retrieving a
    decision the project has moved off. Log the `N new, N updated, N pruned` line.
 8. GATE 2: summarize plan + architecture + key decisions for the user. Ask for go-ahead.
+   BEFORE presenting, run the complexity report and include it in the summary:
+   `python TPL/tools/complexity.py --project .`
+   Tasks scoring above the threshold are split into subtasks (or explicitly justified) BEFORE
+   you ask for approval - a task that promises too much fails QA twice and burns the budget.
+   Also check every task carries a `test_strategy:` line; a task without one cannot be verified
+   by QA and comes back as a rework loop.
    FIRST run `python TPL/tools/artifacts.py --project .`. Present the gate as a VERDICT, not a
    dump — one line up front, computed from the linter:
    - `PASS` — exit 0, no warnings: clean handoff.

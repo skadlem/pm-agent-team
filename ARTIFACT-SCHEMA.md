@@ -36,6 +36,10 @@ Each field points at exactly one kind. Values are comma-separated; empty means n
 `touches:` on a task takes paths or module names rather than ids. It is not checked against the
 repo, but it is what joins this graph to the graphify code graph.
 
+`test_strategy:` on a task is free text (a command, script, or check — not "manual testing").
+It is not linted, but GATE 2's complexity report and the QA reviewer use it as the per-task
+verification contract: what will prove this task works, decided before implementation starts.
+
 QA reports results in `.pmos/out/qa/test-report.md`, one line per criterion:
 
 ```

@@ -340,7 +340,7 @@ def build_graph(by_id, edges, qa_results):
     nodes = []
     for e in sorted(by_id.values(), key=lambda e: e.id):
         node = {"id": e.id, "kind": e.kind, "title": e.title, "file": e.file, "line": e.line}
-        for extra in ("role", "status", "severity", "touches"):
+        for extra in ("role", "status", "severity", "touches", "test_strategy"):
             if e.fields.get(extra):
                 node[extra] = e.fields[extra]
         if e.id in qa_results:

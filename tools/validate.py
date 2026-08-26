@@ -501,6 +501,23 @@ else:
               r.returncode == 0 and usage["status"] == ("ok" if not run.get("is_error") else "failed"),
               str(usage))
 
+print("== 9h. Complexity analysis (T2) ==")
+sys.path.insert(0, str(TPL / "tools"))
+import eval_project as _harness2
+_cdest = _harness2.materialize(TPL / "tests" / "fixtures" / "greenfield-planning",
+                               pathlib.Path(tempfile.mkdtemp()) / "proj", False)
+r = subprocess.run([sys.executable, str(TPL / "tools" / "complexity.py"),
+                    "--project", str(_cdest), "--json"],
+                   capture_output=True, text=True)
+check("complexity.py runs on a fixture", r.returncode == 0, r.stderr[:80])
+if r.returncode == 0:
+    rep = json.loads(r.stdout)
+    check("complexity report has scored tasks",
+          len(rep["tasks"]) >= 1 and all("score" in t for t in rep["tasks"]),
+          json.dumps(rep["flagged"]))
+check("task template documents test_strategy",
+      "test_strategy" in (TPL / "templates" / "plan.md").read_text(encoding="utf-8"))
+
 print("== 10. Model recommender ==")
 # fixture available list (subset of the machine's real swarm list_models output)
 fixture = TPL / "_fixture_models.txt"

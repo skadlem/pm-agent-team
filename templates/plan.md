@@ -21,6 +21,8 @@ Status: draft | Owner: PM agent | Updated: {{date}}
   depends_on:
   decided_by:
   touches:
+  test_strategy: <how THIS task gets verified before handoff - the command,
+                 script, or check that proves it works; not "manual testing">
 ```
 
 ## Acceptance criteria
