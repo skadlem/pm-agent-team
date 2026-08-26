@@ -60,7 +60,7 @@ pm-agent-team/
   docs/stages/*.md         # the wave-by-wave protocol, one file per stage (load only what you need)
   ARTIFACT-SCHEMA.md       # stable ids (R/T/A/ADR/L) and the references between artifacts
   roster.json              # default team roster (= rosters/expensive.json)
-  rosters/*.json           # team rosters: expensive (9 roles), lean (planner/implementer/reviewer)
+  rosters/*.json           # team rosters: expensive (10 roles), lean (planner/implementer/reviewer)
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
@@ -73,6 +73,7 @@ pm-agent-team/
   tools/host.py              # host shim: the three primitives per host; mock backend for the harness
   tools/converge.py          # level-5.5 audit: replay every check, one verdict (L-7)
   tools/issues.py            # export T-NNN plan tasks as GitHub issues (L-8)
+  tools/complexity.py        # per-task complexity scoring at GATE 2 prep; flags tasks to split
   tools/experience.py        # read-only cross-project experience search (L-11)
   tools/context_bill.py      # token bill of the protocol files (guards the split's size)
   queries/*.rq             # the protocol's own checks, as stored SPARQL
@@ -86,7 +87,7 @@ pm-agent-team/
 
 ## Teams
 
-Two rosters ship in `rosters/`: **expensive** (9 specialist roles — the default, `roster.json`)
+Two rosters ship in `rosters/`: **expensive** (10 specialist roles — the default, `roster.json`)
 and **lean** (planner / implementer / reviewer). Teams differ only in roles, waves and quality
 bars (`role_tiers`): lean's planner and reviewer sit at 0.95 so GATE 1 can only pick frontier-class
 models for them, while the implementer at 0.80 admits a good coder that wins on price. Model ids
@@ -216,7 +217,10 @@ also use the dedicated phrase **"Work on this project <what you want changed>"**
 `/project-team-work`), which forces brownfield mode:
 
 - **Greenfield** (empty repo): charter -> plan -> minimal team proposal -> YOU approve ->
-  design wave -> KB enrichment -> YOU approve plan -> implementation -> QA gate -> checkpoint.
+  design wave -> KB enrichment -> YOU approve plan (with a per-task complexity report from
+  `tools/complexity.py`; overloaded tasks are split before any worker spawns, and every task
+  carries a `test_strategy:` line — the verification contract QA will hold it to) ->
+  implementation -> QA gate -> checkpoint.
 - **Brownfield** (existing code): extra Wave 0 first. An architect worker maps the
   codebase via graphify into `current-state.md` (modules, conventions, test state, impact areas);
   the PM writes a delta charter with a do-not-touch list; the roster is justified by impact
