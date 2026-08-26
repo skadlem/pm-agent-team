@@ -53,7 +53,8 @@ pm-agent-team/
   host-bundles/<host>/     # generated protocol + spawn prompts rewritten per host
   docs/stages/*.md         # the wave-by-wave protocol, one file per stage (load only what you need)
   ARTIFACT-SCHEMA.md       # stable ids (R/T/A/ADR/L) and the references between artifacts
-  roster.json              # roles, per-role skills, model suggestions, wave order
+  roster.json              # default team roster (= rosters/expensive.json)
+  rosters/*.json           # team rosters: expensive (9 roles), lean (planner/implementer/reviewer)
   config.json              # KB caps (150K tokens total), context rules
   tools/kb.py              # hybrid KB engine: SQLite FTS5 BM25 + vectors, RRF fusion, caps
   tools/artifacts.py       # artifact id/reference linter + traceability graph export
@@ -267,7 +268,7 @@ python tools/kg.py query --project . --name unproven-mitigations
 python tools/kg.py query --project . -q "SELECT ?t WHERE { ?t a pmos:Task }"
 python tools/kg.py stats --project .
 python tools/state.py --project . --config config.json   # resume: stage + pre-flight checks
-python tools/recommend.py --available models.txt --ladder-out .pmos/team-model-ladder.json
+python tools/recommend.py --roster rosters/lean.json --available models.txt --ladder-out .pmos/team-model-ladder.json
 python tools/events.py report --project . --json > .pmos/events-report.json   # for --history
 python tools/recommend.py suggest --available models.txt --history .pmos/events-report.json  # L-13
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
