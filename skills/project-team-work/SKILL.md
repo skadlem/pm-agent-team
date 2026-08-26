@@ -17,7 +17,7 @@ auto-detection would be ambiguous.
 ## Step 1: load the protocol
 
 Read `TPL/ORCHESTRATOR.md` (core rules + the stage map; NOT the whole protocol), plus
-read the team roster — `.pmos/team.json` names it (`{"team": "expensive"|"lean"}`); if that file is missing, ask the user which team once and write it — then use
+read the team roster — `.pmos/team.json` names it (`{"team": "expensive"|"lean"}`); if that file is missing, do NOT default silently: size the change first. A one-file fix in a solo-maintained repo is LEAN territory (planner/implementer/reviewer, 3 spawns) — propose lean and only recommend expensive when the impact surface genuinely needs specialist roles (multi-surface UI + backend + regulatory). Ask once, write the answer to `.pmos/team.json`, then use
 `TPL/rosters/<team>.json` and `TPL/config.json`. Stage files live in `TPL/docs/stages/`.
 
 ## Step 2: existing state or fresh brownfield launch
