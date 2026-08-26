@@ -20,17 +20,10 @@
     "python": "~/.venvs/openhands/bin/python",
     "runner": "<tpl>/tools/openhands_run.py"
   },
-  "tool_rewrites": [
-    {"from": "`swarm` tool", "to": "an OpenHands one-shot spawn (tools/openhands_run.py)"},
-    {"from": "`swarm list_models`", "to": "your LiteLLM provider's model list"},
-    {"from": "`model` in the swarm", "to": "OH_MODEL on the openhands runner"},
-    {"from": "the swarm result", "to": "the runner's JSON result"},
-    {"from": "~/.jcode/pmos-template-root", "to": "~/.openhands/pmos-template-root"},
-    {"from": "%USERPROFILE%\\.jcode\\pmos-template-root", "to": "%USERPROFILE%\\.openhands\\pmos-template-root"},
-    {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.openhands/pmos-team-defaults.json"},
-    {"from": "swarm default", "to": "openhands default"}
+  "tool_rewrites": [],
+  "suppressed": [
+    "gstack"
   ],
-  "suppressed": ["gstack"],
   "file_scope_hooks": {
     "available": false,
     "doc": "The SDK supports hooks (docs.openhands.dev/sdk/guides/hooks) but per-worker PreToolUse-style file-scope denial is not wired yet; rely on trace.py unplanned at checkpoints."

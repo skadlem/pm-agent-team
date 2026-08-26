@@ -32,7 +32,7 @@ Mandatory procedure:
 7. Report back: what you did, decisions made, blockers, artifacts written.
 ```
 
-Spawn via the `delegate_task` subagent with a clear `label` like "pm", "architect", "backend-1". Use one
+Spawn via the host's spawn primitive with a clear `label` like "pm", "architect", "backend-1". Use one
 worker per task chunk; parallelize independent chunks.
 
 ## Worker model fallback (failed / out of tokens)
@@ -51,7 +51,7 @@ untried model in that role's ladder:
    model on the next provider in its fallback chain (`suggested_fallbacks` in `recommend.py`
    output; `providers`/`routes` JSON fields map every ladder entry to its chain and route ids,
    e.g. `glm-5.2` -> `[OpenAI-compatible, NVIDIA NIM]`).
-3. Spawn a FRESH worker for that task, passing the next model explicitly (`model=` in delegate_task
+3. Spawn a FRESH worker for that task, passing the next model explicitly (the host's spawn-with-model primitive
    spawn). Never continue a half-finished run; re-run the task from its clean start.
 4. Reuse the task's upstream artifacts (plan, out dirs, KB); do not re-run independent
    already-completed tasks.

@@ -18,11 +18,14 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
    modules the change touches), not from the project type. E.g. a backend refactor that touches
    no UI gets no designer and no frontend.
 4. GATE 1 (STOP and ask the user): present the roster proposal AND the model selection.
-   FIRST check for the user's saved defaults in `~/.openhands/pmos-team-defaults.json`. If it
+   FIRST check for the user's saved defaults file (host-specific path; see
+   HOST-ADAPTER.md / hosts/<host>.json `defaults_file`). If it
    exists, propose that role -> model table as-is (it is the user's explicit preference); only
-   verify each listed model still appears in your LiteLLM provider's model list, and flag any that do not.
+   verify each listed model still appears in the host's available-model list, and flag any that do not.
    Otherwise compute the model selection LIVE:
-   a. Run your LiteLLM provider's model list and save its output to `.pmos/available-models.txt`.
+   a. Enumerate the host's models (the host's list-models primitive; on hosts without a CLI
+      command, write the provider's model ids to `.pmos/available-models.txt` by hand —
+      see HOST-ADAPTER.md) and save them to `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
       (benchmarks.json), keep each role's best tier (per-role `role_tiers` in roster.json, NOT a
@@ -45,7 +48,7 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
         a role, or move a role to a cheaper model. Log the estimate.
       - AFTER each worker returns: `python TPL/tools/cost.py record --project . --role <role>
         --model <model> --wave N --label <label> --in <tokens_in> --out <tokens_out>
-        [--task T-NNN] [--status ok|failed]`, taking the token counts from the runner's JSON result.
+        [--task T-NNN] [--status ok|failed]`, taking the token counts from the spawn result.
         Record FAILED runs too - a worker that died on a context limit still cost money.
         If the host does not report usage, pass your own numbers with `--source estimated` so
         the report can keep guesses apart from measurements. Never skip the record: an unrecorded

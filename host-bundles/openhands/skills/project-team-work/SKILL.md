@@ -11,8 +11,7 @@ auto-detection would be ambiguous.
 
 ## Step 0: locate the template
 
-1. Read `~/.openhands/pmos-template-root` to get `TPL` (on Windows:
-   `type %USERPROFILE%\.openhands\pmos-template-root`).
+1. Find TPL via the host's template-root file (`hosts/<host>.json` names the exact path).
 2. If missing, tell the user to run `install.cmd` / `install.sh` from the `pm-agent-team` folder and stop.
 
 ## Step 1: load the protocol
@@ -54,10 +53,11 @@ Otherwise:
    IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
    EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
    per `docs/stages/launch.md` "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
-   openhands default, e.g. Fable 5). GATE 1 still decides the real team models.
-10. GATE 1: present roster + model selection. If `~/.openhands/pmos-team-defaults.json` exists, propose
+   the host's default model). GATE 1 still decides the real team models.
+10. GATE 1: present roster + model selection. If the host's team-defaults file exists (`hosts/<host>.json`
+    `defaults_file`), propose
     that role -> model table as-is (user's saved preference; verify its models still appear in
-    your LiteLLM provider's model list). Otherwise compute via your LiteLLM provider's model list ->
+    available-models list). Otherwise enumerate the host's models ->
     `.pmos/available-models.txt` -> `python TPL/tools/recommend.py --available ... 
     --ladder-out .pmos/team-model-ladder.json` (the ladder file is the per-role fallback order); user
     approves/edits/removes; approved map goes to `.pmos/team-model.json`.

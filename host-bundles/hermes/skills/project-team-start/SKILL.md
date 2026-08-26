@@ -9,7 +9,7 @@ You are about to run the PMOS project-management system. Follow it exactly.
 
 ## Step 0: locate the template
 
-1. Read the file `~/.hermes/pmos-template-root` (e.g. `type %USERPROFILE%\.hermes\pmos-template-root`
+1. Find TPL via the host's template-root file (`hosts/<host>.json` names the exact path)
    on Windows) to get `TPL`, the template folder.
 2. If that file is missing, tell the user to run `install.cmd` (or `install.sh`) in the
    `pm-agent-team` folder and stop.
@@ -67,12 +67,14 @@ charter, baseline QA). No extra command or flag is needed.
    IMPORTANT: Wave 0 and Wave 1 run BEFORE the team model table exists. Spawn them with an
    EXPLICIT temporary model (cheapest AVAILABLE model not in TPL/roster.json `forbidden_models`,
    per `docs/stages/launch.md` "Pre-GATE-1 worker model"), never an unmodeled spawn (that inherits the
-   hermes default, e.g. Fable 5). GATE 1 still decides the real team models.
+   the host's default model). GATE 1 still decides the real team models.
 5. GATE 1 (STOP and ask the user): present the proposed roster and scope summary, AND the model
-   selection. If `~/.hermes/pmos-team-defaults.json` exists, propose it as the role -> model table
-   (user's saved preference; verify its models are still in the configured provider/model list). Otherwise compute
+   selection. If the host's team-defaults file exists (see `hosts/<host>.json` `defaults_file`),
+   propose it as the role -> model table
+   (user's saved preference; verify its models are still available on this host). Otherwise compute
    it LIVE:
-   a. Run the configured provider/model list and save its output to `.pmos/available-models.txt`.
+   a. Enumerate the host's models (list-models primitive, or write the provider's ids by
+      hand on hosts without a CLI command) into `.pmos/available-models.txt`.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
       from `TPL/benchmarks.json`, keep each role's best tier (per-role `role_tiers` in
@@ -82,7 +84,7 @@ charter, baseline QA). No extra command or flag is needed.
       (see `docs/stages/spawn-fallback.md`).
    c. The user can OK all, change a model/effort, or remove a role. Record the approved map in
       `.pmos/team-model.json`. Use exactly those models and efforts when spawning workers via the
-      `delegate_task` subagent. Adjust roster on request.
+      the host's spawn primitive. Adjust roster on request.
    d. COST GUARDRAIL: ask the user for a project spend cap in USD (default
       `TPL/config.json` `cost.max_project_cost_usd`); write it as `budget_usd` in
       `.pmos/team-model.json`. Before each wave, estimate spend per worker as

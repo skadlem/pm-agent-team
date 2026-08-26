@@ -9,7 +9,7 @@ Build the INITIAL knowledge base: the bare fundamentals each agent needs. Curate
 
 ## Locate inputs
 
-- `TPL`: from `~/.jcode/pmos-template-root`, else ask the user where `pm-agent-team` lives.
+- `TPL`: from the host's template-root file (see HOST-ADAPTER.md), else ask the user where `pm-agent-team` lives.
 - `DB`: `<project>/.pmos/kb.sqlite3`. If missing, run
   `python TPL/tools/kb.py init --db .pmos/kb.sqlite3` first.
 - `CFG`: `TPL/config.json` (total cap, shared budget, per-role weights).

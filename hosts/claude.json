@@ -17,17 +17,10 @@
     "doc": "run with --output-format json and read usage.input_tokens / usage.output_tokens from the result",
     "flag": "--output-format json"
   },
-  "tool_rewrites": [
-    {"from": "`swarm` tool", "to": "`claude -p` headless session"},
-    {"from": "`swarm list_models`", "to": "the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand)"},
-    {"from": "`model` in the swarm", "to": "`--model` on the claude CLI"},
-    {"from": "the swarm result", "to": "the claude result"},
-    {"from": "~/.jcode/pmos-template-root", "to": "~/.claude/pmos-template-root"},
-    {"from": "%USERPROFILE%\\.jcode\\pmos-template-root", "to": "%USERPROFILE%\\.claude\\pmos-template-root"},
-    {"from": "~/.jcode/pmos-team-defaults.json", "to": "~/.claude/pmos-team-defaults.json"},
-    {"from": "swarm default", "to": "claude default"}
+  "tool_rewrites": [],
+  "suppressed": [
+    "gstack"
   ],
-  "suppressed": ["gstack"],
   "file_scope_hooks": {
     "available": true,
     "doc": "PreToolUse hooks can deny Edit/Write outside the worker's touches set (the gstack /freeze mechanism). hostgen renders host-bundles/claude/hooks-pretool-edit.json; the coordinator installs it per worker with the touches paths filled in."

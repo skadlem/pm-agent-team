@@ -7,7 +7,8 @@ directly; their spawn prompts embed the parts that concern them.
 stage map below points to). The wave-by-wave instructions live in `TPL/docs/stages/*.md` so a
 session resuming mid-project loads ~30% of the protocol instead of all of it.
 
-Layout: `TPL` = this template folder (find it via `~/.claude/pmos-template-root`, else the skill's
+Layout: `TPL` = this template folder (find it via the host's template-root file —
+`hosts/<host>.json` names it per host — else the skill's
 grandparent dir). `PROJ` = the project repo root. Project state lives in `PROJ/.pmos/`.
 
 ```

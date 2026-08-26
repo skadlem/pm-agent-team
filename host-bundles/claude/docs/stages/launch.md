@@ -30,10 +30,10 @@ to you. Record the answer in `.pmos/log.md`.
 
 Pre-GATE-1 worker model: Wave 0 (discovery) and Wave 1 (PM) spawn BEFORE the team model table
   exists (GATE 1). NEVER spawn them without an explicit model: an unmodeled spawn inherits the
-  claude default (e.g. Fable 5), which may be a model the user forbids. Instead, run
-  the provider model list (no CLI in claude 2.1.x: write .pmos/available-models.txt by hand) once, pick the cheapest AVAILABLE model NOT in roster.json
+  the host's default model, which may be a model the user forbids. Instead, run
+  the model list once, pick the cheapest AVAILABLE model NOT in roster.json
   `forbidden_models` (the user may name a different temporary model), and pass it explicitly
-  at spawn (`--model` on the claude CLI tool). Log the choice in `.pmos/log.md`. This is temporary:
+  at spawn (the host's spawn-with-model primitive). Log the choice in `.pmos/log.md`. This is temporary:
   GATE 1 still decides the real per-role team models.
 
 2. Wave 0 (DISCOVERY, brownfield only): spawn ONE architect-labeled worker with the assignment:
