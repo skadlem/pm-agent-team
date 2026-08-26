@@ -12,6 +12,12 @@ adapter per host (`hosts/*.json`), no protocol forks.
 **Requirements:** an agent host (see **Hosts** below) and Python 3.9+ with SQLite FTS5 (bundled
 in CPython). No pip dependencies.
 
+**Recommended companion:** [gstack](https://github.com/garrytan/gstack) (MIT). PMOS works fully
+without it — every role has a built-in procedure — but where gstack is installed on the worker's
+host, spawn prompts automatically upgrade to its specialist methodology (`/office-hours`,
+`/plan-eng-review`, `/review`, `/qa`, `/cso`, ...). Optional by design: a role without a gstack
+command, or a host without gstack, runs the standard flow unchanged.
+
 ## Quick install
 
 ```bash
@@ -87,6 +93,8 @@ models for them, while the implementer at 0.80 admits a good coder that wins on 
 live in neither roster — selection happens at launch from your live available list. Lean maps its
 roles onto the same curated KB corpora (`planner -> pm+architect`, etc.), so no separate content.
 The team is chosen once at launch ("expensive or lean?") and recorded in `.pmos/team.json`.
+Both teams carry `gstack_commands`, so on a gstack-equipped host lean workers get the same
+methodology upgrade as expensive ones.
 
 ## Roles
 
