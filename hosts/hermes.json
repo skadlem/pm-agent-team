@@ -16,9 +16,7 @@
     "doc": "token counts come from the subagent result (usage block)"
   },
   "tool_rewrites": [],
-  "suppressed": [
-    "gstack"
-  ],
+  "suppressed": [],
   "file_scope_hooks": {
     "available": false,
     "doc": "no file-scope edit hooks today; do-not-touch is enforced at the checkpoint (trace.py unplanned), not at edit time"

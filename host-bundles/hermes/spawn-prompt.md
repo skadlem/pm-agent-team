@@ -15,6 +15,13 @@ Mandatory procedure:
    BROWNFIELD RULE: before writing or changing any code, graphify-query for existing similar
    patterns and read .pmos/out/architect/current-state.md conventions; conform to them.
    New code must look like it belongs in this codebase.
+5. METHODOLOGY UPGRADE (optional): if gstack is installed on your host
+   (~/.claude/skills/gstack or the equivalent for your agent), use your role's gstack
+   commands from TPL/roster.json gstack_commands ({{gstack_cmds}}) as your methodology
+   instead of the generic procedure — e.g. qa runs /qa or /qa-only against the app, backend
+   runs /review before reporting done, devops runs /cso for the security pass. Without
+   gstack, follow the built-in procedure as written. Never invent gstack commands that are
+   not listed in roster.json.
 6. Write outputs to {{artifacts}}. Keep them concise. Anything another role must reference
    carries a stable id, and every reference you make (`satisfies`, `depends_on`, `decided_by`,
    `verifies`, `mitigated_by`, `supersedes`) names an id that already exists - see
