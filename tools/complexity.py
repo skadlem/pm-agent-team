@@ -27,7 +27,7 @@ from pathlib import Path
 
 TPL = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TPL / "tools"))
-from artifacts import parse_project  # noqa: E402  (sibling tool: entity parser)
+from artifacts import parse_project
 
 
 def depth_of(task, tasks_by_id, memo):
@@ -92,12 +92,12 @@ def main():
                     help="score above which splitting is recommended (0..1)")
     a = ap.parse_args()
 
-    entities, problems, _qa, _present = parse_project(a.project)
+    entities, _problems, _qa, _present = parse_project(a.project)
     rows = analyze(entities)
     flagged = [r for r in rows if r["score"] >= a.threshold]
     out = {"tasks": rows, "flagged": [r["id"] for r in flagged],
            "threshold": a.threshold}
-    if args_json := a.json:
+    if a.json:
         print(json.dumps(out, indent=1))
     else:
         if not rows:
