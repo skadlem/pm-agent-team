@@ -11,7 +11,7 @@ answers before touching anything:
 This tool answers all three deterministically from artifacts on disk, so the
 answer does not depend on the coordinator remembering anything.
 
-Stage chain (each stage requires ALL earlier markers to hold):
+Stage markers (independent evidence on disk, not a chain):
 
   stage 0  bootstrapped        .pmos/kb.sqlite3
   stage 1  charter drafted     .pmos/charter.md
@@ -24,10 +24,12 @@ Stage chain (each stage requires ALL earlier markers to hold):
   stage 8  QA gate passed      .pmos/out/qa/test-report.md
   stage 9  checkpointed        all of the above
 
-The stage is the HIGHEST index whose marker (and all markers before it) hold.
-Log-based markers (enrich, GATE 2) are SOFT: a missing log entry produces a
-warning, not a stage rollback, because artifacts may exist without the log
-line having been written.
+The stage is the HIGHEST index whose marker holds. Earlier markers that do
+NOT hold are reported as GAPS (warnings), never as a rollback: a project whose
+QA gate passed is at stage 8 even if it never wrote team-model.json -- which is
+exactly what happens on a host that cannot pin a model per spawn. A pre-flight
+check whose evidence belongs to a gap marker is downgraded from FAIL to WARN
+for the same reason: it is missing, not broken.
 
 Pre-flight checks run only for stages <= the detected stage, so a project
 that stopped early does not get nagged about artifacts it never reached.
@@ -67,6 +69,25 @@ WAVE3_ARTIFACTS = {
     "marketing": "out/marketing/positioning.md",
 }
 QA_ARTIFACT = "out/qa/test-report.md"
+
+# lean team (rosters/lean.json waves): planner designs, implementer builds,
+# reviewer runs the gate. Wave 3 is the implementer, not an empty map.
+LEAN_WAVE2 = {"planner": "out/planner/architecture.md"}
+LEAN_WAVE3 = {"implementer": "out/implementer/notes.md"}
+
+# What proves each stage marker, for the gap warnings.
+MARKER_EVIDENCE = {
+    0: ".pmos/kb.sqlite3",
+    1: ".pmos/charter.md",
+    2: ".pmos/team-model.json (the GATE 1 model table)",
+    3: "kb-sources/legal/jurisdiction-*.md",
+    4: "wave 2 artifact for every approved design role",
+    5: "enrich line in log.md",
+    6: "GATE 2 line in log.md",
+    7: "wave 3 implementation artifact",
+    8: "QA report with no failing criteria",
+    9: "charter + team-model + passing QA",
+}
 
 NEXT_STEP = {
     0: "step 3: Wave 1 (spawn the PM worker: charter + plan)",
@@ -148,31 +169,56 @@ def main():
         text = log.read_text(encoding="utf-8", errors="replace").lower()
         return any(n.lower() in text for n in needles)
 
+    def artifact_files(rel, any_md=True):
+        """Files that count as the artifact `rel`, and whether the named one was
+        found. Workers do not reliably use the exact filename: suited's
+        implementer wrote notes-002.md .. notes-022.md, qaida's designer wrote
+        four *-spec.md files instead of ui-spec.md. Accept the named file, its
+        numbered/suffixed siblings, and (when any_md) anything else non-trivial
+        the role left in its out/ dir -- the wave demonstrably ran."""
+        p = pmos / rel
+        if p.is_file() and p.stat().st_size >= 100:
+            return [p], True
+        d = p.parent
+        if not d.is_dir():
+            return [], False
+        sibs = sorted(f for f in d.glob(p.stem + "*.md") if f.stat().st_size >= 100)
+        if sibs or not any_md:
+            return sibs, False
+        return sorted(f for f in d.glob("*.md") if f.stat().st_size >= 100), False
+
     team_info = load_json(pmos / "team.json")
     qa_artifact = ("out/reviewer/test-report.md"
                    if isinstance(team_info, dict) and team_info.get("team") == "lean"
                    else QA_ARTIFACT)
 
+    # The QA marker is the most consequential one, so it does NOT accept any
+    # stray markdown in the role dir (any_md=False): a screenshot log next to
+    # the report is not a gate result.
+    qa_reports = artifact_files(qa_artifact, any_md=False)[0]
+
     def qa_failures():
         """Criteria the QA report marks fail/blocked. A report that exists is not
         a gate that passed: ORCHESTRATOR step 10 sends a failed gate back to
         wave 3, so those ids are what decides whether stage 8 was reached."""
-        p = pmos / qa_artifact
-        if not p.is_file():
-            return []
-        text = p.read_text(encoding="utf-8", errors="replace")
-        return sorted(set(re.findall(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(?:fail|blocked)\b",
-                                     text, re.I | re.M)))
+        ids = set()
+        for p in qa_reports:
+            text = p.read_text(encoding="utf-8", errors="replace")
+            ids |= set(re.findall(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(?:fail|blocked)\b",
+                                  text, re.I | re.M))
+        return sorted(ids)
 
     failing_criteria = qa_failures()
-    qa_passed = exists(qa_artifact) and not failing_criteria
+    qa_passed = bool(qa_reports) and not failing_criteria
 
     markers = {
         0: exists("kb.sqlite3"),
         1: exists("charter.md"),
         2: exists("team-model.json"),
-        # stage 3 exists only in strict mode; in light mode the chain skips it
-        3: (not strict) or any((pmos / "kb-sources" / "legal").glob("jurisdiction-*.md")),
+        # stage 3 exists only in strict mode; in light mode it is N/A (None),
+        # which is neither evidence of a stage nor a gap.
+        3: (any((pmos / "kb-sources" / "legal").glob("jurisdiction-*.md"))
+            if strict else None),
         4: None,  # computed below from team-model.json approved roles
         5: log_mentions("enrich"),
         6: log_mentions("gate 2"),
@@ -184,27 +230,34 @@ def main():
     team_model = load_json(pmos / "team-model.json") if markers[2] else None
     approved_roles = []
     if isinstance(team_model, dict):
-        approved_roles = sorted(k for k in team_model if k != "budget_usd")
+        approved_roles = sorted(k for k in team_model
+                                if k != "budget_usd" and not k.startswith("_"))
 
     # lean team: different role names + artifact paths (rosters/lean.json waves)
     is_lean = isinstance(team_info, dict) and team_info.get("team") == "lean"
-    wave2_map = {"implementer": "out/implementer/notes.md"} if is_lean else WAVE2_ARTIFACTS
-    wave3_map = {} if is_lean else WAVE3_ARTIFACTS
+    wave2_map = LEAN_WAVE2 if is_lean else WAVE2_ARTIFACTS
+    wave3_map = LEAN_WAVE3 if is_lean else WAVE3_ARTIFACTS
+    if not approved_roles:
+        # No GATE 1 table on disk is not proof that no wave ran: a host that
+        # cannot pin a model per spawn never writes team-model.json (see
+        # hosts/hermes.json). Fall back to the roles that actually produced
+        # output -- never to every role in the roster, which would demand
+        # artifacts from roles the team never had.
+        approved_roles = sorted(d.name for d in (pmos / "out").glob("*") if d.is_dir())
 
     wave2_approved = [r for r in approved_roles if r in wave2_map]
-    markers[4] = bool(wave2_approved) and all(exists(wave2_map[r]) for r in wave2_approved)
+    markers[4] = bool(wave2_approved) and all(artifact_files(wave2_map[r])[0]
+                                              for r in wave2_approved)
     wave3_approved = [r for r in approved_roles if r in wave3_map]
-    markers[7] = bool(wave3_approved) and any(exists(wave3_map[r]) for r in wave3_approved)
-    wave3_approved = [r for r in approved_roles if r in WAVE3_ARTIFACTS]
-    markers[7] = bool(wave3_approved) and any(exists(WAVE3_ARTIFACTS[r]) for r in wave3_approved)
+    markers[7] = bool(wave3_approved) and any(artifact_files(wave3_map[r])[0]
+                                              for r in wave3_approved)
 
-    stage = -1
-    for s in range(10):
-        if not markers[s]:
-            break
-        stage = s
+    # Highest marker that holds -- NOT the longest unbroken prefix. Evidence of
+    # a later stage is not erased by a marker nobody wrote on the way there.
+    stage = max((s for s in range(10) if markers[s]), default=-1)
     if stage == -1:
         stage = 0  # kb.sqlite3 exists but nothing after; resume at wave 1
+    gaps = [s for s in range(stage) if markers[s] is False]
     if strict:
         stage_names = ["bootstrapped", "charter drafted", "GATE 1 passed", "jurisdiction packed",
                        "wave 2 design done", "KB enriched", "GATE 2 passed", "implementation started",
@@ -234,6 +287,22 @@ def main():
     if m and "step %s" % m.group(1) in STAGE_FILE:
         out["read_next"] = STAGE_FILE["step %s" % m.group(1)]
 
+    out["gaps"] = [{"marker": g, "evidence": MARKER_EVIDENCE[g]} for g in gaps]
+    for g in gaps:
+        add("WARN", "stage marker skipped: no %s" % MARKER_EVIDENCE[g],
+            "later evidence puts this project at stage %d (%s); not a rollback"
+            % (out["stage"], out["stage_name"]))
+
+    def add_for(marker, status, name, detail=""):
+        """A check whose evidence belongs to a SKIPPED marker is a gap, not a
+        failure: the stage came from later evidence, so missing paperwork must
+        not block a resume."""
+        if status == "FAIL" and marker in gaps:
+            status = "WARN"
+            detail = ((detail + "; " if detail else "")
+                      + "skipped marker: %s" % MARKER_EVIDENCE[marker])
+        add(status, name, detail)
+
     # pre-flight thresholds below use `stage`, which stays in chain (strict)
     # numbering even when the reported stage was shifted for light legal.
     # ---- pre-flight checks (stages <= detected stage) --------------------
@@ -252,12 +321,9 @@ def main():
     if stage >= 1:
         for rel in ["charter.md", "plans/plan.md"]:
             p = pmos / rel
-            add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
-                "%s present and non-empty" % rel)
-        if exists("log.md"):
-            add("OK", "log.md exists")
-        else:
-            add("FAIL", "log.md exists")
+            add_for(1, "OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
+                    "%s present and non-empty" % rel)
+        add_for(1, "OK" if exists("log.md") else "FAIL", "log.md exists")
 
     if stage >= 1:
         # ids and references across charter / plan / ADRs / register / QA report.
@@ -293,14 +359,17 @@ def main():
     if stage >= 2:
         tm = team_model if team_model else load_json(pmos / "team-model.json")
         if isinstance(tm, dict):
-            bad = [k for k in tm if k != "budget_usd" and not isinstance(tm[k], dict)]
-            add("OK" if not bad and approved_roles else "FAIL",
-                "team-model.json valid (roles + budget_usd)",
-                "budget_usd=%s, roles=%s" % (tm.get("budget_usd"), ",".join(approved_roles) or "-"))
+            bad = [k for k in tm
+                   if k != "budget_usd" and not k.startswith("_")
+                   and not isinstance(tm[k], dict)]
+            add_for(2, "OK" if not bad and approved_roles else "FAIL",
+                    "team-model.json valid (roles + budget_usd)",
+                    "budget_usd=%s, roles=%s" % (tm.get("budget_usd"),
+                                                 ",".join(approved_roles) or "-"))
         else:
-            add("FAIL", "team-model.json valid JSON")
-        add("OK" if exists("team-model-ladder.json") else "FAIL",
-            "team-model-ladder.json present (fallback ladders)")
+            add_for(2, "FAIL", "team-model.json valid JSON")
+        add_for(2, "OK" if exists("team-model-ladder.json") else "FAIL",
+                "team-model-ladder.json present (fallback ladders)")
         # spend against the cap the user approved at GATE 1
         r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "report",
                             "--project", str(proj), "--json"], capture_output=True, text=True)
@@ -338,11 +407,17 @@ def main():
                 add("FAIL", "%s as_of parseable" % jf.name, m.group(1))
 
     if stage >= 4:
-        for r in wave2_approved:
-            rel = wave2_map[r]
-            p = pmos / rel
-            add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
-                "%s (%s) present and non-empty" % (rel, r))
+        for role in wave2_approved:
+            rel = wave2_map[role]
+            files, named = artifact_files(rel)
+            if named:
+                add_for(4, "OK", "%s (%s) present and non-empty" % (rel, role))
+            elif files:
+                add("WARN", "%s (%s) present and non-empty" % (rel, role),
+                    "role produced %s instead of the named artifact"
+                    % ", ".join(f.name for f in files[:3]))
+            else:
+                add_for(4, "FAIL", "%s (%s) present and non-empty" % (rel, role))
 
     if stage >= 5:
         add("OK" if log_mentions("enrich") else "WARN",
@@ -355,17 +430,30 @@ def main():
             "implementation started without a logged GATE 2; confirm with the user")
 
     if stage >= 7:
-        for r in wave3_approved:
-            rel = wave3_map[r]
-            p = pmos / rel
-            add("OK" if p.is_file() and p.stat().st_size >= 100 else "WARN",
-                "%s (%s) present" % (rel, r),
-                "implementation role; WARN not FAIL (may be mid-wave)")
+        for role in wave3_approved:
+            rel = wave3_map[role]
+            files, named = artifact_files(rel)
+            add("OK" if files else "WARN", "%s (%s) present" % (rel, role),
+                ("%d file(s): %s" % (len(files), ", ".join(f.name for f in files[:3]))
+                 if files and not named else
+                 "" if named else "implementation role; WARN not FAIL (may be mid-wave)"))
 
     if stage >= 8:
-        p = pmos / qa_artifact
-        add("OK" if p.is_file() and p.stat().st_size >= 100 else "FAIL",
-            "qa/test-report.md present and non-empty")
+        add_for(8, "OK" if qa_reports else "FAIL",
+                "%s present and non-empty" % qa_artifact,
+                ", ".join(f.name for f in qa_reports[:3]))
+
+    if qa_reports and stage >= 7:
+        # A gate is only evidence for the tree it ran against (the stale-evidence
+        # rule, applied to the clock rather than the fingerprint).
+        newest_qa = max(f.stat().st_mtime for f in qa_reports)
+        newer = sorted(f.name for role in wave3_approved
+                       for f in artifact_files(wave3_map[role])[0]
+                       if f.stat().st_mtime > newest_qa)
+        if newer:
+            add("WARN", "QA report is the newest evidence",
+                "%d implementation artifact(s) changed after the gate (%s); re-run the "
+                "gate before treating it as passed" % (len(newer), ", ".join(newer[:3])))
 
     if failing_criteria:
         add("WARN", "QA gate: every acceptance criterion passes",

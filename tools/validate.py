@@ -213,13 +213,40 @@ rc, so = state_out(st)
 check("state.py detects GATE 2 passed (light legal)", so.get("stage") == 5 and rc == 0,
       "stage=%s rc=%s" % (so.get("stage"), rc))
 
-# rollback: delete a wave-2 artifact -> stage must roll back to 2, exit 0
+# gap, not rollback: delete a wave-2 artifact. The GATE 2 log line still proves
+# a later stage, so the stage must HOLD at 5 and the missing marker must be
+# reported as a gap warning with no FAIL (a resume must not redo finished waves).
 broken = tmp / "proj-broken"
 subprocess.run(["cp", "-r", str(st), str(broken)])
 (broken / ".pmos" / "out" / "architect" / "architecture.md").unlink()
 rc, so = state_out(broken)
-check("state.py rolls back when a marker artifact vanished",
-      so.get("stage") == 2, "stage=%s rc=%s" % (so.get("stage"), rc))
+gap_markers = [g["marker"] for g in so.get("gaps", [])]
+check("state.py reports a vanished marker as a gap, not a rollback",
+      so.get("stage") == 5 and 4 in gap_markers and rc == 0 and so.get("problems") == 0,
+      "stage=%s gaps=%s rc=%s fails=%s" % (so.get("stage"), gap_markers, rc, so.get("problems")))
+
+# the suited case: a host that cannot pin a model per spawn never writes
+# team-model.json, yet the QA gate ran. The stage must come from the QA report.
+nogate1 = tmp / "proj-nogate1"
+subprocess.run(["cp", "-r", str(st), str(nogate1)])
+(nogate1 / ".pmos" / "team-model.json").unlink()
+(nogate1 / ".pmos" / "out" / "qa").mkdir(parents=True)
+(nogate1 / ".pmos" / "out" / "qa" / "test-report.md").write_text("# QA\nall green\n" + "q" * 200)
+rc, so = state_out(nogate1)
+gap_markers = [g["marker"] for g in so.get("gaps", [])]
+check("state.py: QA evidence outranks a missing GATE 1 table (no rollback to stage 1)",
+      so.get("stage") == 7 and 2 in gap_markers and rc == 0 and so.get("problems") == 0,
+      "stage=%s gaps=%s rc=%s fails=%s" % (so.get("stage"), gap_markers, rc, so.get("problems")))
+
+# a role that used its own filenames still counts as having produced the wave
+renamed = tmp / "proj-renamed"
+subprocess.run(["cp", "-r", str(st), str(renamed)])
+(renamed / ".pmos" / "out" / "designer" / "ui-spec.md").rename(
+    renamed / ".pmos" / "out" / "designer" / "bottom-sheet-spec.md")
+rc, so = state_out(renamed)
+check("state.py accepts a role's own artifact filenames (qaida designer case)",
+      so.get("stage") == 5 and 4 not in [g["marker"] for g in so.get("gaps", [])] and rc == 0,
+      "stage=%s gaps=%s rc=%s" % (so.get("stage"), [g["marker"] for g in so.get("gaps", [])], rc))
 
 rc, so = state_out(tmp / "no-pmos")
 check("state.py fresh dir -> has_pmos false", so.get("has_pmos") is False, "")

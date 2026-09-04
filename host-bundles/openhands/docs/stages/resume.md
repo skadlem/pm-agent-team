@@ -17,9 +17,11 @@ the state detector first; it answers three questions deterministically from arti
    FAIL -> FIX the broken artifact, do not redo the stage: regenerate the failing file from the
    log / upstream artifacts (re-derive team-model.json from the GATE 1 log entry, re-run the role
    that owns the missing artifact, restore from git), then re-run state.py until clean.
-   If a stage rolled back because its marker vanished (e.g. a wave-3 artifact is missing), the
-   rolled-back stage IS the answer: resume from that step, reusing every artifact that still
-   exists. Never re-run completed waves just because a marker file was lost.
+   A `stage marker skipped` WARN is NOT a rollback: the stage came from later evidence and the
+   named marker was simply never written (a host that cannot pin a model per spawn never writes
+   team-model.json; a wave whose log line was missed). Resume from the reported stage and produce
+   the missing marker only if a later step needs it. Never re-run completed waves because a
+   marker file is absent.
 3. **CONTINUE**: report "project is at stage N (<name>); next: <step>" to the user and confirm it
    matches what they want (they may want to re-open a completed stage instead). Then resume the
    launch protocol from that step: `state.py` prints `read next:` with the stage file to load.
