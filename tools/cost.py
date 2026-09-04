@@ -26,6 +26,7 @@ Exit codes: report and estimate return 2 when spend is over `budget_usd`
 """
 import argparse
 import json
+import pathlib
 import os
 import statistics
 import sys
@@ -137,7 +138,19 @@ def cmd_record(args):
           % (row["role"], row["model"], row["tokens_in"], row["tokens_out"],
              "$%.4f" % usd if usd is not None else "unpriced", note))
     print("project total: $%.2f%s" % (total, " of $%.2f budget" % budget if budget else ""))
-    if budget and total > budget:
+    over = bool(budget and total > budget)
+    if getattr(args, "event", False):
+        # one command, both ledgers: asking the coordinator to remember a second
+        # command after every worker did not survive either real project.
+        import subprocess
+        e = subprocess.run([sys.executable,
+                            str(pathlib.Path(__file__).resolve().parent / "events.py"),
+                            "record", "--project", args.project, "--ladder", str(args.ladder),
+                            "--role", args.role, "--model", args.model]
+                           + (["--wave", str(args.wave)] if args.wave is not None else []),
+                           capture_output=True, text=True)
+        print(e.stdout.strip() or (e.stderr or "").strip())
+    if over:
         print("OVER BUDGET by $%.2f - stop and ask the user" % (total - budget))
         return 2
     return 0
@@ -493,6 +506,11 @@ def main():
     p.add_argument("--source", choices=["measured", "estimated"], default="measured",
                    help="'estimated' when the host does not report usage; kept apart in the report")
     p.add_argument("--status", choices=["ok", "failed", "unknown"], default="ok")
+    p.add_argument("--event", action="store_true",
+                   help="also append the matching wave-event row (events.py record), "
+                        "so one command leaves both ledgers consistent")
+    p.add_argument("--ladder", type=int, default=0,
+                   help="with --event: fallback-ladder position (0 = first attempt)")
     p.add_argument("--benchmarks", default=None)
 
     p = sub.add_parser("report", help="spend so far against the GATE 1 budget")

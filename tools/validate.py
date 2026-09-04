@@ -390,6 +390,47 @@ ev = json.loads(r.stdout)
 check("events report sees the mock run",
       ev.get("runs") == 1 and ev.get("ok") == 1, json.dumps(ev))
 
+# the same run, recorded WITHOUT the two manual commands: `spawn --role` fills
+# both ledgers itself. Neither real project ever ran the manual pair, so the
+# automatic path is the one that has to work.
+autoproj = pathlib.Path(tempfile.mkdtemp())
+(autopmos := autoproj / ".pmos").mkdir()
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                    "--host", "mock", "--model", "claude-opus-5", "--label", "backend-1",
+                    "--role", "backend", "--ladder", "2", "--prompt", prompt,
+                    "--project", str(autoproj), "--out", str(autopmos / "run.json")],
+                   capture_output=True, text=True)
+costs = (autopmos / "costs.jsonl")
+waves = (autopmos / "waves.jsonl")
+crow = json.loads(costs.read_text(encoding="utf-8").splitlines()[0]) if costs.is_file() else {}
+wrow = json.loads(waves.read_text(encoding="utf-8").splitlines()[0]) if waves.is_file() else {}
+check("spawn --role records the cost ledger with no second command",
+      r.returncode == 0 and crow.get("role") == "backend" and crow.get("tokens_in", 0) > 0,
+      json.dumps(crow)[:120])
+check("spawn --role records the wave event with the ladder index",
+      wrow.get("role") == "backend" and wrow.get("ladder") == 2
+      and wrow.get("outcome") == "ok", json.dumps(wrow)[:120])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                    "--host", "mock", "--model", "mock-fail-1", "--label", "backend-2",
+                    "--role", "backend", "--prompt", prompt,
+                    "--project", str(autoproj), "--out", str(autopmos / "run2.json")],
+                   capture_output=True, text=True)
+rows = [json.loads(x) for x in waves.read_text(encoding="utf-8").splitlines()]
+check("a failed worker still costs money and is still recorded",
+      len(rows) == 2 and rows[1]["outcome"] == "failed"
+      and json.loads(costs.read_text(encoding="utf-8").splitlines()[1])["status"] == "failed",
+      json.dumps(rows[-1])[:120])
+
+# and the manual path is one command too
+r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "record",
+                    "--project", str(autoproj), "--role", "qa", "--model", "claude-opus-5",
+                    "--in", "1000", "--out", "200", "--event", "--ladder", "1"],
+                   capture_output=True, text=True)
+rows = [json.loads(x) for x in waves.read_text(encoding="utf-8").splitlines()]
+check("cost record --event writes the matching wave event",
+      r.returncode == 0 and len(rows) == 3 and rows[2]["role"] == "qa"
+      and rows[2]["ladder"] == 1, json.dumps(rows[-1])[:120])
+
 print("== 9e. Extras: converge audit, issues export, experience search ==")
 sys.path.insert(0, str(TPL / "tools"))
 import eval_project as harness  # noqa: E402  (sibling tool: fixture materialization)

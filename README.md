@@ -271,7 +271,7 @@ python tools/trace.py coverage --project .        # scope -> task -> criterion -
 python tools/trace.py impact T-012 --project .    # what rides on one item, down to the code
 python tools/trace.py unplanned --project .       # changed files no task claims
 python tools/artifacts.py fingerprint --project . # content hash of the source tree (QA binds its evidence to it)
-python tools/cost.py record --project . --role backend --model <m> --in N --out N
+python tools/cost.py record --project . --role backend --model <m> --in N --out N [--event]
 python tools/cost.py report --project .           # spend vs budget_usd, estimate accuracy
 python tools/cost.py estimate --project . --roles backend,frontend
 python tools/cost.py calibrate --project . --write
@@ -287,7 +287,7 @@ python tools/events.py report --project . --json > .pmos/events-report.json   # 
 python tools/recommend.py suggest --available models.txt --history .pmos/events-report.json  # L-13
 python tools/recommend.py second-opinion --pm-model <pm model> --available models.txt
 python tools/host.py list-models --host mock --out .pmos/available-models.txt   # host shim; mock = zero-token backend
-python tools/host.py spawn --host claude --model claude-sonnet-4-5 --label backend-1 --prompt "$(cat prompt.md)" --out .pmos/host-run.json
+python tools/host.py spawn --host claude --model claude-sonnet-4-5 --label backend-1 --role backend --project . --out .pmos/host-run.json --prompt "$(cat prompt.md)"   # --role fills both ledgers
 python tools/host.py usage --host openhands --result .pmos/host-run.json        # tokens for cost.py record
 python tools/converge.py --project .              # level-5.5 audit: one verdict (L-7)
 python tools/issues.py export --project . --repo owner/repo --dry-run   # T-NNN -> issues (L-8)

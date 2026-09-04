@@ -48,19 +48,25 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
         that have any (`--write`n by calibrate), the flat config estimate for the rest. Exit code
         2 means the wave would breach `budget_usd`: STOP and ask the user to raise the cap, drop
         a role, or move a role to a cheaper model. Log the estimate.
-      - AFTER each worker returns: `python TPL/tools/cost.py record --project . --role <role>
+      - AFTER each worker returns, BOTH ledgers get a row. Prefer the automatic path: spawn
+        through the host shim with `--role` and it records them itself from the result file —
+        `python TPL/tools/host.py spawn --host <host> --model <m> --label <label>
+        --role <role> --ladder <index> --project . --out .pmos/host-run.json --prompt "..."`.
+        Nothing to remember after the worker returns, which is the point: across two real
+        projects the manual pair below was run zero times and both ledgers stayed empty.
+      - When the host is driven by its own tool instead of the shim, record it by hand — one
+        command, not two: `python TPL/tools/cost.py record --project . --role <role>
         --model <model> --wave N --label <label> --in <tokens_in> --out <tokens_out>
-        [--task T-NNN] [--status ok|failed]`, taking the token counts from the spawn result.
+        [--task T-NNN] [--status ok|failed] --event [--ladder <index>]`. `--event` appends the
+        matching wave-event row (`.pmos/waves.jsonl`) with the fallback-ladder index used
+        (0 = first attempt; the ladder rule below increments it on every retry).
         Record FAILED runs too - a worker that died on a context limit still cost money.
         If the host does not report usage, pass your own numbers with `--source estimated` so
-        the report can keep guesses apart from measurements. Never skip the record: an unrecorded
-        run makes the remaining budget wrong for every later wave.
-      - THEN the event: `python TPL/tools/events.py record --project . --ladder <index>
-        [--role <role> --wave N --model <model>]` — it attaches the ledger row just written to
-        the wave-event trace (`.pmos/waves.jsonl`), with the fallback-ladder index used (0 =
-        first attempt; the ladder rule below increments it on every retry). Pass the identity
-        flags when several workers return in a burst. This is what makes per-run metrics
-        comparable across projects; `state.py` reports it on resume.
+        the report can keep guesses apart from measurements. An unpriced model is fine: the row
+        keeps its token counts and the report flags it rather than counting it as free. Never
+        skip the record: an unrecorded run makes the remaining budget wrong for every later
+        wave, and the per-run metrics are what make projects comparable; `state.py` reports
+        them on resume.
 
 Cost-quality defaults (see roster.json for the live values): critical roles (pm, architect, qa)
   keep a 0.95 tier (near-best score only), implementation roles (backend, legal) 0.92, frontend/

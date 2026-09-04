@@ -141,8 +141,16 @@ def cmd_list_models(args):
 
 def cmd_spawn(args):
     if args.host == "mock":
-        mock_spawn(args.model, args.label, args.effort, args.prompt,
-                   args.out, args.project)
+        result = mock_spawn(args.model, args.label, args.effort, args.prompt,
+                            args.out, args.project)
+        if args.role:
+            workdir = os.path.abspath(args.project) if args.project else os.getcwd()
+            _, msg = record_run(workdir, args.role, args.model,
+                                {"tokens_in": result["tokens_in"],
+                                 "tokens_out": result["tokens_out"],
+                                 "status": result["status"]},
+                                ladder=args.ladder, label=args.label, effort=args.effort)
+            print("ledger: %s" % (msg or "record failed"), file=sys.stderr)
         return 0
     cfg = load_host(args.host)
     cmd, _ = real_command(cfg, "spawn", args)
@@ -170,16 +178,87 @@ def cmd_spawn(args):
         Path(args.out).write_text(r.stdout or "", encoding="utf-8")
     else:
         sys.stdout.write(r.stdout)
+    if args.role and args.out:
+        usage = parse_usage(args.host, args.out)
+        if usage is None:
+            print("no usage block in %s: run `cost.py record --source estimated` so the "
+                  "run is not silently free" % args.out, file=sys.stderr)
+        else:
+            rc, msg = record_run(workdir, args.role, args.model, usage,
+                                 ladder=args.ladder, label=args.label, effort=args.effort)
+            print("ledger: %s" % (msg or "record failed"), file=sys.stderr)
+    elif args.role:
+        print("--role needs --out (the result file the token counts come from)",
+              file=sys.stderr)
     return r.returncode
 
 
+def parse_usage(host, path):
+    """{"tokens_in", "tokens_out", "status"} from a spawn result file, or None
+    when this host's result shape carries no usage block."""
+    p = Path(path)
+    if not p.is_file():
+        return None
+    raw = p.read_text(encoding="utf-8", errors="replace")
+    if host == "mock":
+        try:
+            result = json.loads(raw)
+        except ValueError:
+            return None
+        return {"tokens_in": result.get("tokens_in", 0),
+                "tokens_out": result.get("tokens_out", 0),
+                "status": result.get("status", "ok")}
+    candidates = [raw]
+    j = raw.find('{"type": "result"')
+    if j >= 0:
+        candidates.insert(0, raw[j:])
+    for text in candidates:
+        try:
+            result = json.loads(text)
+        except ValueError:
+            continue
+        u = result.get("usage") or {}
+        if u.get("input_tokens") is not None:
+            return {"tokens_in": u["input_tokens"],
+                    "tokens_out": u.get("output_tokens", 0),
+                    "status": "failed" if result.get("is_error") else "ok"}
+    return None
+
+
+def record_run(project, role, model, usage, ladder=0, label=None, effort=None):
+    """Append the cost + wave-event rows for a finished spawn.
+
+    The protocol asked the coordinator to run `cost.py record` and then
+    `events.py record` by hand after every worker. Across two real projects that
+    happened zero times, so neither ledger has a single row and every spend
+    question is unanswerable after the fact. A spawn that knows the tokens
+    records them itself; nothing to remember, nothing to skip.
+    """
+    tools = Path(__file__).resolve().parent
+    r = subprocess.run([sys.executable, str(tools / "cost.py"), "record",
+                        "--project", project, "--role", role, "--model", model,
+                        "--in", str(usage["tokens_in"]), "--out", str(usage["tokens_out"]),
+                        "--status", usage.get("status", "ok")]
+                       + (["--label", label] if label else [])
+                       + (["--effort", effort] if effort else []),
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        return r.returncode, (r.stderr or r.stdout).strip()
+    # events.py reads the newest ledger row, so it must run after cost.py
+    e = subprocess.run([sys.executable, str(tools / "events.py"), "record",
+                        "--project", project, "--ladder", str(ladder),
+                        "--role", role, "--model", model],
+                       capture_output=True, text=True)
+    return e.returncode, (r.stdout.strip() + ("; " + e.stdout.strip() if e.stdout.strip() else ""))
+
+
 def cmd_usage(args):
-    if args.host == "mock":
-        result = json.loads(Path(args.result).read_text(encoding="utf-8"))
-        print(json.dumps({"tokens_in": result.get("tokens_in", 0),
-                          "tokens_out": result.get("tokens_out", 0),
-                          "status": result.get("status", "ok")}))
+    parsed = parse_usage(args.host, args.result)
+    if parsed is not None:
+        print(json.dumps(parsed))
         return 0
+    if args.host == "mock":
+        return 1
     # real hosts: try to parse the result file's usage block (claude -p
     # --output-format json and the openhands runner both emit
     # .usage.input_tokens / .usage.output_tokens; the openhands file may carry
@@ -225,6 +304,10 @@ def main():
     p.add_argument("--prompt", default="")
     p.add_argument("--out", default=None)
     p.add_argument("--project", default=None)
+    p.add_argument("--role", default=None,
+                   help="record this run in the cost + wave-event ledgers (needs --out)")
+    p.add_argument("--ladder", type=int, default=0,
+                   help="fallback-ladder position for the event row (0 = first choice)")
     p.add_argument("--dry-run", action="store_true")
 
     p = sub.add_parser("usage")
