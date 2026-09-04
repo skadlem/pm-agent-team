@@ -341,7 +341,11 @@ decisions `ADR-NNN`, risks `L-NNN`. Tasks say what they `satisfy`, criteria say 
 into a deterministic pass:
 
 - **errors** (block GATE 2): a reference to an id nothing defines, a duplicate id, a reference
-  pointing at the wrong kind, a `depends_on` cycle, a QA result for a criterion no plan defines.
+  pointing at the wrong kind, a `depends_on` cycle, a QA result for a criterion no plan defines,
+  and an EMPTY graph — a written charter with no `R-NNN`, a written plan with no `T-NNN`, or
+  tasks with no `A-NNN`. The empty case matters because it used to pass: a plan phrased as
+  "Task 1.1" reported `artifacts OK: every reference resolves` and `0/0 requirements planned`,
+  which reads like a clean bill and is actually a project with no traceability at all.
 - **warnings**: scope no task claims, a task no criterion verifies, a criterion QA never
   reported on, a high-severity open risk with no mitigating task, and a risk marked `mitigated`
   whose task has no passing criterion — the check ORCHESTRATOR step 10 previously asked QA to

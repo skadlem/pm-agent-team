@@ -1,0 +1,31 @@
+{
+ "description": "a real charter and plan planned as \"Task 1.1\" / \"OD-C\": zero ids means every traceability check is vacuous, so GATE 2 must block instead of passing green (the log says GATE 2 was reached; the linter must still block it)",
+ "legal_strict": false,
+ "state": {
+  "stage": 5,
+  "stage_name": "GATE 2 passed",
+  "fail_checks": [
+   "artifact references all resolve"
+  ],
+  "exact_fail_checks": true
+ },
+ "artifacts": {
+  "error_count": 2,
+  "errors": [
+   "charter has content but defines no R-NNN requirements",
+   "plan has content but defines no T-NNN tasks"
+  ]
+ },
+ "trace": {
+  "summary": {
+   "requirements": 0,
+   "planned": 0,
+   "tasks": 0,
+   "verified": 0,
+   "criteria": 0,
+   "reported": 0,
+   "passing": 0
+  }
+ },
+ "gate2": "blocked"
+}

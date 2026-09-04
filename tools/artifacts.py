@@ -263,14 +263,42 @@ def parse_project(proj):
                 mt = QA_TREE.match(line)
                 if mt:
                     qa_tree = mt.group(1).lower()
+    # "written but id-less" is a different state from "not written yet": a
+    # charter full of scope prose with no R-NNN makes every check below vacuous.
+    def substantive(f):
+        return f.is_file() and len(f.read_text(encoding="utf-8", errors="replace").strip()) >= 100
+
     return entities, problems, qa_results, (bool(reports), register.is_file(),
-                                            plan.is_file(), qa_tree)
+                                            plan.is_file(), qa_tree,
+                                            substantive(charter), substantive(plan))
 
 
 def check(entities, problems, qa_results, present):
     """Validate ids and references. Errors break traceability; warnings are
     coverage gaps the coordinator should see but may knowingly accept."""
     has_qa, has_register, has_plan = present[:3]
+    charter_written = present[4] if len(present) > 4 else False
+    plan_written = present[5] if len(present) > 5 else False
+
+    # An EMPTY graph must not report clean. qaida planned in "Task 1.1" / "OD-C"
+    # and every traceability check passed green at GATE 2 by having nothing to
+    # check -- the failure mode this linter exists to prevent.
+    kinds = {}
+    for e in entities:
+        kinds[e.kind] = kinds.get(e.kind, 0) + 1
+    if charter_written and not kinds.get("requirement"):
+        problems.append(("error", ".pmos/charter.md", 1,
+                         "charter has content but defines no R-NNN requirements: scope, "
+                         "coverage and risk checks are all vacuous until it does "
+                         "(ARTIFACT-SCHEMA.md)"))
+    if plan_written and not kinds.get("task"):
+        problems.append(("error", ".pmos/plans/plan.md", 1,
+                         "plan has content but defines no T-NNN tasks: nothing links scope to "
+                         "work, so GATE 2 would pass on an empty graph (ARTIFACT-SCHEMA.md)"))
+    if plan_written and kinds.get("task") and not kinds.get("acceptance"):
+        problems.append(("error", ".pmos/plans/plan.md", 1,
+                         "plan defines tasks but no A-NNN acceptance criteria: nothing can "
+                         "verify the work (ARTIFACT-SCHEMA.md)"))
     by_id = {}
     for e in entities:
         if e.id in by_id:
@@ -577,6 +605,48 @@ def selftest():
     hit = any("claims mitigated by T-001" in m for level, _, _, m in problems if level == "warning")
     print("   %s unproven mitigation warned" % ("[OK]  " if hit else "[FAIL]"))
     ok = ok and hit
+
+    # -- an EMPTY graph must not report clean. This is the qaida shape: a real
+    # charter and plan, planned as "Task 1.1" / "OD-C", zero ids -- which used to
+    # print "artifacts OK: every reference resolves" and exit 0 at GATE 2.
+    idless = {
+        ".pmos/charter.md": "# Charter\n\n## Scope\n- users can reset their own password\n"
+                            "- admins can see an audit log\n" + "x" * 120,
+        ".pmos/plans/plan.md": "# Plan\n\n## Phase 1\n- Task 1.1: reset endpoint\n"
+                               "- Task 1.2: audit log\n" + "y" * 120,
+    }
+    root = build(idless)
+    entities, problems, qa, present = parse_project(root)
+    check(entities, problems, qa, present)
+    emsgs = [m for lvl, _, _, m in problems if lvl == "error"]
+    cases = [
+        ("id-less charter is an error", any("no R-NNN requirements" in m for m in emsgs)),
+        ("id-less plan is an error", any("no T-NNN tasks" in m for m in emsgs)),
+        ("an empty graph exits non-zero", run(root, quiet=True) == 1),
+    ]
+    # tasks without criteria: nothing can verify the work
+    notests = {
+        ".pmos/charter.md": idless[".pmos/charter.md"].replace(
+            "- users can reset", "- R-001: users can reset"),
+        ".pmos/plans/plan.md": "# Plan\n\n```yaml\n- id: T-001\n  title: reset endpoint\n"
+                               "  satisfies: R-001\n```\n" + "y" * 120,
+    }
+    root2 = build(notests)
+    entities, problems, qa, present = parse_project(root2)
+    check(entities, problems, qa, present)
+    e2 = [m for lvl, _, _, m in problems if lvl == "error"]
+    cases.append(("tasks with no acceptance criteria is an error",
+                  any("no A-NNN acceptance criteria" in m for m in e2)))
+    # and a project that never started planning is NOT accused of anything
+    stub = {".pmos/charter.md": "# Charter\n\ndraft\n"}
+    root3 = build(stub)
+    entities, problems, qa, present = parse_project(root3)
+    check(entities, problems, qa, present)
+    cases.append(("a stub charter is not an error yet",
+                  not [m for lvl, _, _, m in problems if lvl == "error"]))
+    for label, hit in cases:
+        print("   %s %-42s" % ("[OK]  " if hit else "[FAIL]", label))
+        ok = ok and hit
 
     # -- the lean roster's reviewer writes a TABLE in out/reviewer/, not a list
     # in out/qa/. Reading only one shape from one path made suited's 33 reported

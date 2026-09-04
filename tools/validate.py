@@ -189,8 +189,14 @@ st = tmp / "proj"
 (st / "config.json").write_text(json.dumps({"legal_strict": False}))
 subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "init", "--db", str(st / ".pmos" / "kb.sqlite3")],
                capture_output=True)
-(st / ".pmos" / "charter.md").write_text("# C\n" + "x" * 200)
-(st / ".pmos" / "plans" / "plan.md").write_text("# P\n" + "y" * 200)
+# a real charter/plan, not filler: an id-less pair is now an error in its own
+# right, and these fixtures are meant to exercise stage detection, not that
+(st / ".pmos" / "charter.md").write_text(
+    "# Charter\n\n## Scope\n- R-001: users can reset their own password\n" + "x" * 200)
+(st / ".pmos" / "plans" / "plan.md").write_text(
+    "# Plan\n\n```yaml\n- id: T-001\n  title: reset endpoint\n  role: backend\n"
+    "  satisfies: R-001\n- id: A-001\n  title: reset mail arrives\n  verifies: T-001\n```\n"
+    + "y" * 200)
 (st / ".pmos" / "team-model.json").write_text(json.dumps({"architect": {"model": "m", "effort": "low"},
                                                           "designer": {"model": "m", "effort": "low"},
                                                           "budget_usd": 20.0}))

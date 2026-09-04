@@ -40,6 +40,12 @@ repo, but it is what joins this graph to the graphify code graph.
 It is not linted, but GATE 2's complexity report and the QA reviewer use it as the per-task
 verification contract: what will prove this task works, decided before implementation starts.
 
+Ids are not optional decoration. Once a charter or plan has real content it must carry them:
+a charter with no `R-NNN`, a plan with no `T-NNN`, or tasks with no `A-NNN` is an `artifacts.py`
+ERROR and blocks GATE 2 — not because a reference broke, but because nothing can be checked at
+all. A stub (a charter under ~100 characters, a plan not written yet) is exempt: not-yet-written
+is a different state from written-without-ids.
+
 QA reports results in `.pmos/out/qa/test-report.md` (lean roster:
 `.pmos/out/reviewer/test-report.md`; per-phase files may be suffixed,
 `test-report-phase1.md`). One entry per criterion, in EITHER shape — a list:

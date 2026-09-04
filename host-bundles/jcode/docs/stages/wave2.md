@@ -45,7 +45,11 @@ wave, KB enrichment, and the second user gate.
    - `CONCERNS` — exit 0 with warnings: list the top warnings as bullets; the user may accept
      them knowingly.
    - `FAIL` — any ERROR (exit 1): a reference that does not resolve means a wave handed off to
-     something that does not exist. The gate is blocked until fixed.
+     something that does not exist. The gate is blocked until fixed. An id-LESS charter or plan
+     (scope prose with no `R-NNN`, phases of "Task 1.1" with no `T-NNN`, tasks with no `A-NNN`)
+     is the same FAIL: every check below it would pass by having nothing to check, so rewrite
+     the ids in before asking for approval. `trace.py coverage` reading `0/0` is that same
+     state, not a clean bill.
    `python TPL/tools/trace.py coverage --project .` renders the same thing as a scope -> task ->
    criterion tree, which is usually the clearest way to show the user what they are approving.
    For anything the standard reports do not answer, query the graph directly:

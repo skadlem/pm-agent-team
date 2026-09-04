@@ -173,6 +173,12 @@ def cmd_coverage(by_id, edges, qa, code, args):
              summary["reported"], summary["criteria"], summary["passing"]))
     for g in gaps:
         print("  gap: %s" % g)
+    if not summary["requirements"] and not summary["tasks"]:
+        # 0/0 reads like a pass. It is the opposite: nothing here can be checked.
+        print("  NOTHING TO TRACE: no R-NNN/T-NNN ids found. A plan written as "
+              "\"Task 1.1\" cannot be joined to scope, code or QA - see ARTIFACT-SCHEMA.md, "
+              "and `artifacts.py --project .` fails on it.")
+        return 1
     return 0
 
 
