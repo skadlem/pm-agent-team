@@ -44,6 +44,7 @@ import json
 import pathlib
 import re
 import sys
+from datetime import date
 
 # role -> purpose weights (fallback when roster.json has no "purpose"; mirrors roster.json)
 DEFAULT_PURPOSE = {
@@ -71,15 +72,20 @@ ALIASES = {
 
 
 def normalize_id(mid: str) -> str:
-    """Map a route id to a benchmark-dataset id when they differ."""
+    """Map a route id to a benchmark-dataset id when they differ.
+
+    Case-folded: a provider that lists `DeepSeek-V4-Flash-0731` is offering the
+    same model as the dataset's `deepseek-v4-flash-0731`. suited's live list had
+    9 ids and only 1 resolved, so every role got the same model and the reviewer
+    ran on one scoring 17.6 for verification.
+    """
     n = mid.strip()
     if "[" in n:
         n = n.split("[")[0].strip()
     if "/" in n:
         n = n.split("/", 1)[1]
-    if n in ALIASES:
-        return ALIASES[n]
-    return n
+    n = n.lower()
+    return ALIASES.get(n, n)
 
 
 def parse_available(path):
@@ -113,7 +119,24 @@ def parse_available(path):
 def load_benchmarks(path):
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
-    return data.get("models", data)
+    models = data.get("models", data)
+    # add case-folded aliases so a provider's capitalization still resolves,
+    # WITHOUT dropping entries: three ids in benchmarks.json differ only by case
+    # (qwen3-235b-a22b, zai-org/glm-4.7, ...), so a plain lower() rekey loses one
+    # of each pair.
+    out = dict(models)
+    for k, v in models.items():
+        out.setdefault(k.lower(), v)
+    return out
+
+
+def benchmarks_as_of(path):
+    """The dataset date, so a stale table is visible where models are chosen."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f).get("as_of")
+    except Exception:
+        return None
 
 
 def load_roster(path):
@@ -159,20 +182,24 @@ def eligible_models(ids, roster):
     which is a different id served by NVIDIA NIM). newest_only keeps only the newest
     generation per model family (e.g. claude-opus-5, never claude-opus-4-7/4-8).
     """
-    avail = set(ids)
+    # compare case-folded (providers capitalize freely: Qwen3.8-27B), but return
+    # the ids as the user wrote them
+    low = {m: m.strip().lower() for m in ids}
     forbidden = set()
     for f in (roster or {}).get("forbidden_models") or []:
+        f = f.strip().lower()
         if f.endswith("*"):
-            forbidden.update(m for m in avail if m.startswith(f[:-1]))
+            forbidden.update(m for m, n in low.items() if n.startswith(f[:-1]))
         else:
-            forbidden.add(f)
-    if forbidden:
-        avail = {m for m in avail if m not in forbidden}
+            forbidden.update(m for m, n in low.items() if n == f)
+    keep = {m: n for m, n in low.items() if m not in forbidden}
     for fam, keep_id in ((roster or {}).get("newest_only") or {}).items():
         if fam == "note" or not keep_id:
             continue
-        avail = {m for m in avail if not (m.startswith(fam) and m != keep_id)}
-    return avail
+        fam, keep_id = fam.strip().lower(), keep_id.strip().lower()
+        keep = {m: n for m, n in keep.items()
+                if not (n.startswith(fam) and n != keep_id)}
+    return set(keep)
 
 
 def group_models(available):
@@ -294,12 +321,24 @@ def recommend(available, benchmarks, roster, tier=0.92, role_filter=None, histor
             "suggested_provider": chain[0] if chain else None,
             "suggested_fallbacks": chain[1:],
             "cost_per_1m": cpm,
-            "reason": "score {:.1f}, cost ${}/1M blended".format(picked["score"],
-                     _fmt_cost(cpm)),
+            "reason": ("score {:.1f}, cost ${}/1M blended".format(picked["score"],
+                       _fmt_cost(cpm))
+                       + ("  ONLY CANDIDATE (tier bar chose nothing)"
+                          if len(scores) == 1 else "")
+                       + ("  UNSCORED on {} = {:.0%} of this role"
+                          .format("+".join(picked["missing"]),
+                                  sum(purpose.get(m, 0.0) for m in picked["missing"]))
+                          if sum(purpose.get(m, 0.0) for m in picked["missing"]) >= 0.5
+                          else "")),
             "missing_data": picked["missing"],
+            # how much of THIS role's purpose mix the picked model has no data
+            # for. suited's reviewer (verification 0.8) was suggested a model
+            # with no verification data at all and a 17.6 headline score.
+            "missing_weight": round(sum(purpose.get(m, 0.0) for m in picked["missing"]), 3),
             "effort": role_efforts.get(role),
             "tier_used": r_tier,
             "tier": alt,
+            "candidates": len(scores),
             "ladder": ladder,
             "providers": providers,
             "routes": routes,
@@ -457,6 +496,19 @@ def main():
     uncovered = sorted(m for m in avail if normalize_id(m) not in known)
     if uncovered:
         print("  no benchmark data: %s" % ", ".join(uncovered), file=out)
+    # a model table ages faster than almost anything else here: new models ship
+    # monthly and prices move. Say how old it is where the choice is made.
+    as_of = benchmarks_as_of(benchmarks_path)
+    if as_of:
+        try:
+            age = (date.today() - date.fromisoformat(as_of)).days
+        except ValueError:
+            age = None
+        if age is not None:
+            print("  benchmarks.json as_of %s (%d days old)%s"
+                  % (as_of, age,
+                     " - rebuild it (build_benchmarks.py) before trusting this table"
+                     if age > 90 else ""), file=out)
 
 
 if __name__ == "__main__":

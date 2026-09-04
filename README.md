@@ -119,11 +119,26 @@ the provider's model API) and runs
 3. Scores each against per-purpose benchmarks (`benchmarks.json`): reasoning, coding, design,
    business, marketing, verification, ops, writing. Each role maps to a purpose mix
    (`roster.json` -> `model_suggestions` -> `purpose`, weights sum to 1).
-4. Keeps each role's BEST TIER (score >= role's `role_tiers` threshold in roster.json; default
-   0.92, critical roles like pm/architect/qa use 0.95, advisory roles 0.80), then picks the
-   CHEAPEST of that tier by blended cost (3:1 input:output, USD per 1M tokens).
+4. Keeps each role's BEST TIER, then picks the CHEAPEST of that tier by blended cost
+   (3:1 input:output, USD per 1M tokens). The tier is RELATIVE, not absolute: `role_tiers`
+   (default 0.92; pm/architect/qa 0.95; advisory roles 0.80) is a fraction of the best score
+   AMONG THE MODELS YOU HAVE. With one benchmarked model available, every role's bar is met by
+   definition — so the output says `ONLY CANDIDATE (tier bar chose nothing)` rather than
+   implying a quality bar was cleared.
 5. Outputs the role -> model table for you to OK, edit, or remove. The approved map is saved
    to `.pmos/team-model.json` and used for every spawn.
+
+Two things the table tells you when the data is thin, both learned from a real run where 9
+provider ids collapsed to 1 with benchmark data:
+
+- `UNSCORED on verification = 80% of this role` — the picked model has no data for the purposes
+  carrying most of that role's weight, so its headline score means little. Pick manually or
+  refresh the benchmarks.
+- `benchmarks.json as_of <date> (N days old)` — printed under every table, with a rebuild
+  nudge past 90 days. Model tables age faster than anything else here.
+
+Provider capitalization does not matter: `DeepSeek-V4-Flash-0731` and `deepseek-v4-flash-0731`
+resolve to the same row, and `newest_only` family filtering is case-folded too.
 
 That recommended model is only the FIRST attempt. Pass `--ladder-out .pmos/team-model-ladder.json`
 and `recommend.py` also writes each role's best-first fallback ladder. If a worker fails (runs out

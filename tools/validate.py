@@ -641,6 +641,36 @@ for rr in res:
     check(f"{rr['role']} suggestion is best-tier cheapest", rr["suggested"] == cheapest,
           f"{rr['suggested']} vs {cheapest}")
 fixture.unlink()
+
+# -- what a REAL provider list looks like: mixed capitalization and older
+# generations. suited's 9 ids collapsed to 1 with benchmark data, so every role
+# got the same model and the reviewer ran on one scoring 17.6 for verification.
+lean_roster = json.loads((TPL / "rosters" / "lean.json").read_text(encoding="utf-8"))
+bench_ci = rmod.load_benchmarks(str(TPL / "benchmarks.json"))
+check("case-folded route id resolves to its benchmark row",
+      rmod.normalize_id("DeepSeek-V4-Flash-0731") in bench_ci,
+      rmod.normalize_id("DeepSeek-V4-Flash-0731"))
+check("load_benchmarks keeps every entry while adding case-folded aliases",
+      all(k in bench_ci for k in json.loads(
+          (TPL / "benchmarks.json").read_text(encoding="utf-8"))["models"]), "")
+mixed = {"DeepSeek-V4-Flash-0731", "Qwen3.8-27B", "Qwen3.6-35B-A3B-FP8",
+         "qwen3.8-max", "stealth/ox-alpha"}
+elig = rmod.eligible_models(mixed, lean_roster)
+check("newest_only drops older generations regardless of capitalization",
+      "Qwen3.8-27B" not in elig and "Qwen3.6-35B-A3B-FP8" not in elig
+      and "DeepSeek-V4-Flash-0731" in elig, ",".join(sorted(elig)))
+# a role whose purpose has NO data must not get a confident-looking suggestion
+solo = rmod.recommend([{"id": "qwen3.8-max", "available": True}], bench_ci, lean_roster, 0.92)
+rev = next(x for x in solo if x["role"] == "reviewer")
+check("a role whose main purpose is unscored says so",
+      rev["missing_weight"] >= 0.5 and "UNSCORED" in rev["reason"],
+      "%s | %s" % (rev.get("missing_weight"), rev["reason"]))
+check("a single benchmarked candidate says the tier bar chose nothing",
+      rev["candidates"] == 1 and "ONLY CANDIDATE" in rev["reason"], rev["reason"])
+plan = next(x for x in solo if x["role"] == "planner")
+check("a scored role carries no unscored warning",
+      plan["missing_weight"] < 0.5 and "UNSCORED" not in plan["reason"], plan["reason"])
+
 r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"), "refresh"],
                    capture_output=True, text=True)
 check("recommend refresh prints queries", r.returncode == 0 and "websearch" in r.stdout)
