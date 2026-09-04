@@ -48,7 +48,57 @@ DEF_LINE = re.compile(r"^\s*[-*]\s+id:\s*([A-Za-z]+-\d{1,4})\s*$", re.I)
 FIELD_LINE = re.compile(r"^\s+([a-z_]+):\s*(.*?)\s*$")
 REQ_LINE = re.compile(r"^\s*[-*]\s+(R-\d{1,4})\s*[:\-]\s*(.+)$", re.I)
 ADR_HEAD = re.compile(r"^#\s*(ADR-\d{1,4})\s*[:\-]?\s*(.*)$", re.I)
-QA_RESULT = re.compile(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(pass|fail|blocked)\b[\s:\-]*(.*)$", re.I)
+# QA reports come in two shapes and from two places. The expensive roster's QA
+# writes out/qa/test-report.md, the lean roster's reviewer writes
+# out/reviewer/test-report.md; both write either a list ("- A-001: pass - green")
+# or a table row ("| A-001 title | PASS | evidence |"). Reading only one shape
+# from one path is why suited's 33 reported criteria all counted as unreported.
+_QA_STATUS = (r"(pass(?:ed)?|fail(?:ed|s)?|blocked|partial|n/?a|"
+              r"not[- ]applicable|skipp?e?d?)")
+QA_RESULT = re.compile(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*\**" + _QA_STATUS +
+                       r"\**\b[\s:\-]*(.*)$", re.I)
+QA_TABLE_ROW = re.compile(r"^\s*\|\s*(A-\d{1,4})\b[^|]*\|\s*\**" + _QA_STATUS +
+                          r"\**[^|]*\|(.*)$", re.I)
+# Only `pass` verifies a criterion. `n/a` and `partial` are REPORTED but not
+# verified, which is a different (and quieter) finding than never reporting.
+QA_NORMALIZE = {"pass": "pass", "passed": "pass",
+                "fail": "fail", "failed": "fail", "fails": "fail",
+                "blocked": "blocked", "partial": "partial"}
+QA_BLOCKING = ("fail", "blocked")
+
+
+def qa_status(token):
+    """Normalize a status cell to the result vocabulary, or None if unknown."""
+    t = token.strip().lower().replace("_", "-")
+    if t in QA_NORMALIZE:
+        return QA_NORMALIZE[t]
+    if t.startswith("skip") or t in ("n/a", "na") or t.replace(" ", "-") == "not-applicable":
+        return "n/a"
+    return None
+
+
+def parse_qa_line(line):
+    """(id, result, evidence) for a QA line in either shape, else None."""
+    for rx, ev_group in ((QA_RESULT, 3), (QA_TABLE_ROW, 3)):
+        m = rx.match(line)
+        if not m:
+            continue
+        result = qa_status(m.group(2))
+        if result is None:
+            continue
+        return m.group(1), result, m.group(ev_group).strip().strip("|").strip()
+    return None
+
+
+def qa_report_paths(pmos):
+    """Every QA report on disk: both rosters' locations, plus per-phase siblings
+    (test-report-phase1.md). Sorted so the output is deterministic."""
+    found = []
+    for role in ("qa", "reviewer"):
+        d = pmos / "out" / role
+        if d.is_dir():
+            found += sorted(f for f in d.glob("test-report*.md") if f.is_file())
+    return found
 QA_TREE = re.compile(r"^\s*(?:tree|Tree)\s*:\s*([0-9a-fA-F]{16,64})\s*$")
 ADR_STATUS = re.compile(r"^\s*(?:status|Status)\s*:\s*([a-z\- ]+)", re.M)
 
@@ -198,20 +248,23 @@ def parse_project(proj):
         parse_blocks(register.read_text(encoding="utf-8", errors="replace"),
                      rel(register), entities, problems)
 
-    report = pmos / "out" / "qa" / "test-report.md"
+    reports = qa_report_paths(pmos)
     qa_tree = None
-    if report.is_file():
-        for n, line in enumerate(report.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
-            m = QA_RESULT.match(line)
-            if m:
-                qa_results[canonical(m.group(1))] = {
-                    "result": m.group(2).lower(), "evidence": m.group(3).strip(),
+    for report in reports:
+        for n, line in enumerate(report.read_text(encoding="utf-8",
+                                                 errors="replace").splitlines(), 1):
+            parsed = parse_qa_line(line)
+            if parsed:
+                aid, result, evidence = parsed
+                qa_results[canonical(aid)] = {
+                    "result": result, "evidence": evidence,
                     "file": rel(report), "line": n}
             elif qa_tree is None:
                 mt = QA_TREE.match(line)
                 if mt:
                     qa_tree = mt.group(1).lower()
-    return entities, problems, qa_results, (report.is_file(), register.is_file(), plan.is_file(), qa_tree)
+    return entities, problems, qa_results, (bool(reports), register.is_file(),
+                                            plan.is_file(), qa_tree)
 
 
 def check(entities, problems, qa_results, present):
@@ -295,9 +348,14 @@ def check(entities, problems, qa_results, present):
         if e.kind == "task" and e.id not in verified:
             problems.append(("warning", e.file, e.line,
                              "%s has no acceptance criterion verifying it" % e.id))
-        if e.kind == "acceptance" and has_qa and e.id not in qa_results:
-            problems.append(("warning", e.file, e.line,
-                             "%s is never reported on in the QA report" % e.id))
+        if e.kind == "acceptance" and has_qa:
+            res = qa_results.get(e.id, {}).get("result")
+            if res is None:
+                problems.append(("warning", e.file, e.line,
+                                 "%s is never reported on in the QA report" % e.id))
+            elif res in ("n/a", "partial"):
+                problems.append(("warning", e.file, e.line,
+                                 "%s is reported as %s, so it is not verified" % (e.id, res)))
         if e.kind == "decision" and e.fields.get("status", "").startswith("accepted"):
             for other in entities:
                 if other.kind == "decision" and e.id in [canonical(r) or r for r in
@@ -519,6 +577,36 @@ def selftest():
     hit = any("claims mitigated by T-001" in m for level, _, _, m in problems if level == "warning")
     print("   %s unproven mitigation warned" % ("[OK]  " if hit else "[FAIL]"))
     ok = ok and hit
+
+    # -- the lean roster's reviewer writes a TABLE in out/reviewer/, not a list
+    # in out/qa/. Reading only one shape from one path made suited's 33 reported
+    # criteria all count as unreported, so both must land, and n/a must not be
+    # mistaken for a pass.
+    lean = dict(CLEAN_FIXTURE)
+    del lean[".pmos/out/qa/test-report.md"]
+    lean[".pmos/out/reviewer/test-report.md"] = (
+        "# Gate\n\n| Criterion | Status | Evidence |\n|---|---|---|\n"
+        "| A-001 reset mail arrives | **PASS** | 12 tests green |\n"
+        "| A-002 session expiry | NOT-APPLICABLE (T-002 unbuilt) | no code yet |\n")
+    root = build(lean)
+    entities, problems, qa, present = parse_project(root)
+    check(entities, problems, qa, present)
+    cases = [
+        ("table row parsed", qa.get("A-001", {}).get("result") == "pass"),
+        ("evidence captured", "12 tests green" in qa.get("A-001", {}).get("evidence", "")),
+        ("n/a is not a pass", qa.get("A-002", {}).get("result") == "n/a"),
+        ("n/a warned as unverified",
+         any("A-002 is reported as n/a" in m for lvl, _, _, m in problems if lvl == "warning")),
+        ("reviewer path counts as a QA report", present[0] is True),
+        # a pass read out of a TABLE must satisfy the mitigation check too:
+        # if the row failed to parse, L-001 would be warned as unproven
+        ("table pass proves the mitigation",
+         not any("claims mitigated by T-001" in m
+                 for lvl, _, _, m in problems if lvl == "warning")),
+    ]
+    for label, hit in cases:
+        print("   %s %-32s" % ("[OK]  " if hit else "[FAIL]", label))
+        ok = ok and hit
 
     # -- QA evidence bound to the tree fingerprint (gstack G3): evidence
     # collected against the tested tree passes silently; a changed tree is

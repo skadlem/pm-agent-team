@@ -40,12 +40,28 @@ repo, but it is what joins this graph to the graphify code graph.
 It is not linted, but GATE 2's complexity report and the QA reviewer use it as the per-task
 verification contract: what will prove this task works, decided before implementation starts.
 
-QA reports results in `.pmos/out/qa/test-report.md`, one line per criterion:
+QA reports results in `.pmos/out/qa/test-report.md` (lean roster:
+`.pmos/out/reviewer/test-report.md`; per-phase files may be suffixed,
+`test-report-phase1.md`). One entry per criterion, in EITHER shape — a list:
 
 ```
 - A-001: pass - 12 tests green in tests/auth/
 - A-002: fail - session still valid after 31 minutes
 ```
+
+or a table, which is what reviewers writing long evidence usually reach for:
+
+```
+| Criterion | Status | Evidence |
+|---|---|---|
+| A-001 reset mail arrives | PASS | 12 tests green in tests/auth/ |
+| A-003 dedup is auditable | NOT-APPLICABLE (T-008 unbuilt) | no dedup code yet |
+```
+
+Statuses: `pass` verifies the criterion. `fail`/`blocked` send the task back to
+wave 3. `partial` and `n/a` (`not-applicable`, `skipped`) are REPORTED but not
+verified — `artifacts.py` warns on them rather than counting them either way.
+A criterion with no entry at all is unreported, which is a different warning.
 
 ### Acceptance criteria: EARS form
 

@@ -1,0 +1,28 @@
+{
+ "description": "lean roster: the reviewer reports criteria as a TABLE in out/reviewer/, not a list in out/qa/ - the results must still be read, and n/a must not count as passed",
+ "legal_strict": false,
+ "state": {
+  "stage": 8,
+  "stage_name": "checkpointed",
+  "fail_checks": [],
+  "exact_fail_checks": true
+ },
+ "artifacts": {
+  "error_count": 0,
+  "warnings": [
+   "A-002 is reported as n/a, so it is not verified"
+  ]
+ },
+ "trace": {
+  "summary": {
+   "requirements": 1,
+   "planned": 1,
+   "tasks": 2,
+   "verified": 2,
+   "criteria": 2,
+   "reported": 2,
+   "passing": 1
+  }
+ },
+ "gate2": "clear"
+}

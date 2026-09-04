@@ -49,6 +49,8 @@ import sys
 from datetime import date
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from artifacts import (QA_BLOCKING, parse_qa_line,  # noqa: E402  (sibling tool)
+                       qa_report_paths)
 from events import read_events, summarize  # noqa: E402  (sibling tool)
 
 TPL = pathlib.Path(__file__).resolve().parent.parent
@@ -192,20 +194,21 @@ def main():
                    if isinstance(team_info, dict) and team_info.get("team") == "lean"
                    else QA_ARTIFACT)
 
-    # The QA marker is the most consequential one, so it does NOT accept any
-    # stray markdown in the role dir (any_md=False): a screenshot log next to
-    # the report is not a gate result.
-    qa_reports = artifact_files(qa_artifact, any_md=False)[0]
+    # One QA reader for the whole toolchain (artifacts.py): both rosters'
+    # report locations, both list and table shapes. A screenshot log next to the
+    # report is not a gate result, so this never falls back to "any markdown".
+    qa_reports = qa_report_paths(pmos)
 
     def qa_failures():
         """Criteria the QA report marks fail/blocked. A report that exists is not
         a gate that passed: ORCHESTRATOR step 10 sends a failed gate back to
         wave 3, so those ids are what decides whether stage 8 was reached."""
         ids = set()
-        for p in qa_reports:
-            text = p.read_text(encoding="utf-8", errors="replace")
-            ids |= set(re.findall(r"^\s*[-*]\s+(A-\d{1,4})\s*[:\-]\s*(?:fail|blocked)\b",
-                                  text, re.I | re.M))
+        for f in qa_reports:
+            for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+                parsed = parse_qa_line(line)
+                if parsed and parsed[1] in QA_BLOCKING:
+                    ids.add(parsed[0])
         return sorted(ids)
 
     failing_criteria = qa_failures()

@@ -17,8 +17,14 @@ Read ORCHESTRATOR.md (core rules) first. This file covers implementation and the
    Brownfield: QA FIRST runs the project's existing test suite and records the baseline in its
    report (pre-existing failures vs failures introduced by the change), and verifies nothing in
    the charter's do-not-touch list changed.
-   QA reports one line per acceptance criterion in `.pmos/out/qa/test-report.md`:
-   `- A-NNN: pass|fail - <evidence>`. A criterion with no line is not "passed", it is unreported.
+   QA reports one entry per acceptance criterion in `.pmos/out/qa/test-report.md` (lean roster:
+   `.pmos/out/reviewer/test-report.md`), as a list line `- A-NNN: pass|fail - <evidence>` or as a
+   table row `| A-NNN <title> | PASS | <evidence> |` — both are read by the tooling, so write
+   whichever suits the evidence. `pass` is the only status that verifies; `partial` and `n/a`
+   are reported-but-unverified. A criterion with no entry is not "passed", it is unreported.
+   Check the report landed before closing the gate: `trace.py coverage` prints
+   `N/M criteria reported, K passing` — if that reads 0/M, the results are not being parsed and
+   the gate has no machine-readable evidence behind it.
    QA also binds the report to the tree it tested: run
    `python TPL/tools/artifacts.py fingerprint --project .` and add a `tree: <hash>` line to the
    report. `artifacts.py` then warns "QA evidence is stale" whenever the source tree changes
