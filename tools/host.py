@@ -119,11 +119,27 @@ def cmd_list_models(args):
     cfg = load_host(args.host)
     cmd, _ = real_command(cfg, "list-models", args)
     if not cmd:
+        # A host with no list-models CLI used to hard-stop GATE 1 until the user
+        # hand-wrote a file. When the adapter declares default_models, write
+        # those instead and say they are defaults: an editable starting list
+        # beats a blocked gate.
         note = cfg.get("list_models_note") or "the host declares no list_models command"
-        print("host %s has no CLI list-models command: %s" % (args.host, note), file=sys.stderr)
-        print("write the model list to --out yourself, then re-run without list-models",
-              file=sys.stderr)
-        return 2
+        defaults = cfg.get("default_models") or []
+        if not defaults:
+            print("host %s has no CLI list-models command: %s" % (args.host, note),
+                  file=sys.stderr)
+            print("write the model list to --out yourself, then re-run without list-models",
+                  file=sys.stderr)
+            return 2
+        text = "\n".join("- %s" % m for m in defaults) + "\n"
+        if args.out:
+            Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.out).write_text(text, encoding="utf-8")
+        else:
+            sys.stdout.write(text)
+        print("host %s has no list-models CLI; wrote %d default model(s). %s"
+              % (args.host, len(defaults), note), file=sys.stderr)
+        return 0
     if args.dry_run:
         print(cmd)
         return 0
@@ -292,12 +308,12 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("list-models")
-    p.add_argument("--host", default="jcode")
+    p.add_argument("--host", default="claude")
     p.add_argument("--out", default=None)
     p.add_argument("--dry-run", action="store_true")
 
     p = sub.add_parser("spawn")
-    p.add_argument("--host", default="jcode")
+    p.add_argument("--host", default="claude")
     p.add_argument("--model", required=True)
     p.add_argument("--label", required=True)
     p.add_argument("--effort", default=None)
@@ -311,7 +327,7 @@ def main():
     p.add_argument("--dry-run", action="store_true")
 
     p = sub.add_parser("usage")
-    p.add_argument("--host", default="jcode")
+    p.add_argument("--host", default="claude")
     p.add_argument("--result", required=True)
 
     args = ap.parse_args()

@@ -23,9 +23,11 @@ Read ORCHESTRATOR.md (core rules) first. This file covers the PM wave and the fi
    exists, propose that role -> model table as-is (it is the user's explicit preference); only
    verify each listed model still appears in the host's available-model list, and flag any that do not.
    Otherwise compute the model selection LIVE:
-   a. Enumerate the host's models (the host's list-models primitive; on hosts without a CLI
-      command, write the provider's model ids to `.pmos/available-models.txt` by hand —
-      see HOST-ADAPTER.md) and save them to `.pmos/available-models.txt`.
+   a. Enumerate the host's models:
+      `python TPL/tools/host.py list-models --host <host> --out .pmos/available-models.txt`.
+      It runs the host's CLI where one exists, and where none does (Claude Code) it writes the
+      adapter's `default_models` — show that list to the user and let them correct it, rather
+      than blocking the gate on a hand-written file. Provider capitalization does not matter.
    b. Run `python TPL/tools/recommend.py --available .pmos/available-models.txt --json
       --ladder-out .pmos/team-model-ladder.json` to score each available model per role purpose
       (benchmarks.json), keep each role's best tier (per-role `role_tiers` in roster.json, NOT a

@@ -431,6 +431,27 @@ check("cost record --event writes the matching wave event",
       r.returncode == 0 and len(rows) == 3 and rows[2]["role"] == "qa"
       and rows[2]["ladder"] == 1, json.dumps(rows[-1])[:120])
 
+# a host with no list-models CLI must still produce a usable list (Claude Code
+# has none; GATE 1 used to stop until the user hand-wrote the file)
+deflist = pathlib.Path(tempfile.mkdtemp()) / "available-models.txt"
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "list-models",
+                    "--host", "claude", "--out", str(deflist)], capture_output=True, text=True)
+ids = [x for x in (deflist.read_text(encoding="utf-8").splitlines() if deflist.is_file() else [])
+       if x.strip()]
+check("a host with no list-models CLI writes its default model list",
+      r.returncode == 0 and len(ids) >= 2 and all(x.startswith("- ") for x in ids),
+      "rc=%s %s" % (r.returncode, ids[:3]))
+r = subprocess.run([sys.executable, str(TPL / "tools" / "recommend.py"),
+                    "--available", str(deflist), "--json"], capture_output=True, text=True)
+picked = [x for x in json.loads(r.stdout) if x["suggested"]] if r.returncode == 0 else []
+check("the default list is enough to produce a GATE 1 table",
+      r.returncode == 0 and len(picked) >= 3, "rc=%s picked=%d" % (r.returncode, len(picked)))
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "list-models",
+                    "--host", "openhands", "--out", str(deflist.parent / "oh.txt")],
+                   capture_output=True, text=True)
+check("a host with neither a CLI nor defaults still says so instead of inventing models",
+      r.returncode == 2, "rc=%s" % r.returncode)
+
 print("== 9e. Extras: converge audit, issues export, experience search ==")
 sys.path.insert(0, str(TPL / "tools"))
 import eval_project as harness  # noqa: E402  (sibling tool: fixture materialization)

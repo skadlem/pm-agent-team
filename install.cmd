@@ -1,12 +1,12 @@
 @echo off
 rem PMOS template installer (Windows). Usage: install.cmd [host]
-rem host: jcode (default) | claude | openhands | hermes
+rem host: claude (default) | jcode | openhands | hermes
 rem Copies the 4 skills from the host's rendered bundle into the host's global
 rem skills dir and records the template root (hosts/<host>.json paths).
 setlocal enabledelayedexpansion
 set "TPL=%~dp0"
 set "HOST=%~1"
-if "%HOST%"=="" set "HOST=jcode"
+if "%HOST%"=="" set "HOST=claude"
 if not exist "%TPL%hosts\%HOST%.json" (
   echo unknown host "%HOST%"; adapters:
   dir /b "%TPL%hosts\*.json" | findstr /v "\.md$"

@@ -1,13 +1,13 @@
 #!/bin/sh
 # PMOS template installer. Usage: sh install.sh [host]
-# host: jcode (default) | claude | openhands | hermes
+# host: claude (default) | jcode | openhands | hermes
 #
-# Copies the 4 skills (the HOST's rendered bundle, so jcode-isms are already
-# rewritten) into the host's global skills dir and records the template root,
+# Copies the 4 skills (the HOST's rendered bundle, so another host's idioms are
+# already rewritten) into the host's global skills dir and records the template root,
 # exactly the paths hosts/<host>.json declares.
 set -e
 TPL="$(cd "$(dirname "$0")" && pwd)"
-HOST="${1:-jcode}"
+HOST="${1:-claude}"
 
 if [ ! -f "$TPL/hosts/$HOST.json" ]; then
     echo "unknown host '$HOST'; hosts with adapters:" >&2

@@ -6,7 +6,7 @@
 A host-portable agent-team template that turns "Start the project <idea>" into a managed multi-agent build:
 role agents, per-role hybrid knowledge bases, repo understanding via graphify, wave-based execution
 with human approval gates, and hard caps so no agent ever carries more context than it needs.
-Runs on jcode (reference host), Claude Code, Hermes, or the OpenHands SDK — one declarative
+Runs on Claude Code (reference host), jcode, Hermes, or the OpenHands SDK — one declarative
 adapter per host (`hosts/*.json`), no protocol forks.
 
 **Requirements:** an agent host (see **Hosts** below) and Python 3.9+ with SQLite FTS5 (bundled
@@ -23,24 +23,26 @@ command, or a host without gstack, runs the standard flow unchanged.
 ```bash
 git clone https://github.com/skadlem/pm-agent-team.git
 cd pm-agent-team
-sh install.sh claude    # or: jcode (default) | openhands | hermes
-install.cmd claude      # Windows
+sh install.sh           # claude (default); or: jcode | openhands | hermes
+install.cmd             # Windows
 ```
 
 The installer reads the host's adapter config and installs the host's rendered
 bundle skills globally, then records the template root. Per-host extras (e.g.
 per-project `agents/` dirs): the bundle's README.
 
-**jcode:** the installer copies the 4 skills into `~/.jcode/skills` and remembers the template
-location in `~/.jcode/pmos-template-root` (the folder can live anywhere; move it and re-run the
-installer if needed). Global install = skills available in EVERY future jcode session, in any
-directory.
+**Claude Code (default):** the installer copies the 4 skills into `~/.claude/skills`, records
+this repo's path in `~/.claude/pmos-template-root` (the folder can live anywhere; move it and
+re-run the installer), and the bundle's `agents/*.md` go in a project's `.claude/agents/` when
+you run there. Global install = skills available in EVERY future session, in any directory.
+Claude Code has no CLI model list, so `host.py list-models --host claude` writes the current
+Claude family as a starting `available-models.txt` — edit it to match your account rather than
+hand-writing one before GATE 1.
 
-**Claude Code / OpenHands:** every rendered bundle is self-contained — copy
+**jcode / OpenHands / Hermes:** every rendered bundle is self-contained — copy
 `host-bundles/<host>/skills/*` into the host's global skills dir, write this repo's path to the
-host's `pmos-template-root` file, and drop `host-bundles/<host>/agents/*.md` into a project's
-`.claude/agents/` or `.openhands/agents/` when running there. Per-host steps: each bundle's
-`README.md`.
+host's `pmos-template-root` file, and drop `host-bundles/<host>/agents/*.md` into the project's
+agents dir when running there. Per-host steps: each bundle's `README.md`.
 
 Trigger phrases are the same on every host:
 
@@ -107,9 +109,11 @@ expected artifacts, and a model chosen at launch (user-approved).
 
 ## Model selection (computed at launch, not hardcoded)
 
-At GATE 1 the coordinator enumerates the host's available models (`swarm list_models` on jcode;
-on Claude Code / OpenHands the list is written to `.pmos/available-models.txt` by hand or from
-the provider's model API) and runs
+At GATE 1 the coordinator enumerates the host's available models —
+`python TPL/tools/host.py list-models --host <host> --out .pmos/available-models.txt`, which runs
+the host's CLI where there is one (`swarm list_models` on jcode) and otherwise writes the
+adapter's `default_models` for you to edit (Claude Code, which has no model-list command) —
+and runs
 `python TPL/tools/recommend.py --available <file>` which:
 
 1. Keeps only AVAILABLE models from the live list.
@@ -321,7 +325,7 @@ primitives differ per agent host (spawn-with-model, list_models, usage). `hosts/
 each host's adapter (the gstack defineHost() pattern — see HOST-ADAPTER.md), and
 `python tools/hostgen.py --all` renders `host-bundles/<host>/`: the protocol docs, spawn prompt,
 and per-role agents with every jcode-ism rewritten to that host's tools. Shipped hosts:
-jcode (reference), Claude Code (live-validated: `validate.py` section 9f), OpenHands SDK
+Claude Code (reference, live-validated: `validate.py` section 9f), jcode, OpenHands SDK
 (script-based spawn via `tools/openhands_run.py`, section 9g), Hermes. Adding a host = one JSON
 file + rewrite entries; `hostgen.py --check` fails CI on stale bundles, dead rewrites, or
 surviving jcode-isms.

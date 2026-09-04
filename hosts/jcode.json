@@ -1,6 +1,6 @@
 {
   "name": "jcode",
-  "display_name": "jcode (reference host)",
+  "display_name": "jcode",
   "template_root_file": "~/.jcode/pmos-template-root",
   "skills_dir": "~/.jcode/skills",
   "defaults_file": "~/.jcode/pmos-team-defaults.json",
