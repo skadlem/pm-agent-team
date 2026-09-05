@@ -820,9 +820,16 @@ r = subprocess.run([sys.executable, str(TPL / "tools" / "kb.py"), "reindex-vecto
                    capture_output=True, text=True)
 check("reindex-vectors offline", r.returncode == 0 and "offline" in r.stdout)
 if os.name == "nt":
+    # install.cmd records the template root at the DEFAULT host's adapter path
+    # (ed3fa46 made claude the default; the old hardcoded ~/.jcode/ check missed it).
+    # Parse the default from install.cmd so this never drifts from the installer.
+    m = re.search(r'if\s+"%HOST%"==""\s+set\s+"HOST=(\w+)"',
+                  (TPL / "install.cmd").read_text(encoding="utf-8", errors="replace"))
+    default_host = m.group(1) if m else "claude"
+    adapter = json.loads((TPL / "hosts" / f"{default_host}.json").read_text(encoding="utf-8"))
+    root = pathlib.Path(os.path.expanduser(adapter["template_root_file"]))
     r = subprocess.run(["cmd", "/c", "install.cmd"], capture_output=True, text=True, cwd=TPL)
     check("install.cmd idempotent", r.returncode == 0)
-    root = pathlib.Path(os.path.expanduser("~/.jcode/pmos-template-root"))
     check("template-root file", root.exists() and root.read_text().strip().rstrip("\\/") == str(TPL).rstrip("\\/"))
 
 print("== 13. Artifact id schema (ids, references, linter) ==")
