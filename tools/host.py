@@ -74,14 +74,17 @@ def mock_spawn(model, label, effort, prompt, out_file, project):
 
 def real_command(cfg, verb, args):
     """Resolve a primitive to the host's documented command string."""
+    # <tpl> and env-block placeholders resolve from the adapter config:
+    # hosts/*.json "env": {"python": "...", "runner": "<tpl>/tools/..."}
+    env_cfg = {k: str(v).replace("<tpl>", str(TPL))
+               for k, v in (cfg.get("env") or {}).items()}
     if verb == "list-models":
-        return cfg.get("list_models", ""), {}
+        cmd = cfg.get("list_models", "")
+        for k, v in env_cfg.items():
+            cmd = cmd.replace("<%s>" % k, shlex.quote(os.path.expanduser(v)))
+        return cmd, {}
     if verb == "spawn":
         cmd = cfg.get("spawn", {}).get("command", "")
-        # <tpl> and env-block placeholders resolve from the adapter config:
-        # hosts/*.json "env": {"python": "...", "runner": "<tpl>/tools/..."}
-        env_cfg = {k: str(v).replace("<tpl>", str(TPL))
-                   for k, v in (cfg.get("env") or {}).items()}
         for k, v in env_cfg.items():
             cmd = cmd.replace("<%s>" % k, shlex.quote(os.path.expanduser(v)))
         cmd = cmd.replace("<model>", args.model).replace("<effort>", args.effort or "")

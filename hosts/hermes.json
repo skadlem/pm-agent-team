@@ -6,19 +6,27 @@
   "agents_dir": "~/.hermes/agents",
   "defaults_file": "~/.hermes/pmos-team-defaults.json",
   "spawn": {
-    "doc": "delegate_task: spawn a subagent. NOTE: Hermes delegate_task has NO per-spawn model/effort args (verified in tools/delegate_tool.py) \u2014 children inherit the parent model. To give workers a different model, pin delegation.provider / delegation.model globally in config.yaml before the run, or start the coordinator session with that model.",
-    "command": "delegate_task(goal=<spawn prompt>, context=<artifacts>, role=<role>)",
-    "model_flag": "(not per-spawn: children inherit parent model, or set delegation.model in config.yaml)",
-    "effort_flag": "(not supported; omit)"
+    "doc": "Headless worker via tools/hermes_run.py, which drives `hermes -z` with a per-spawn --model (and --reasoning from --effort; the model-picker config is ignored so workers can't rewrite this Hermes install) and prints a claude-shaped result JSON, so host.py --role auto-records the ledgers. In-process alternative: delegate_task has NO per-spawn model (children inherit the parent's) and returns no usage block — only use it when spawning hermes -z is impossible, and hand-record usage via cost.py record --source estimated.",
+    "command": "PMOS_PROMPT_FILE=<prompt-file> PMOS_MODEL=<model> PMOS_EFFORT=<effort> PMOS_PROVIDER=${PMOS_PROVIDER:-<provider>} PMOS_WORKSPACE=$PWD <python> <runner>",
+    "model_flag": "PMOS_MODEL=<model>",
+    "effort_flag": "PMOS_EFFORT=<effort> (maps to hermes --reasoning; unsupported values run at the model default with a pmos_note)"
   },
-  "list_models": "hermes models (configured providers)",
+  "list_models": "<python> <runner> list-models",
+  "list_models_note": "reads Hermes' model-catalog caches (~/.hermes/cache/openrouter_curated.json, model_catalog.json — the picker's source of truth). `hermes model --refresh` refetches them when the list looks stale.",
+  "env": {
+    "python": "python3",
+    "runner": "<tpl>/tools/hermes_run.py",
+    "provider": ""
+  },
+  "env_note": "set provider to a Hermes provider name (e.g. QwenTokenPlan) when your account's ids are ambiguous across configured providers — auto-detection mis-routes then. Empty = Hermes decides.",
   "usage": {
-    "doc": "token counts come from the subagent result (usage block)"
+    "doc": "hermes_run.py turns the `-z --usage-file` report into the shared .usage shape (input_tokens/output_tokens); host.py spawn --role records it automatically.",
+    "flag": "--usage-file"
   },
   "tool_rewrites": [],
   "suppressed": [],
   "file_scope_hooks": {
     "available": false,
-    "doc": "no file-scope edit hooks today; do-not-touch is enforced at the checkpoint (trace.py unplanned), not at edit time"
+    "doc": "no file-scope edit hooks on this path; workers are hermes -z processes with YOLO forced by oneshot — do-not-touch is enforced at the checkpoint (trace.py unplanned), not at edit time. Keep PMOS_WORKSPACE pointed at the project tree."
   }
 }

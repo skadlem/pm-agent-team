@@ -596,7 +596,76 @@ else:
               r.returncode == 0 and usage["status"] == ("ok" if not run.get("is_error") else "failed"),
               str(usage))
 
-print("== 9h. Complexity analysis (T2) ==")
+print("== 9h. Real host pipeline: hermes backend (Stage L) ==")
+# Fourth host: headless `hermes -z` through tools/hermes_run.py. The offline part
+# (runner imports, list-models, command assembly) always runs; the live spawn is
+# skipped when the hermes CLI or its model-catalog cache is absent, so CI boxes
+# without a hermes install stay green.
+r = subprocess.run([sys.executable, "-m", "py_compile",
+                    str(TPL / "tools" / "hermes_run.py")], capture_output=True, text=True)
+check("hermes_run.py compiles", r.returncode == 0, r.stderr.strip()[:80])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                    "--host", "hermes", "--model", "anthropic/claude-haiku-4.5",
+                    "--effort", "low", "--label", "hermes-dry", "--project", str(TPL),
+                    "--prompt", "ping", "--dry-run"], capture_output=True, text=True)
+check("hermes spawn command assembles (dry-run)",
+      r.returncode == 0 and "PMOS_PROMPT_FILE=" in r.stdout and "hermes_run.py" in r.stdout
+      and "PMOS_MODEL=anthropic/claude-haiku-4.5" in r.stdout and "PMOS_EFFORT=low" in r.stdout,
+      (r.stdout or r.stderr).strip()[:100])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "list-models",
+                    "--host", "hermes", "--dry-run"], capture_output=True, text=True)
+check("hermes list-models command carries the runner path",
+      r.returncode == 0 and "hermes_run.py" in r.stdout and "list-models" in r.stdout,
+      (r.stdout or r.stderr).strip()[:100])
+if shutil.which("hermes") is None:
+    _skips += 1
+    print("  [SKIP] hermes CLI not installed (live check)")
+else:
+    hproj = pathlib.Path(tempfile.mkdtemp()) / "proj"
+    (hproj / ".pmos").mkdir(parents=True)
+    r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "list-models",
+                        "--host", "hermes", "--out", str(hproj / ".pmos" / "models.txt")],
+                       capture_output=True, text=True, timeout=60)
+    hm = [x for x in (hproj / ".pmos" / "models.txt").read_text(encoding="utf-8").splitlines()
+          if x.strip()] if (hproj / ".pmos" / "models.txt").is_file() else []
+    if r.returncode != 0 or not hm:
+        _skips += 1
+        print("  [SKIP] no model-catalog cache to read (%s)" % (r.stderr or "").strip()[:70])
+    else:
+        check("hermes list-models emits the '- <id>' shape recommend.py parses",
+              all(x.startswith("- ") for x in hm), "%d model(s)" % len(hm))
+        # smallest/cheapest first — the probe must not spend frontier tokens;
+        # fall back to the first id if the cache names no cheap model
+        hprobe = next((x[2:] for x in hm if any(k in x for k in
+                    ("haiku", "flash", "mini", "nano", "lite", ":free"))), hm[0][2:])
+        r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "spawn",
+                            "--host", "hermes", "--model", hprobe,
+                            "--label", "stage-l-hermes",
+                            "--prompt", "Reply with exactly one word: OK",
+                            "--project", str(hproj),
+                            "--out", str(hproj / ".pmos" / "host-run.json")],
+                           capture_output=True, text=True, timeout=300)
+        raw = (hproj / ".pmos" / "host-run.json").read_text(encoding="utf-8") \
+            if (hproj / ".pmos" / "host-run.json").is_file() else ""
+        j = raw.find('{"type": "result"')
+        if j < 0:
+            _skips += 1
+            print("  [SKIP] hermes did not answer (%s)" % ((r.stderr or raw).strip()[:70],))
+        else:
+            run = json.loads(raw[j:])
+            check("hermes spawn returns result JSON with usage",
+                  isinstance((run.get("usage") or {}).get("input_tokens"), int),
+                  "err=%s in=%s" % (run.get("is_error"), run["usage"]["input_tokens"]))
+            r = subprocess.run([sys.executable, str(TPL / "tools" / "host.py"), "usage",
+                                "--host", "hermes",
+                                "--result", str(hproj / ".pmos" / "host-run.json")],
+                               capture_output=True, text=True)
+            usage = json.loads(r.stdout)
+            check("hermes usage parsed from runner JSON",
+                  r.returncode == 0 and usage["status"] == ("ok" if not run.get("is_error") else "failed"),
+                  str(usage))
+
+print("== 9i. Complexity analysis (T2) ==")
 sys.path.insert(0, str(TPL / "tools"))
 import eval_project as _harness2
 _cdest = _harness2.materialize(TPL / "tests" / "fixtures" / "greenfield-planning",

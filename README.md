@@ -326,7 +326,8 @@ each host's adapter (the gstack defineHost() pattern — see HOST-ADAPTER.md), a
 `python tools/hostgen.py --all` renders `host-bundles/<host>/`: the protocol docs, spawn prompt,
 and per-role agents with every jcode-ism rewritten to that host's tools. Shipped hosts:
 Claude Code (reference, live-validated: `validate.py` section 9f), jcode, OpenHands SDK
-(script-based spawn via `tools/openhands_run.py`, section 9g), Hermes. Adding a host = one JSON
+(script-based spawn via `tools/openhands_run.py`, section 9g), Hermes (headless `hermes -z`
+via `tools/hermes_run.py`, section 9h). Adding a host = one JSON
 file + rewrite entries; `hostgen.py --check` fails CI on stale bundles, dead rewrites, or
 surviving jcode-isms.
 

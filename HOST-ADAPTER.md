@@ -102,7 +102,9 @@ extra placeholders and an `env` block:
 
 spawn-with-model: the coordinator passes label + model + effort + prompt. jcode: `swarm`
 tool. Claude Code: `claude -p --model <m> --permission-mode acceptEdits ...`. Hermes:
-`delegate_task(goal=..., model=<m>, effort=<e>)`. All three go through `tools/host.py`:
+`tools/hermes_run.py` -> `hermes -z --model <m>` headless (delegate_task only as the
+in-process fallback — no per-spawn model, no usage block). All of these go through
+`tools/host.py`:
 
 ```
 python tools/host.py list-models --host claude --out .pmos/available-models.txt
@@ -123,11 +125,13 @@ without ever paying a model.
 
 list_models: the coordinator saves the output to `.pmos/available-models.txt` and feeds it to
 `recommend.py --available`. jcode: `swarm list_models`. Claude Code: no CLI command in 2.1.x —
-the coordinator writes the provider's model list to the file by hand (hosts/claude.json
-`list_models_note` says how). Hermes: the configured provider/model list.
+the adapter's `default_models` seed the file (hosts/claude.json), the user corrects it to what
+the account serves. Hermes: `tools/hermes_run.py list-models` reads the model-catalog caches
+(`hermes model --refresh` refetches).
 
 usage: every spawn result must yield tokens_in/tokens_out for `cost.py record`. jcode: in the
-spawn result. Claude Code: `--output-format json` usage block. Hermes: the subagent result.
+spawn result. Claude Code: `--output-format json` usage block. Hermes: the `-z --usage-file`
+report, reshaped by the runner.
 The mock backend reports usage derived from the prompt length.
 
 ## Host limitations are feature flags, not forks
