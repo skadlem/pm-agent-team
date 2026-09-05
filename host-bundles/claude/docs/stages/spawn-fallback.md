@@ -90,3 +90,10 @@ comes from the event trace, not from how the coordinator feels:
       increments the loop counter again (the trace is append-only and wave-ordered).
 3. `state.py` prints the same decision on resume (`decision: replan` with a WARN), so a session
    that comes back after the rework does not quietly restart the ladder loop.
+4. When a run dies on the ROUTE rather than the task (402/403/429, quota exhausted, connection
+   error), record it with `cost.py record --status failed --failure-class infra` — `host.py spawn
+   --role` does this mechanically from the result's `api_error_status`/`terminal_reason`. Such
+   failures stay in the totals but leave `events.py report`'s per-model quality rates
+   (`quality_runs`), so L-13 never skips a healthy model because of a billing outage (the cronx
+   lesson: 3 quota deaths read as "sonnet fails 67% here"). A 403 is quota first, edge-block
+   second: check the provider's usage/balance endpoint before declaring a route dead.

@@ -286,7 +286,10 @@ def recommend(available, benchmarks, roster, tier=0.92, role_filter=None, histor
 
         def failing(mid):
             h = hist(mid)
-            return bool(h and h.get("runs", 0) >= 3 and h.get("ok", 0) / h["runs"] < 0.5)
+            # infra failures (route/billing) are excluded from quality_runs —
+            # a model that died on a 403 says nothing about the model (cronx)
+            n = h.get("quality_runs", h.get("runs", 0)) if h else 0
+            return bool(h and n >= 3 and h.get("ok", 0) / n < 0.5)
 
         def pass_rate(mid):
             # fraction of this model's runs whose output PASSED its gate (Anthropic:

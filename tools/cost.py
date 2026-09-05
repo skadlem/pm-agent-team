@@ -127,6 +127,10 @@ def cmd_record(args):
            "source": args.source, "status": args.status}
     if args.task:
         row["task"] = args.task
+    if getattr(args, "failure_class", None) and args.status == "failed":
+        # only meaningful next to a failure; ok rows carry nothing (an 'ok' with
+        # a failure-class would be a contradiction waiting to confuse the trace)
+        row["failure_class"] = args.failure_class
     p = ledger_path(args.project)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as f:
@@ -506,6 +510,11 @@ def main():
     p.add_argument("--source", choices=["measured", "estimated"], default="measured",
                    help="'estimated' when the host does not report usage; kept apart in the report")
     p.add_argument("--status", choices=["ok", "failed", "unknown"], default="ok")
+    p.add_argument("--failure-class", dest="failure_class", choices=["task", "infra"],
+                   default=None,
+                   help="with --status failed: 'infra' = the ROUTE died (402/403/429, quota, "
+                        "timeout) and says nothing about the model — events/recommend exclude "
+                        "it from quality rates; 'task' (default) = the worker's own failure")
     p.add_argument("--event", action="store_true",
                    help="also append the matching wave-event row (events.py record), "
                         "so one command leaves both ledgers consistent")

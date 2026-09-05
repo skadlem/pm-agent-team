@@ -804,6 +804,47 @@ check("L-13: no same-tier alternative -> fall back to the historical pick",
                      bench, roster, 0.92, history=hist)[0]["suggested"] == "claude-sonnet-5",
       "")
 
+# infra-vs-task failure classes (cronx lesson): quota/route deaths must not
+# count against the MODEL's quality rates, or the next project's L-13 skips a
+# healthy model because of a billing outage. host.py classifies mechanically.
+import host as _host  # noqa: E402  (sibling tool: the failure classifier)
+check("classifier: api_error_status 403/402/429 -> infra",
+      all(_host.classify_failure({"api_error_status": s}, "") == "infra"
+          for s in (402, 403, 429)))
+check("classifier: terminal_reason api_error -> infra even without a status",
+      _host.classify_failure({"terminal_reason": "api_error"}, "") == "infra")
+check("classifier: quota/billing wording in the result text -> infra",
+      _host.classify_failure({"result": "Billing or credits exhausted: HTTP 402"},
+                             "") == "infra"
+      and _host.classify_failure({}, "usage limit reached") == "infra")
+check("classifier: a plain worker failure stays a TASK failure (ladder business)",
+      _host.classify_failure({"result": "tests failed on T-003"}, "") == "task")
+check("classifier: bare numbers in model prose do not fake an outage",
+      _host.classify_failure({"result": "the cron field '1-4' means 1 through 4"}, "") == "task")
+iproj = pathlib.Path(tempfile.mkdtemp()) / "proj"
+iproj2 = iproj / ".pmos"
+iproj2.mkdir(parents=True)
+r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "record",
+                    "--project", str(iproj), "--role", "implementer",
+                    "--model", "claude-sonnet-5", "--in", "1000", "--out", "100",
+                    "--status", "failed", "--failure-class", "infra", "--event"],
+                   capture_output=True, text=True)
+check("cost record --failure-class infra writes both ledgers",
+      r.returncode == 0, (r.stderr or r.stdout).strip()[:80])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "cost.py"), "record",
+                    "--project", str(iproj), "--role", "implementer",
+                    "--model", "claude-sonnet-5", "--in", "1000", "--out", "100",
+                    "--status", "failed", "--event"],
+                   capture_output=True, text=True)
+check("cost record without a class defaults to a task failure (old semantics)",
+      r.returncode == 0, (r.stderr or r.stdout).strip()[:80])
+r = subprocess.run([sys.executable, str(TPL / "tools" / "events.py"), "report",
+                    "--project", str(iproj), "--json"], capture_output=True, text=True)
+ir = json.loads(r.stdout)["by_model"]["claude-sonnet-5"]
+check("infra failure leaves quality_runs=1 (task failure stays in); ok_rate honest",
+      ir["runs"] == 2 and ir["infra"] == 1 and ir["quality_runs"] == 1
+      and ir["ok_rate"] == 0.0, json.dumps(ir))
+
 # pass-rate tiebreaker: two same-tier models, equal cost ranking aside - the one with a
 # known gate pass-rate beats an unknown; higher pass-rate wins over lower at similar cost.
 hist_pr = {"claude-sonnet-5": {"runs": 4, "ok": 4, "pass_rate": 1.0},

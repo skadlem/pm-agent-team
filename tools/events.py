@@ -76,6 +76,11 @@ def cmd_record(args):
         "tokens_in": last.get("tokens_in", 0), "tokens_out": last.get("tokens_out", 0),
         "usd": last.get("usd"), "gate": args.gate,
     }
+    if last.get("failure_class"):
+        # L-4 taxonomy at the stats layer: an infra death (402/403/429, quota,
+        # timeout) says nothing about the MODEL, so by_model rates must exclude
+        # it. Rows without this field predate the classifier -> "task".
+        event["failure_class"] = last["failure_class"]
     p = trace_path(args.project)
     p.parent.mkdir(parents=True, exist_ok=True)
     with p.open("a", encoding="utf-8") as f:
@@ -107,7 +112,7 @@ def summarize(events):
                 continue
             r = out[bucket].setdefault(key, {"runs": 0, "ok": 0, "failed": 0,
                                              "tokens": [], "ladder_retries": 0,
-                                             "gate_passes": 0})
+                                             "gate_passes": 0, "infra": 0})
             r["runs"] += 1
             if e.get("gate"):
                 # a gate-annotated event means this worker's output PASSED its gate
@@ -116,14 +121,22 @@ def summarize(events):
                 r["ok"] += 1
             elif e.get("outcome") not in (None, "unknown"):
                 r["failed"] += 1
+            # a failed run whose cause was the ROUTE (402/403/429/quota/timeout),
+            # not the model, must not drag the model's quality rates down — cronx
+            # taught this: a quota outage read as "claude-sonnet-5 fails 67% here"
+            # and recommend.py would have skipped a healthy model.
+            if e.get("failure_class") == "infra" and e.get("outcome") == "failed":
+                r["infra"] += 1
             r["tokens"].append(e.get("tokens_in", 0) + e.get("tokens_out", 0))
             if (e.get("ladder") or 0) > 0:
                 r["ladder_retries"] += 1
     for bucket in ("by_role", "by_model"):
         for r in out[bucket].values():
             r["median_tokens"] = int(statistics.median(r["tokens"])) if r["tokens"] else 0
-            r["ok_rate"] = round(r["ok"] / r["runs"], 3) if r["runs"] else 0.0
-            r["pass_rate"] = round(r["gate_passes"] / r["runs"], 3) if r["runs"] else None
+            quality_runs = r["runs"] - r["infra"]
+            r["quality_runs"] = quality_runs
+            r["ok_rate"] = round(r["ok"] / quality_runs, 3) if quality_runs else 0.0
+            r["pass_rate"] = round(r["gate_passes"] / quality_runs, 3) if quality_runs else None
             del r["tokens"]
     out["usd"] = round(out["usd"], 4)
     # L-4 failure taxonomy: the coordinator follows this decision instead of
@@ -162,9 +175,13 @@ def cmd_report(args):
         print("  wave numbers went backwards %d time(s) - QA sent work back for rework"
               % out["rework_loops"])
     for model, r in sorted(out["by_model"].items()):
-        if r["runs"] >= 3 and r["ok_rate"] < 0.5:
-            print("  ! %s: %d/%d runs ok (%.0f%%) - historically fails here; "
-                  "prefer another ladder entry" % (model, r["ok"], r["runs"], 100 * r["ok_rate"]))
+        if r["infra"]:
+            print("  (%s: %d/%d run(s) failed on INFRA (route/billing), excluded from its "
+                  "quality rates)" % (model, r["infra"], r["runs"]))
+        if r["quality_runs"] >= 3 and r["ok_rate"] < 0.5:
+            print("  ! %s: %d/%d quality runs ok (%.0f%%) - historically fails here; "
+                  "prefer another ladder entry"
+                  % (model, r["ok"], r["quality_runs"], 100 * r["ok_rate"]))
     print("DECISION: %s" % out["decision"])
     if out["decision"] == "replan":
         print("  two rework loops: stop retrying the ladder, replan the task (see "
@@ -188,13 +205,15 @@ def selftest():
     (root / ".pmos").mkdir()
     ledger = root / ".pmos" / "costs.jsonl"
 
-    def add_ledger_row(wave, role, status, tin, tout, usd, task=None):
+    def add_ledger_row(wave, role, status, tin, tout, usd, task=None, failure_class=None):
         row = {"ts": "2026-08-24T00:00:00+00:00", "wave": wave, "role": role,
                "label": role, "model": "claude-opus-5", "effort": "medium",
                "tokens_in": tin, "tokens_out": tout, "usd": usd,
                "source": "measured", "status": status}
         if task:
             row["task"] = task
+        if failure_class:
+            row["failure_class"] = failure_class
         with ledger.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
 
@@ -249,6 +268,41 @@ def selftest():
         ("single rework loop keeps the decision on continue",
          rep["decision"] == "continue"),
         ("report always exits 0 (informational, not a gate)", rc == 0),
+    ]
+
+    # infra-vs-task split (cronx lesson): a model that died on a quota 403 twice
+    # and worked once is a HEALTHY model — quality rates must say so.
+    root2 = Path(tempfile.mkdtemp())
+    (root2 / ".pmos").mkdir()
+    ledger2 = root2 / ".pmos" / "costs.jsonl"
+
+    def add2(status, failure_class=None):
+        row = {"ts": "2026-09-05T00:00:00+00:00", "wave": 2, "role": "implementer",
+               "label": "impl", "model": "claude-sonnet-5", "effort": "",
+               "tokens_in": 1000, "tokens_out": 100, "usd": 0.1,
+               "source": "measured", "status": status}
+        if failure_class:
+            row["failure_class"] = failure_class
+        with ledger2.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+        quiet(lambda a: cmd_record(a), argparse.Namespace(project=str(root2), ladder=0,
+                                                          gate=None, role=None, wave=None, model=None))
+    add2("failed", "infra")
+    add2("failed", "infra")
+    add2("ok")
+    rc, out = quiet(lambda a: cmd_report(a), argparse.Namespace(project=str(root2), json=True))
+    rep2 = json.loads(out)
+    sn = rep2["by_model"]["claude-sonnet-5"]
+    # the event rows must carry failure_class inherited from the ledger row
+    ev = read_events(str(root2))
+    cases += [
+        ("record copies failure_class from the ledger row into the event",
+         [e.get("failure_class") for e in ev] == ["infra", "infra", None]),
+        ("infra failures leave by_model ok_rate (cronx: 2 quota deaths + 1 ok = healthy)",
+         sn["runs"] == 3 and sn["infra"] == 2 and sn["quality_runs"] == 1
+         and sn["ok_rate"] == 1.0),
+        ("totals still count every run and failure",
+         rep2["runs"] == 3 and rep2["failed"] == 2),
     ]
 
     # a SECOND wave-4 -> wave-3 return: the ladder has done its job twice and

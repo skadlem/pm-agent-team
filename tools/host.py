@@ -212,6 +212,31 @@ def cmd_spawn(args):
     return r.returncode
 
 
+def classify_failure(result, text):
+    """'infra' when a failed spawn's result says the ROUTE died, not the model:
+    quota (402/403), rate/session limits (429), transport errors, or a
+    terminal_reason/api_error_status that names them. Deterministic — no LLM.
+    cronx 2026-09-05: three infra deaths read as 'claude-sonnet-5: 1/3 ok' and
+    L-13 would have skipped a healthy model on the next project."""
+    status = result.get("api_error_status")
+    if isinstance(status, int) and status in (402, 403, 408, 425, 429, 500, 502, 503, 504):
+        return "infra"
+    reason = str(result.get("terminal_reason") or "").lower()
+    if reason in ("api_error", "network_error", "timeout"):
+        return "infra"
+    # distinctive phrases only — bare "403"/"quota" inside a model's free-text
+    # output would misclassify genuine task failures
+    blob = (str(result.get("result") or "") + " " + str(result.get("subtype") or "")
+            + " " + text[:4000]).lower()
+    for marker in ("insufficient balance", "usage limit", "billing",
+                   "payment required", "request not allowed", "rate limit",
+                   "credits exhausted", "timed out", "connection error",
+                   "connection reset", "econnrefused"):
+        if marker in blob:
+            return "infra"
+    return "task"
+
+
 def parse_usage(host, path):
     """{"tokens_in", "tokens_out", "status"} from a spawn result file, or None
     when this host's result shape carries no usage block."""
@@ -238,9 +263,14 @@ def parse_usage(host, path):
             continue
         u = result.get("usage") or {}
         if u.get("input_tokens") is not None:
-            return {"tokens_in": u["input_tokens"],
-                    "tokens_out": u.get("output_tokens", 0),
-                    "status": "failed" if result.get("is_error") else "ok"}
+            out = {"tokens_in": u["input_tokens"],
+                   "tokens_out": u.get("output_tokens", 0),
+                   "status": "failed" if result.get("is_error") else "ok"}
+            if out["status"] == "failed":
+                # a failed run is classified at record time so the ledger and
+                # the event trace carry WHY (infra vs task) from the start
+                out["failure_class"] = classify_failure(result, raw)
+            return out
     return None
 
 
@@ -258,6 +288,8 @@ def record_run(project, role, model, usage, ladder=0, label=None, effort=None):
                         "--project", project, "--role", role, "--model", model,
                         "--in", str(usage["tokens_in"]), "--out", str(usage["tokens_out"]),
                         "--status", usage.get("status", "ok")]
+                       + (["--failure-class", usage["failure_class"]]
+                          if usage.get("failure_class") else [])
                        + (["--label", label] if label else [])
                        + (["--effort", effort] if effort else []),
                        capture_output=True, text=True)
